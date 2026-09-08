@@ -1,6 +1,19 @@
 import re
 from email.utils import parseaddr
 
+COMPANY_ALIASES = {
+    "ak": "AK Recrutement",
+    "ak-recrutement": "AK Recrutement",
+    "ak recrutement": "AK Recrutement",
+
+    "orange.jobs": "Orange",
+    "orange": "Orange",
+
+    "cea": "CEA",
+
+    "hellowork": "HelloWork",
+    "free-work": "Free-Work",
+}
 
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
@@ -182,7 +195,6 @@ def extract_application_data(
 def normalize_company_name(company: str) -> str:
     company = clean_text(company)
 
-    # Nettoyage des préfixes de réponse
     prefixes = [
         "re: ",
         "fw: ",
@@ -196,13 +208,11 @@ def normalize_company_name(company: str) -> str:
             company = company[len(prefix):].strip()
             lowered = company.lower()
 
-    # Nettoyage de quelques suffixes/bruits fréquents
     suffixes = [
         " - Service recrutement",
         " - service recrutement",
         " Talent Acquisition",
         " Candidature",
-        " Recrutement",
         " RH",
         " !",
     ]
@@ -211,30 +221,20 @@ def normalize_company_name(company: str) -> str:
         if company.endswith(suffix):
             company = company.removesuffix(suffix).strip()
 
-    # Cas "Prénom Nom - Entreprise"
     if " - " in company:
-        _, right = company.rsplit(" - ", 1)
+        right = company.rsplit(" - ", 1)[1]
 
-        # Si la partie droite ressemble plus à une entreprise
-        # que la partie gauche, on garde la droite
-        if len(right) >= 3 and not right.lower().startswith(
-            ("service", "recrutement", "rh")
+        if (
+            len(right) >= 3
+            and not right.lower().startswith(
+                ("service", "recrutement", "rh")
+            )
         ):
             company = right.strip()
 
-    # Cas spécifiques de noms techniques
-    replacements = {
-        "ak-recrutement": "AK Recrutement",
-        "orange.jobs": "Orange",
-        "cea": "CEA",
-        "hellowork": "HelloWork",
-        "free-work": "Free-Work",
-    }
-
     key = company.lower()
 
-    if key in replacements:
-        return replacements[key]
+    if key in COMPANY_ALIASES:
+        return COMPANY_ALIASES[key]
 
-    # Capitalisation conservée au mieux
     return company
