@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Database locale
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Config personnelle
+config.json
+
+# OS
+.DS_Store
+Thumbs.db
