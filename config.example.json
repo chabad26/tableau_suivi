@@ -1,0 +1,8 @@
+{
+    "thunderbird_profile": "/home/user/.thunderbird/xxxxxxxx.default-release",
+    "start_date": "2026-08-01",
+    "mailboxes": {
+        "gmail": "ImapMail/imap.gmail.com/INBOX",
+        "outlook": "ImapMail/outlook.office365.com/INBOX"
+    }
+}

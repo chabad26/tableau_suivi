@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 from app.models import DetectedEmail
+from datetime import datetime
+from app.models import DetectedEmail
 
 DATABASE_PATH = Path("data/job_tracker.db")
 
@@ -135,3 +137,166 @@ def save_email(
     except sqlite3.IntegrityError:
         # Message-ID déjà présent
         return False
+
+from datetime import datetime
+from app.models import DetectedEmail
+
+
+def find_application(
+    company: str,
+    job_title: str
+) -> int | None:
+    """
+    Cherche une candidature existante.
+    On privilégie entreprise + poste.
+    Si le poste est vide, on cherche seulement par entreprise.
+    """
+
+    with get_connection() as connection:
+
+        if job_title:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM applications
+                WHERE LOWER(company) = LOWER(?)
+                  AND LOWER(job_title) = LOWER(?)
+                ORDER BY last_update DESC
+                LIMIT 1
+                """,
+                (
+                    company,
+                    job_title
+                )
+            ).fetchone()
+
+        else:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM applications
+                WHERE LOWER(company) = LOWER(?)
+                ORDER BY last_update DESC
+                LIMIT 1
+                """,
+                (company,)
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return int(row["id"])
+
+def create_application(
+    company: str,
+    job_title: str,
+    source: str,
+    status: str,
+    date: datetime
+) -> int:
+
+    with get_connection() as connection:
+
+        cursor = connection.execute(
+            """
+            INSERT INTO applications (
+                company,
+                job_title,
+                source,
+                first_seen,
+                last_update,
+                current_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                company,
+                job_title,
+                source,
+                date.isoformat(),
+                date.isoformat(),
+                status
+            )
+        )
+
+        connection.commit()
+
+        if cursor.lastrowid is None:
+            raise RuntimeError(
+                "Impossible de récupérer l'ID de la candidature."
+            )
+
+        return int(cursor.lastrowid)
+
+def get_or_create_application(
+    company: str,
+    job_title: str,
+    source: str,
+    status: str,
+    date: datetime
+) -> int:
+
+    application_id = find_application(
+        company,
+        job_title
+    )
+
+    if application_id is not None:
+        return application_id
+
+    return create_application(
+        company=company,
+        job_title=job_title,
+        source=source,
+        status=status,
+        date=date
+    )
+
+def update_application(
+    application_id: int,
+    status: str,
+    date: datetime,
+    job_title: str = ""
+) -> None:
+
+    with get_connection() as connection:
+
+        if job_title:
+            connection.execute(
+                """
+                UPDATE applications
+                SET
+                    current_status = ?,
+                    last_update = ?,
+                    job_title = CASE
+                        WHEN job_title IS NULL OR job_title = ''
+                        THEN ?
+                        ELSE job_title
+                    END
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    date.isoformat(),
+                    job_title,
+                    application_id
+                )
+            )
+
+        else:
+            connection.execute(
+                """
+                UPDATE applications
+                SET
+                    current_status = ?,
+                    last_update = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    date.isoformat(),
+                    application_id
+                )
+            )
+
+        connection.commit()
