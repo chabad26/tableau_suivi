@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Suivi des candidatures</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="page">
+
+    <header class="header">
+        <div>
+            <p class="eyebrow">JOB TRACKER</p>
+
+            <h1>
+                Tableau de suivi des candidatures
+            </h1>
+
+            <p class="subtitle">
+                Suivi automatique et manuel de tes candidatures.
+            </p>
+        </div>
+    </header>
+
+
+    <section class="stats">
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index') }}"
+        >
+            <span class="stat-label">
+                Total
+            </span>
+
+            <strong>
+                {{ stats.total }}
+            </strong>
+        </a>
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index', status='SENT') }}"
+        >
+            <span class="stat-label">
+                Envoyées
+            </span>
+
+            <strong>
+                {{ stats.sent }}
+            </strong>
+        </a>
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index', status='RECEIVED') }}"
+        >
+            <span class="stat-label">
+                Reçues
+            </span>
+
+            <strong>
+                {{ stats.received }}
+            </strong>
+        </a>
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index', status='INTERVIEW') }}"
+        >
+            <span class="stat-label">
+                Entretiens
+            </span>
+
+            <strong>
+                {{ stats.interview }}
+            </strong>
+        </a>
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index', status='REJECTED') }}"
+        >
+            <span class="stat-label">
+                Refus
+            </span>
+
+            <strong>
+                {{ stats.rejected }}
+            </strong>
+        </a>
+
+        <a
+            class="stat-card"
+            href="{{ url_for('index', status='OFFER') }}"
+        >
+            <span class="stat-label">
+                Offres
+            </span>
+
+            <strong>
+                {{ stats.offer }}
+            </strong>
+        </a>
+
+    </section>
+
+
+    <section class="toolbar">
+
+        <form
+            method="get"
+            class="search-form"
+        >
+
+            <input
+                type="text"
+                name="q"
+                placeholder="Rechercher entreprise, poste, source..."
+                value="{{ search }}"
+            >
+
+            {% if status_filter %}
+                <input
+                    type="hidden"
+                    name="status"
+                    value="{{ status_filter }}"
+                >
+            {% endif %}
+
+            <button type="submit">
+                Rechercher
+            </button>
+
+            {% if search or status_filter %}
+                <a
+                    class="reset-link"
+                    href="{{ url_for('index') }}"
+                >
+                    Réinitialiser
+                </a>
+            {% endif %}
+
+        </form>
+
+    </section>
+
+
+    {% if status_filter %}
+        <div class="active-filter">
+            Filtre actif :
+            <strong>
+                {{ status_labels.get(status_filter, status_filter) }}
+            </strong>
+        </div>
+    {% endif %}
+
+
+    <section class="table-card">
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Entreprise</th>
+                        <th>Poste</th>
+                        <th>Source</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                {% for application in applications %}
+
+                    <tr>
+
+                        <td class="company-cell">
+                                <a
+                                    class="company-link"
+                                    href="{{ url_for(
+                                        'application_detail',
+                                        application_id=application.id
+                                    ) }}"
+                                >
+                                    {{ application.company }}
+                                </a>
+
+                            {% if application.manual_override %}
+                                <span
+                                    class="manual-badge"
+                                    title="Candidature modifiée manuellement"
+                                >
+                                    ✎ Manuel
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ application.job_title or "-" }}
+                        </td>
+
+                        <td>
+                            {{ application.source or "-" }}
+                        </td>
+
+                        <td>
+                            <span
+                                class="
+                                    badge
+                                    badge-{{ application.status|lower }}
+                                "
+                            >
+                                {{ application.status_label }}
+                            </span>
+                        </td>
+
+                    </tr>
+
+                {% else %}
+
+                    <tr>
+                        <td
+                            colspan="4"
+                            class="empty"
+                        >
+                            Aucune candidature trouvée.
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</div>
+
+</body>
+</html>

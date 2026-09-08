@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ application["company"] }} - Suivi candidature
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+<body>
+
+<div class="page">
+
+    <div class="detail-topbar">
+
+        <a
+            href="{{ url_for('index') }}"
+            class="back-link"
+        >
+            ← Retour au tableau
+        </a>
+
+    </div>
+
+
+    <section class="detail-header">
+
+        <div>
+
+            <p class="eyebrow">
+                CANDIDATURE
+            </p>
+
+            <h1>
+                {{ application["company"] }}
+            </h1>
+
+            <p class="subtitle">
+                {{ application["job_title"] or "Poste non renseigné" }}
+            </p>
+
+        </div>
+
+
+        <span
+            class="
+                badge
+                badge-{{ effective_status|lower }}
+                badge-large
+            "
+        >
+            {{ status_label }}
+        </span>
+
+    </section>
+
+
+    <section class="detail-grid">
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Entreprise
+            </span>
+
+            <strong>
+                {{ application["company"] }}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Poste
+            </span>
+
+            <strong>
+                {{ application["job_title"] or "-" }}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Source
+            </span>
+
+            <strong>
+                {{ application["source"] or "-" }}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Première détection
+            </span>
+
+            <strong>
+                {{ application["first_seen"] }}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Dernière mise à jour
+            </span>
+
+            <strong>
+                {{ application["last_update"] }}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-card">
+
+            <span class="detail-label">
+                Statut automatique
+            </span>
+
+            <strong>
+                {{ status_labels.get(
+                    application["current_status"],
+                    application["current_status"]
+                ) }}
+            </strong>
+
+        </div>
+
+    </section>
+
+
+    {% if application["manual_override"] %}
+
+        <section class="note-card">
+
+            <div class="note-header">
+
+                <span>
+                    ✎ Modification manuelle
+                </span>
+
+            </div>
+
+
+            <p>
+
+                <strong>Statut :</strong>
+
+                {{ status_labels.get(
+                    application["manual_status"],
+                    application["manual_status"]
+                ) }}
+
+            </p>
+
+
+            {% if application["manual_note"] %}
+
+                <p>
+
+                    <strong>Note :</strong>
+
+                    {{ application["manual_note"] }}
+
+                </p>
+
+            {% endif %}
+
+        </section>
+
+    {% endif %}
+
+
+    <section class="section-header">
+
+        <div>
+
+            <p class="eyebrow">
+                HISTORIQUE
+            </p>
+
+            <h2>
+                Emails associés
+            </h2>
+
+        </div>
+
+        <span class="email-count">
+            {{ emails|length }} mail(s)
+        </span>
+
+    </section>
+
+
+    <section class="email-list">
+
+        {% for email in emails %}
+
+            <article class="email-card">
+
+                <div class="email-card-header">
+
+                    <div>
+
+                        <strong>
+                            {{ email["subject"] or "(sans sujet)" }}
+                        </strong>
+
+                        <p class="email-sender">
+                            {{ email["sender"] or "-" }}
+                        </p>
+
+                    </div>
+
+
+                    <span
+                        class="
+                            badge
+                            badge-{{ email["detected_status"]|lower }}
+                        "
+                    >
+
+                        {{ status_labels.get(
+                            email["detected_status"],
+                            email["detected_status"]
+                        ) }}
+
+                    </span>
+
+                </div>
+
+
+                <div class="email-meta">
+
+                    <span>
+                        📬 {{ email["mailbox"] }}
+                    </span>
+
+                    <span>
+                        {{ email["received_at"] }}
+                    </span>
+
+                    <span>
+                        Score : {{ email["score"] }}
+                    </span>
+
+                </div>
+
+            </article>
+
+        {% else %}
+
+            <div class="empty-card">
+
+                Aucun email associé à cette candidature.
+
+                <br>
+
+                Elle a peut-être été créée manuellement.
+
+            </div>
+
+        {% endfor %}
+
+    </section>
+
+</div>
+
+</body>
+
+</html>

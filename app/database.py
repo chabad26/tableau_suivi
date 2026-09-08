@@ -619,3 +619,50 @@ def merge_applications(
         )
 
         connection.commit()
+
+def get_application(
+    application_id: int,
+) -> sqlite3.Row | None:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT
+                id,
+                company,
+                job_title,
+                source,
+                first_seen,
+                last_update,
+                current_status,
+                manual_status,
+                manual_note,
+                manual_override
+            FROM applications
+            WHERE id = ?
+            """,
+            (application_id,),
+        ).fetchone()
+
+
+def get_application_emails(
+    application_id: int,
+) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                mailbox,
+                sender,
+                subject,
+                received_at,
+                detected_status,
+                score
+            FROM emails
+            WHERE application_id = ?
+            ORDER BY received_at DESC
+            """,
+            (application_id,),
+        ).fetchall()
+
+        return list(rows)
