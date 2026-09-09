@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Nouvelle candidature
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+<body>
+
+<div class="page">
+
+    <div class="detail-topbar">
+
+        <a
+            href="{{ url_for('index') }}"
+            class="back-link"
+        >
+            ← Retour au tableau
+        </a>
+
+    </div>
+
+
+    <section class="edit-card">
+
+        <div class="edit-card-header">
+
+            <p class="eyebrow">
+                NOUVELLE CANDIDATURE
+            </p>
+
+            <h1>
+                Ajouter une candidature
+            </h1>
+
+            <p class="subtitle">
+                Pour les candidatures transmises hors email :
+                centre de formation, contact direct, cooptation...
+            </p>
+
+        </div>
+
+
+        <form
+            method="post"
+            action="{{ url_for('create_application_web') }}"
+            class="edit-form"
+        >
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label for="company">
+                        Entreprise
+                    </label>
+
+                    <input
+                        id="company"
+                        name="company"
+                        type="text"
+                        required
+                        autofocus
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="job_title">
+                        Poste
+                    </label>
+
+                    <input
+                        id="job_title"
+                        name="job_title"
+                        type="text"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="source">
+                        Source
+                    </label>
+
+                    <input
+                        id="source"
+                        name="source"
+                        type="text"
+                        placeholder="Centre de formation"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="status">
+                    Statut
+                </label>
+
+                <select
+                    id="status"
+                    name="status"
+                    required
+                >
+
+                    {% for value, label in status_labels.items() %}
+
+                        <option
+                            value="{{ value }}"
+                            {% if value == "SENT" %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="note">
+                    Note
+                </label>
+
+                <textarea
+                    id="note"
+                    name="note"
+                    rows="4"
+                    placeholder="Ex : proposition du campus, contact direct, candidature spontanée..."
+                ></textarea>
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <a
+                    href="{{ url_for('index') }}"
+                    class="reset-link"
+                >
+                    Annuler
+                </a>
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    Créer la candidature
+                </button>
+
+            </div>
+
+        </form>
+
+    </section>
+
+</div>
+
+</body>
+
+</html>

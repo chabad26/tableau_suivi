@@ -1,14 +1,5 @@
 from app.database import get_applications
-
-STATUS_LABELS = {
-    "SENT": "Envoyée",
-    "RECEIVED": "Reçue",
-    "INTERVIEW": "Entretien",
-    "REJECTED": "Refus",
-    "TEST": "Test",
-    "OFFER": "Offre",
-    "OTHER": "À analyser",
-}
+from app.statuses import STATUS_LABELS
 
 def shorten(text: str | None, length: int) -> str:
     if not text:

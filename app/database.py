@@ -2,9 +2,92 @@ import sqlite3
 from pathlib import Path
 from app.models import DetectedEmail
 from datetime import datetime, timezone
-from app.models import DetectedEmail
+from app.extractor import company_key
 
 DATABASE_PATH = Path("data/job_tracker.db")
+
+def update_application_details(
+    application_id: int,
+    company: str,
+    job_title: str,
+    source: str,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE applications
+            SET
+                company = ?,
+                job_title = ?,
+                source = ?
+            WHERE id = ?
+            """,
+            (
+                company.strip(),
+                job_title.strip(),
+                source.strip(),
+                application_id,
+            ),
+        )
+
+        connection.commit()
+
+def delete_application(
+    application_id: int,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            DELETE FROM applications
+            WHERE id = ?
+            """,
+            (application_id,),
+        )
+
+        connection.commit()
+
+def create_discord_proposal(
+    company: str,
+    job_title: str,
+    note: str = "",
+) -> int:
+    now = datetime.now(timezone.utc)
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO applications (
+                company,
+                job_title,
+                source,
+                first_seen,
+                last_update,
+                current_status,
+                manual_status,
+                manual_note,
+                manual_override
+            )
+            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 0)
+            """,
+            (
+                company,
+                job_title,
+                "Discord / Centre de formation",
+                now.isoformat(),
+                now.isoformat(),
+                "PROPOSED",
+                note,
+            ),
+        )
+
+        connection.commit()
+
+        if cursor.lastrowid is None:
+            raise RuntimeError(
+                "Impossible de créer la proposition Discord."
+            )
+
+        return int(cursor.lastrowid)
 
 def create_manual_application(
     company: str,
@@ -132,20 +215,6 @@ def init_database() -> None:
             )
         """)
         connection.execute("""
-            ALTER TABLE applications
-            ADD COLUMN manual_status TEXT
-        """)
-        connection.execute("""
-            ALTER TABLE applications
-            ADD COLUMN manual_note TEXT
-        """)
-
-        connection.execute("""
-            ALTER TABLE applications
-            ADD COLUMN manual_override INTEGER NOT NULL DEFAULT 0
-        """)
-
-        connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_emails_message_id
             ON emails(message_id)
         """)
@@ -246,48 +315,65 @@ from app.models import DetectedEmail
 
 def find_application(
     company: str,
-    job_title: str
+    job_title: str,
 ) -> int | None:
-    """
-    Cherche une candidature existante.
-    On privilégie entreprise + poste.
-    Si le poste est vide, on cherche seulement par entreprise.
-    """
+    target_company_key = company_key(
+        company
+    )
+
+    target_job_title = (
+        job_title.strip().casefold()
+        if job_title
+        else ""
+    )
 
     with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                company,
+                job_title,
+                last_update
+            FROM applications
+            ORDER BY last_update DESC
+            """
+        ).fetchall()
 
-        if job_title:
-            row = connection.execute(
-                """
-                SELECT id
-                FROM applications
-                WHERE LOWER(company) = LOWER(?)
-                  AND LOWER(job_title) = LOWER(?)
-                ORDER BY last_update DESC
-                LIMIT 1
-                """,
-                (
-                    company,
-                    job_title
-                )
-            ).fetchone()
+    for row in rows:
+        existing_company = row["company"] or ""
 
-        else:
-            row = connection.execute(
-                """
-                SELECT id
-                FROM applications
-                WHERE LOWER(company) = LOWER(?)
-                ORDER BY last_update DESC
-                LIMIT 1
-                """,
-                (company,)
-            ).fetchone()
+        if company_key(
+            existing_company
+        ) != target_company_key:
+            continue
 
-        if row is None:
-            return None
+        existing_job_title = (
+            (row["job_title"] or "")
+            .strip()
+            .casefold()
+        )
 
-        return int(row["id"])
+        #
+        # Si on connaît les deux postes,
+        # ils doivent correspondre.
+        #
+        if (
+            target_job_title
+            and existing_job_title
+            and target_job_title != existing_job_title
+        ):
+            continue
+
+        #
+        # Même entreprise, et au moins un poste inconnu
+        # ou bien postes identiques.
+        #
+        return int(
+            row["id"]
+        )
+
+    return None
 
 def create_application(
     company: str,

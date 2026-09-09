@@ -118,7 +118,7 @@
             </span>
 
             <strong>
-                {{ application["first_seen"] }}
+                {{ first_seen }}
             </strong>
 
         </div>
@@ -131,11 +131,12 @@
             </span>
 
             <strong>
-                {{ application["last_update"] }}
+                {{ last_update }}
             </strong>
 
         </div>
 
+        
 
         <div class="detail-card">
 
@@ -196,7 +197,179 @@
 
     {% endif %}
 
+    <section class="edit-card">
 
+        <div class="edit-card-header">
+            <p class="eyebrow">
+                MODIFICATION
+            </p>
+
+            <h2>
+                Mettre à jour la candidature
+            </h2>
+        </div>
+
+
+        <form
+            method="post"
+            action="{{ url_for(
+                'edit_application_web',
+                application_id=application['id']
+            ) }}"
+            class="edit-form"
+        >
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="company">
+                        Entreprise
+                    </label>
+
+                    <input
+                        id="company"
+                        name="company"
+                        type="text"
+                        value="{{ application['company'] }}"
+                        required
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="job_title">
+                        Poste
+                    </label>
+
+                    <input
+                        id="job_title"
+                        name="job_title"
+                        type="text"
+                        value="{{ application['job_title'] or '' }}"
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="source">
+                        Source
+                    </label>
+
+                    <input
+                        id="source"
+                        name="source"
+                        type="text"
+                        value="{{ application['source'] or '' }}"
+                    >
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="status">
+                    Statut
+                </label>
+
+                <select
+                    id="status"
+                    name="status"
+                    required
+                >
+
+                    {% for value, label in status_labels.items() %}
+
+                        <option
+                            value="{{ value }}"
+                            {% if value == effective_status %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="note">
+                    Note
+                </label>
+
+                <textarea
+                    id="note"
+                    name="note"
+                    rows="4"
+                    placeholder="Ex : refus après entretien, relance prévue, retour RH..."
+                >{{ application["manual_note"] or "" }}</textarea>
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    Enregistrer les modifications
+                </button>
+
+            </div>
+
+        </form>
+
+    </section>
+
+    <section class="danger-zone">
+
+        <div>
+
+            <p class="eyebrow danger-eyebrow">
+                ZONE DANGEREUSE
+            </p>
+
+            <h2>
+                Supprimer la candidature
+            </h2>
+
+            <p class="danger-text">
+                Cette action supprime la candidature du tableau.
+                Les emails associés restent enregistrés dans la base.
+            </p>
+
+        </div>
+
+
+        <form
+            method="post"
+            action="{{ url_for(
+                'delete_application_web',
+                application_id=application['id']
+            ) }}"
+            onsubmit="
+                return confirm(
+                    'Supprimer définitivement cette candidature ?'
+                );
+            "
+        >
+
+            <button
+                type="submit"
+                class="danger-button"
+            >
+                Supprimer la candidature
+            </button>
+
+        </form>
+
+    </section>
     <section class="section-header">
 
         <div>

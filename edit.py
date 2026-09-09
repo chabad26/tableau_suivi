@@ -6,15 +6,20 @@ from app.database import (
     set_manual_status,
 )
 
+from app.statuses import (
+    STATUS_LABELS,
+    STATUS_ORDER,
+)
 
 STATUS_CHOICES = {
-    "1": ("SENT", "Envoyée"),
-    "2": ("RECEIVED", "Reçue"),
-    "3": ("INTERVIEW", "Entretien"),
-    "4": ("REJECTED", "Refus"),
-    "5": ("TEST", "Test technique"),
-    "6": ("OFFER", "Offre"),
-    "7": ("OTHER", "À analyser"),
+    str(index): (
+        status,
+        STATUS_LABELS[status],
+    )
+    for index, status in enumerate(
+        STATUS_ORDER,
+        start=1,
+    )
 }
 
 def merge_application_menu() -> None:

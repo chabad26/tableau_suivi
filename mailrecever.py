@@ -4,10 +4,12 @@ import re
 from datetime import datetime, timezone, timedelta
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
-
 from dataclasses import dataclass
 from email.message import Message
 from typing import TypedDict
+import html
+import unicodedata
+from email.message import Message
 
 PROFILE = Path(
     "/home/oliv/snap/thunderbird/common/.thunderbird/jzmiasv2.default"
@@ -105,6 +107,7 @@ STATUS_LABELS = {
     "TEST": "Test technique",
     "OFFER": "Offre",
     "OTHER": "À analyser",
+    "PROPOSED": "Proposée",
 }
 
 @dataclass
@@ -132,6 +135,59 @@ EmailResult = TypedDict(
     },
 )
 
+def html_to_text(content: str) -> str:
+    """
+    Conversion HTML légère vers texte brut.
+    Suffisant pour l'analyse des emails de recrutement.
+    """
+
+    # Supprime scripts et styles
+    content = re.sub(
+        r"<(script|style).*?>.*?</\1>",
+        " ",
+        content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    # Quelques balises doivent devenir des espaces / retours
+    content = re.sub(
+        r"<br\s*/?>",
+        "\n",
+        content,
+        flags=re.IGNORECASE,
+    )
+
+    content = re.sub(
+        r"</p\s*>",
+        "\n",
+        content,
+        flags=re.IGNORECASE,
+    )
+
+    # Supprime toutes les autres balises
+    content = re.sub(
+        r"<[^>]+>",
+        " ",
+        content,
+    )
+
+    content = html.unescape(
+        content
+    )
+
+    content = re.sub(
+        r"[ \t]+",
+        " ",
+        content,
+    )
+
+    content = re.sub(
+        r"\n\s*\n+",
+        "\n",
+        content,
+    )
+
+    return content.strip()
 
 def decode_text(value: str | None) -> str:
     if not value:
@@ -144,73 +200,181 @@ def decode_text(value: str | None) -> str:
 
 
 def normalize(text: str | None) -> str:
-    text = decode_text(text).lower()
-    text = text.replace("’", "'")
-    text = re.sub(r"\s+", " ", text)
+    if not text:
+        return ""
 
-    return text.strip()
+    #
+    # Décode les entités HTML :
+    # &eacute; -> é
+    # &nbsp;   -> espace
+    # &#39;    -> '
+    #
+    text = html.unescape(text)
+
+    #
+    # Normalisation Unicode
+    #
+    text = unicodedata.normalize(
+        "NFKC",
+        text,
+    )
+
+    #
+    # Espaces Unicode / caractères invisibles
+    #
+    invisible_chars = [
+        "\u200b",  # zero width space
+        "\u200c",
+        "\u200d",
+        "\u2060",
+        "\ufeff",
+        "\u00ad",
+    ]
+
+    for char in invisible_chars:
+        text = text.replace(
+            char,
+            "",
+        )
+
+    text = text.replace(
+        "\u00a0",
+        " ",
+    )
+
+    #
+    # Espaces multiples / retours ligne
+    #
+    text = re.sub(
+        r"\s+",
+        " ",
+        text,
+    )
+
+    return text.strip().casefold()
 
 
-def get_body(message: Message) -> str:
-    parts: list[str] = []
+def get_body(
+    message: Message,
+) -> str:
+    """
+    Extrait le texte d'un email, qu'il soit text/plain,
+    text/html ou multipart.
+    """
+
+    plain_parts: list[str] = []
+    html_parts: list[str] = []
 
     if message.is_multipart():
 
         for part in message.walk():
 
-            content_type: str = part.get_content_type()
+            content_type = part.get_content_type()
 
-            disposition = str(
-                part.get("Content-Disposition", "")
-            ).lower()
+            disposition = (
+                part.get_content_disposition()
+            )
 
-            if "attachment" in disposition:
+            # Ignore les pièces jointes
+            if disposition == "attachment":
                 continue
 
-            if content_type != "text/plain":
+            if content_type not in (
+                "text/plain",
+                "text/html",
+            ):
                 continue
+
+            payload = part.get_payload(
+                decode=True
+            )
+
+            if not isinstance(
+                payload,
+                bytes,
+            ):
+                continue
+
+            charset = (
+                part.get_content_charset()
+                or "utf-8"
+            )
 
             try:
-                payload = part.get_payload(decode=True)
-
-                if not isinstance(payload, bytes):
-                    continue
-
-                charset: str = (
-                    part.get_content_charset()
-                    or "utf-8"
+                text = payload.decode(
+                    charset,
+                    errors="replace",
+                )
+            except LookupError:
+                text = payload.decode(
+                    "utf-8",
+                    errors="replace",
                 )
 
-                parts.append(
-                    payload.decode(
-                        charset,
-                        errors="replace"
-                    )
+            if content_type == "text/plain":
+                plain_parts.append(
+                    text
                 )
 
-            except Exception:
-                continue
+            elif content_type == "text/html":
+                html_parts.append(
+                    html_to_text(text)
+                )
 
-        return "\n".join(parts)
+    else:
 
-    try:
-        payload = message.get_payload(decode=True)
-
-        if not isinstance(payload, bytes):
-            return ""
-
-        charset: str = (
-            message.get_content_charset()
-            or "utf-8"
+        content_type = (
+            message.get_content_type()
         )
 
-        return payload.decode(
-            charset,
-            errors="replace"
+        payload = message.get_payload(
+            decode=True
         )
 
-    except Exception:
-        return ""
+        if isinstance(
+            payload,
+            bytes,
+        ):
+            charset = (
+                message.get_content_charset()
+                or "utf-8"
+            )
+
+            try:
+                text = payload.decode(
+                    charset,
+                    errors="replace",
+                )
+            except LookupError:
+                text = payload.decode(
+                    "utf-8",
+                    errors="replace",
+                )
+
+            if content_type == "text/html":
+                html_parts.append(
+                    html_to_text(text)
+                )
+            else:
+                plain_parts.append(
+                    text
+                )
+
+    #
+    # On privilégie text/plain.
+    # HTML sert de fallback si le mail n'a pas de version texte.
+    #
+    if plain_parts:
+        return "\n".join(
+            plain_parts
+        ).strip()
+
+    if html_parts:
+        return "\n".join(
+            html_parts
+        ).strip()
+
+    return ""
 
 def parse_date(value: str | None) -> datetime | None:
     if not value:
@@ -271,6 +435,16 @@ def detect_status(subject: str, body: str) -> str:
         "profil non retenu",
         "ne donnerons pas suite",
         "ne donnons pas suite",
+                # English
+        "application unsuccessful",
+        "application not successful",
+        "application was unsuccessful",
+        "not moving forward",
+        "will not be moving forward",
+        "not selected",
+        "not been selected",
+        "application declined",
+        "application rejected",
     ]
 
     if contains_any(subject_text, rejected_subject):
@@ -289,6 +463,17 @@ def detect_status(subject: str, body: str) -> str:
         "entretien rh",
         "convocation entretien",
         "rendez-vous entretien",
+
+                # English
+        "interview invitation",
+        "invitation to interview",
+        "phone interview",
+        "telephone interview",
+        "technical interview",
+        "hr interview",
+        "video interview",
+        "interview scheduled",
+        "interview confirmation",
     ]
 
     if contains_any(subject_text, interview_subject):
@@ -305,6 +490,15 @@ def detect_status(subject: str, body: str) -> str:
         "technical assessment",
         "exercice technique",
         "cas pratique",
+
+            # English
+        "coding challenge",
+        "coding assessment",
+        "technical challenge",
+        "take-home test",
+        "take home test",
+        "online assessment",
+        "skills assessment",
     ]
 
     if contains_any(subject_text, test_subject):
@@ -321,6 +515,14 @@ def detect_status(subject: str, body: str) -> str:
         "promesse d'embauche",
         "proposition salariale",
         "nous souhaitons vous faire une offre",
+
+        # English
+        "job offer",
+        "employment offer",
+        "offer of employment",
+        "offer letter",
+        "employment proposal",
+        "salary offer",
     ]
 
     if contains_any(subject_text, offer_subject):
@@ -333,6 +535,12 @@ def detect_status(subject: str, body: str) -> str:
     sent_subject = [
         "votre candidature a été envoyée",
         "votre candidature a ete envoyee",
+
+        # English
+        "your application has been sent",
+        "application submitted",
+        "application successfully submitted",
+        "your application was submitted",
     ]
 
     if contains_any(subject_text, sent_subject):
@@ -355,14 +563,19 @@ def detect_status(subject: str, body: str) -> str:
         "candidature est arrivee",
         "confirmation de votre candidature",
         "confirmation de l'enregistrement de votre candidature",
+
+            # English
+        "thank you for your application",
+        "thank you for applying",
+        "we received your application",
+        "we have received your application",
+        "application received",
+        "application confirmation",
+        "confirmation of your application",
+
     ]
 
     if contains_any(subject_text, received_subject):
-        return "RECEIVED"
-
-    # Cas du genre :
-    # "Votre candidature : Développeur Full Stack..."
-    if subject_text.startswith("votre candidature"):
         return "RECEIVED"
 
     # ------------------------------------------------------------------
@@ -381,6 +594,42 @@ def detect_status(subject: str, body: str) -> str:
         "votre candidature n'a pas ete retenue",
         "nous avons retenu un autre candidat",
         "nous avons retenu une autre candidature",
+        "votre profil ne correspond malheureusement pas aux opportunités ouvertes actuellement",
+        "votre profil ne correspond malheureusement pas aux opportunites ouvertes actuellement",
+        "votre profil ne correspond pas aux opportunités ouvertes actuellement",
+        "votre profil ne correspond pas aux opportunites ouvertes actuellement",
+        "votre profil ne correspond malheureusement pas à nos besoins actuels",
+        "votre profil ne correspond malheureusement pas a nos besoins actuels",
+        "nous ne sommes pas en mesure de donner une suite favorable à votre candidature",
+        "nous ne sommes pas en mesure de donner une suite favorable a votre candidature",
+        "nous ne pouvons malheureusement pas donner suite à votre candidature",
+        "nous ne pouvons malheureusement pas donner suite a votre candidature",
+        "nous avons choisi de poursuivre avec d'autres candidats",
+        "nous avons choisi de poursuivre avec d’autres candidats",
+
+        # English
+        "we have decided not to move forward with your application",
+        "we have decided not to proceed with your application",
+        "we will not be moving forward with your application",
+        "we will not be proceeding with your application",
+        "we are not moving forward with your application",
+        "we are unable to move forward with your application",
+        "we have decided to move forward with other candidates",
+        "we have chosen to move forward with other candidates",
+        "we have selected another candidate",
+        "we have selected other candidates",
+        "your application was not successful",
+        "your application has not been successful",
+        "your application was unsuccessful",
+        "your application has been unsuccessful",
+        "your application was not selected",
+        "your application has not been selected",
+        "your profile does not match our current needs",
+        "your profile does not match our current requirements",
+        "your experience does not match our current needs",
+        "unfortunately we will not be progressing your application",
+        "unfortunately we will not be proceeding with your application",
+        "we regret to inform you that",
     ]
 
     if contains_any(body_text, rejected_body):
@@ -396,6 +645,16 @@ def detect_status(subject: str, body: str) -> str:
         "nous vous invitons a un entretien",
         "nous souhaitons échanger avec vous",
         "nous souhaitons echanger avec vous",
+
+        # English
+        "we would like to invite you to an interview",
+        "we would like to schedule an interview",
+        "we would like to arrange an interview",
+        "we would like to speak with you",
+        "we would like to discuss your application",
+        "we would like to meet with you",
+        "we would like to schedule a call",
+        "we would like to arrange a call",
     ]
 
     if contains_any(body_text, interview_body):
@@ -406,6 +665,14 @@ def detect_status(subject: str, body: str) -> str:
         "nous vous invitons a realiser un test technique",
         "nous vous proposons un test technique",
         "nous vous proposons un exercice technique",
+
+        # English
+        "we would like you to complete a technical test",
+        "we would like you to complete a coding test",
+        "we would like you to complete a coding challenge",
+        "we invite you to complete a technical assessment",
+        "please complete the technical assessment",
+        "please complete the coding challenge",
     ]
 
     if contains_any(body_text, test_body):
@@ -416,11 +683,22 @@ def detect_status(subject: str, body: str) -> str:
         "nous souhaitons vous faire une proposition d'embauche",
         "nous sommes heureux de vous proposer le poste",
         "nous avons le plaisir de vous proposer le poste",
+
+        # English
+        "we are pleased to offer you the position",
+        "we are happy to offer you the position",
+        "we would like to offer you the position",
+        "we would like to offer you the role",
+        "we are pleased to offer you employment",
+        "we would like to make you an offer",
     ]
 
     if contains_any(body_text, offer_body):
         return "OFFER"
-
+    # Cas du genre :
+    # "Votre candidature : Développeur Full Stack..."
+    if subject_text.startswith("votre candidature"):
+        return "RECEIVED"
     return "OTHER"
 
 def score_message(message: Message) -> tuple[int, list[str], str]:
@@ -485,6 +763,11 @@ def score_message(message: Message) -> tuple[int, list[str], str]:
                 reasons.append(
                     f"bruit-corps:{keyword}"
                 )
+
+    if not body:
+        body = normalize(
+            get_body(message)
+        )
 
     return score, reasons, body
 

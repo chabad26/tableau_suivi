@@ -32,8 +32,68 @@
                 Suivi automatique et manuel de tes candidatures.
             </p>
         </div>
+
+        <div class="header-actions">
+            <form
+                method="post"
+                action="{{ url_for('reclassify_emails_web') }}"
+            >
+                <button
+                    type="submit"
+                    class="secondary-button"
+                >
+                    ♻ Reclassifier
+                </button>
+            </form>
+            <form
+                method="post"
+                action="{{ url_for('scan_emails_web') }}"
+            >
+                <button
+                    type="submit"
+                    class="secondary-button"
+                >
+                    📬 Scanner les mails
+                </button>
+            </form>
+
+            <a
+                href="{{ url_for('new_application') }}"
+                class="primary-button"
+            >
+                + Nouvelle candidature
+            </a>
+
+        </div>
+        
     </header>
 
+    {% with messages = get_flashed_messages(
+    with_categories=true
+) %}
+
+    {% if messages %}
+
+        <div class="flash-container">
+
+            {% for category, message in messages %}
+
+                <div
+                    class="
+                        flash-message
+                        flash-{{ category }}
+                    "
+                >
+                    {{ message }}
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% endif %}
+
+{% endwith %}
 
     <section class="stats">
 
@@ -46,116 +106,100 @@
             </span>
 
             <strong>
-                {{ stats.total }}
+                {{ total }}
             </strong>
         </a>
 
-        <a
-            class="stat-card"
-            href="{{ url_for('index', status='SENT') }}"
-        >
-            <span class="stat-label">
-                Envoyées
-            </span>
 
-            <strong>
-                {{ stats.sent }}
-            </strong>
-        </a>
+        {% for status in status_order %}
 
-        <a
-            class="stat-card"
-            href="{{ url_for('index', status='RECEIVED') }}"
-        >
-            <span class="stat-label">
-                Reçues
-            </span>
-
-            <strong>
-                {{ stats.received }}
-            </strong>
-        </a>
-
-        <a
-            class="stat-card"
-            href="{{ url_for('index', status='INTERVIEW') }}"
-        >
-            <span class="stat-label">
-                Entretiens
-            </span>
-
-            <strong>
-                {{ stats.interview }}
-            </strong>
-        </a>
-
-        <a
-            class="stat-card"
-            href="{{ url_for('index', status='REJECTED') }}"
-        >
-            <span class="stat-label">
-                Refus
-            </span>
-
-            <strong>
-                {{ stats.rejected }}
-            </strong>
-        </a>
-
-        <a
-            class="stat-card"
-            href="{{ url_for('index', status='OFFER') }}"
-        >
-            <span class="stat-label">
-                Offres
-            </span>
-
-            <strong>
-                {{ stats.offer }}
-            </strong>
-        </a>
-
-    </section>
-
-
-    <section class="toolbar">
-
-        <form
-            method="get"
-            class="search-form"
-        >
-
-            <input
-                type="text"
-                name="q"
-                placeholder="Rechercher entreprise, poste, source..."
-                value="{{ search }}"
+            <a
+                class="stat-card"
+                href="{{ url_for(
+                    'index',
+                    status=status
+                ) }}"
             >
 
-            {% if status_filter %}
-                <input
-                    type="hidden"
-                    name="status"
-                    value="{{ status_filter }}"
-                >
-            {% endif %}
+                <span class="stat-label">
+                    {{ status_labels[status] }}
+                </span>
 
-            <button type="submit">
-                Rechercher
-            </button>
+                <strong>
+                    {{ stats[status] }}
+                </strong>
 
-            {% if search or status_filter %}
-                <a
-                    class="reset-link"
-                    href="{{ url_for('index') }}"
-                >
-                    Réinitialiser
-                </a>
-            {% endif %}
+            </a>
 
-        </form>
+        {% endfor %}
 
     </section>
+
+<section class="toolbar">
+
+    <form
+        method="get"
+        class="search-form"
+    >
+
+        <input
+            type="text"
+            name="q"
+            placeholder="Rechercher entreprise, poste, source..."
+            value="{{ search }}"
+        >
+
+        {% if status_filter %}
+            <input
+                type="hidden"
+                name="status"
+                value="{{ status_filter }}"
+            >
+        {% endif %}
+
+        <button type="submit">
+            Rechercher
+        </button>
+
+        {% if search or status_filter %}
+            <a
+                class="reset-link"
+                href="{{ url_for('index') }}"
+            >
+                Réinitialiser
+            </a>
+        {% endif %}
+
+    </form>
+
+
+    <div class="export-actions">
+
+        <a
+            class="secondary-button"
+            href="{{ url_for(
+                'export_csv',
+                status=status_filter,
+                q=search
+            ) }}"
+        >
+            Export CSV
+        </a>
+
+        <a
+            class="secondary-button"
+            href="{{ url_for(
+                'export_xlsx',
+                status=status_filter,
+                q=search
+            ) }}"
+        >
+            Export Excel
+        </a>
+
+    </div>
+
+</section>
 
 
     {% if status_filter %}

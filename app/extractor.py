@@ -1,23 +1,165 @@
 import re
 from email.utils import parseaddr
+from app.classifier import normalize
 
-COMPANY_ALIASES = {
-    "ak": "AK Recrutement",
-    "ak-recrutement": "AK Recrutement",
-    "ak recrutement": "AK Recrutement",
+COMPANY_PREFIX_PATTERNS = [
+    r"^équipe de recrutement de\s+",
+    r"^equipe de recrutement de\s+",
 
-    "orange.jobs": "Orange",
-    "orange": "Orange",
+    r"^équipe rh de\s+",
+    r"^equipe rh de\s+",
 
-    "cea": "CEA",
+    r"^service recrutement de\s+",
+    r"^service recrutement\s+",
 
-    "hellowork": "HelloWork",
-    "free-work": "Free-Work",
-}
+    r"^recrutement\s+",
+
+    r"^talent acquisition\s+",
+    r"^human resources\s+",
+    r"^hr\s+",
+]
+
+
+COMPANY_SUFFIX_PATTERNS = [
+    r"\s+-\s+service recrutement$",
+    r"\s+-\s+recrutement$",
+    r"\s+talent acquisition$",
+    r"\s+human resources$",
+    r"\s+rh$",
+    r"\s+!$",
+]
+
 
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
+def looks_like_person_name(
+    text: str,
+) -> bool:
+    text = clean_text(text)
+
+    if not text:
+        return False
+
+    words = text.split()
+
+    if not 2 <= len(words) <= 4:
+        return False
+
+    #
+    # On évite de considérer certains mots métier
+    # comme des noms de personne.
+    #
+    business_words = {
+        "recrutement",
+        "recruitment",
+        "team",
+        "équipe",
+        "equipe",
+        "service",
+        "rh",
+        "hr",
+        "talent",
+        "resources",
+        "human",
+    }
+
+    normalized_words = {
+        word.casefold()
+        for word in words
+    }
+
+    if normalized_words & business_words:
+        return False
+
+    return all(
+        word[0].isalpha()
+        for word in words
+        if word
+    )
+
+def normalize_company_name(
+    company: str,
+) -> str:
+    company = clean_text(company)
+
+    if not company:
+        return "Entreprise inconnue"
+
+    #
+    # Préfixes techniques de mail
+    #
+    company = re.sub(
+        r"^(?:re|fw|fwd)\s*:\s*",
+        "",
+        company,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    #
+    # Préfixes génériques RH/recrutement
+    #
+    for pattern in COMPANY_PREFIX_PATTERNS:
+        company = re.sub(
+            pattern,
+            "",
+            company,
+            flags=re.IGNORECASE,
+        ).strip()
+
+    #
+    # Suffixes génériques
+    #
+    for pattern in COMPANY_SUFFIX_PATTERNS:
+        company = re.sub(
+            pattern,
+            "",
+            company,
+            flags=re.IGNORECASE,
+        ).strip()
+
+    #
+    # Cas :
+    # "Prénom Nom - Entreprise"
+    #
+    if " - " in company:
+        left, right = company.rsplit(
+            " - ",
+            1,
+        )
+
+        if looks_like_person_name(left):
+            company = right.strip()
+
+    #
+    # Nettoyage final
+    #
+    company = re.sub(
+        r"\s+",
+        " ",
+        company,
+    ).strip(" -–—")
+
+    return company
+
+def company_key(
+    company: str,
+) -> str:
+    company = normalize_company_name(
+        company
+    )
+
+    company = normalize(
+        company
+    )
+
+    company = re.sub(
+        r"[^a-z0-9]",
+        "",
+        company,
+    )
+
+    return company
 
 def extract_source(sender: str) -> str:
     sender_lower = sender.lower()
@@ -117,18 +259,6 @@ def extract_company(subject: str, sender: str) -> str:
     if display_name:
         company = clean_text(display_name)
 
-        suffixes = [
-            " - Service recrutement",
-            " Talent Acquisition",
-            " Candidature",
-            " RH",
-            " Recrutement",
-        ]
-
-        for suffix in suffixes:
-            if company.endswith(suffix):
-                company = company.removesuffix(suffix)
-
         if company:
             return company
 
@@ -192,49 +322,3 @@ def extract_application_data(
 
     return company, job_title, source
 
-def normalize_company_name(company: str) -> str:
-    company = clean_text(company)
-
-    prefixes = [
-        "re: ",
-        "fw: ",
-        "fwd: ",
-    ]
-
-    lowered = company.lower()
-
-    for prefix in prefixes:
-        if lowered.startswith(prefix):
-            company = company[len(prefix):].strip()
-            lowered = company.lower()
-
-    suffixes = [
-        " - Service recrutement",
-        " - service recrutement",
-        " Talent Acquisition",
-        " Candidature",
-        " RH",
-        " !",
-    ]
-
-    for suffix in suffixes:
-        if company.endswith(suffix):
-            company = company.removesuffix(suffix).strip()
-
-    if " - " in company:
-        right = company.rsplit(" - ", 1)[1]
-
-        if (
-            len(right) >= 3
-            and not right.lower().startswith(
-                ("service", "recrutement", "rh")
-            )
-        ):
-            company = right.strip()
-
-    key = company.lower()
-
-    if key in COMPANY_ALIASES:
-        return COMPANY_ALIASES[key]
-
-    return company
