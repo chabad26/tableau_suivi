@@ -26,6 +26,7 @@ def import_emails() -> ImportResult:
         company, job_title, source = extract_application_data(
             email.subject,
             email.sender,
+            email.body,
         )
 
         application_id = get_or_create_application(

@@ -11,6 +11,7 @@ from flask import (
     url_for,
 )
 from app.database import (
+    init_database,
     create_manual_application,
     get_application,
     get_application_emails,
@@ -584,12 +585,39 @@ def application_detail(application_id: int):
         application_id
     )
 
+    formatted_emails: list[dict[str, object]] = []
+
+    for email in emails:
+        item: dict[str, object] = dict(email)
+
+        item["received_at_display"] = format_datetime(
+            email["received_at"]
+        )
+
+        formatted_emails.append(item)
+        
     first_seen = format_datetime(
         application["first_seen"]
     )
 
     last_update = format_datetime(
         application["last_update"]
+    )
+
+    completion_fields = [
+    application["company"],
+    application["job_title"],
+    application["source"],
+    application["current_status"],
+    ]
+
+    completion = round(
+        sum(
+            bool(field)
+            for field in completion_fields
+        )
+        / len(completion_fields)
+        * 100
     )
 
     effective_status: str = str(
@@ -603,7 +631,8 @@ def application_detail(application_id: int):
     return render_template(
         "application.html",
         application=application,
-        emails=emails,
+        emails=formatted_emails,
+        completion=completion,
         effective_status=effective_status,
         status_label=STATUS_LABELS.get(
             effective_status,
@@ -676,6 +705,7 @@ def create_application_web():
     )
 
 if __name__ == "__main__":
+    init_database()
     app.run(
         host="127.0.0.1",
         port=5000,

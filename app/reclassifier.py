@@ -5,9 +5,10 @@ from app.classifier import (
     detect_status,
     score_message,
 )
-from app.database import get_connection
+from app.database import get_connection, update_application_from_analysis
 from app.scanner import MAILBOXES
 from dataclasses import dataclass
+from app.extractor import extract_application_data
 
 @dataclass
 class ReclassifyResult:
@@ -16,6 +17,86 @@ class ReclassifyResult:
     changed: int
     applications_updated: int
     missing: int
+
+def reanalyse_email(
+    message_id: str,
+    subject: str,
+    sender: str,
+    body: str,
+) -> tuple[bool, bool, int | None]:
+    """
+    Recalcule statut + entreprise + poste + source pour un email connu.
+    Retourne :
+    - True si le statut email a changé
+    - True si les détails de la candidature ont changé
+    - application_id lié au mail
+    """
+
+    new_status = detect_status(
+        subject,
+        body,
+    )
+
+    company, job_title, source = extract_application_data(
+        subject,
+        sender,
+        body,
+    )
+
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT
+                application_id,
+                detected_status
+            FROM emails
+            WHERE message_id = ?
+            """,
+            (message_id,),
+        ).fetchone()
+
+        if row is None:
+            return False, False, None
+
+        application_id = row["application_id"]
+
+        changed = (
+            str(row["detected_status"])
+            != new_status
+        )
+
+        if changed:
+            connection.execute(
+                """
+                UPDATE emails
+                SET 
+                    detected_status = ?,
+                    body = ?
+                WHERE message_id = ?
+                """,
+                (
+                    new_status,
+                    body,
+                    message_id,
+                ),
+            )
+
+        connection.commit()
+
+    details_changed = False
+    if application_id is not None:
+        details_changed = update_application_from_analysis(
+            application_id=int(application_id),
+            company=company,
+            job_title=job_title,
+            source=source,
+        )
+
+    return (
+        changed,
+        details_changed,
+        int(application_id) if application_id is not None else None,
+    )
 
 def get_known_message_ids() -> set[str]:
     """
@@ -211,6 +292,7 @@ def reclassify_emails() -> ReclassifyResult:
     scanned = 0
     found = 0
     changed = 0
+    details_changed = 0
 
     for mailbox_name, path in MAILBOXES.items():
 
@@ -261,17 +343,23 @@ def reclassify_emails() -> ReclassifyResult:
                 message
             )
 
-            new_status = detect_status(
-                subject,
-                body,
+            sender = decode_text(
+                message.get("From")
             )
 
-            if update_email_status(
-                message_id,
-                new_status,
-            ):
+            email_changed, application_changed, __ = reanalyse_email(
+                message_id=message_id,
+                subject=subject,
+                sender=sender,
+                body=body,
+            )
+
+            if email_changed:
                 changed += 1
                 mailbox_changed += 1
+
+            if application_changed:
+                details_changed += 1
 
         print(
             f"  Parcourus     : {mailbox_scanned}"
@@ -281,6 +369,10 @@ def reclassify_emails() -> ReclassifyResult:
         )
         print(
             f"  Modifiés      : {mailbox_changed}"
+        )
+        print(
+            f"Candidatures enrichies   : "
+            f"{details_changed}"
         )
 
     missing = known_message_ids - found_ids

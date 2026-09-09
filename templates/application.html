@@ -37,7 +37,6 @@
 
     </div>
 
-
     <section class="detail-header">
 
         <div>
@@ -56,17 +55,36 @@
 
         </div>
 
+        <div class="completion-card">
+            <div class="completion-top">
+                <span class="completion-label">
+                    Complétude
+                </span>
 
-        <span
-            class="
-                badge
-                badge-{{ effective_status|lower }}
-                badge-large
-            "
-        >
-            {{ status_label }}
-        </span>
+                <strong class="completion-value">
+                    {{ completion }} %
+                </strong>
+            </div>
 
+            <div class="completion-bar">
+                <div
+                    class="completion-fill"
+                    style="width: {{ completion }}%;"
+                ></div>
+            </div>
+
+            <div class="completion-status">
+                <span
+                    class="
+                        badge
+                        badge-{{ effective_status|lower }}
+                        badge-large
+                    "
+                >
+                    {{ status_label }}
+                </span>
+            </div>
+        </div>
     </section>
 
 
@@ -327,6 +345,97 @@
 
     </section>
 
+
+    <section class="section-header">
+
+        <div>
+
+            <p class="eyebrow">
+                HISTORIQUE
+            </p>
+
+            <h2>
+                Emails associés
+            </h2>
+
+        </div>
+
+        <span class="email-count">
+            {{ emails|length }} mail(s)
+        </span>
+
+    </section>
+
+
+    <section class="email-list">
+
+        <div class="email-history">
+
+            {% for email in emails %}
+
+                <div class="email-item">
+
+                    <button
+                        type="button"
+                        class="email-toggle"
+                        onclick="toggleEmail(this)"
+                    >
+                        <div class="email-summary">
+
+                            <div>
+                                <strong>
+                                    {{ email["subject"] }}
+                                </strong>
+                            </div>
+
+                            <div class="email-meta">
+                                {{ email["sender"] }}
+                                •
+                                {{ email["received_at_display"] }}
+                            </div>
+
+                        </div>
+
+                        <span class="email-arrow">
+                            ▾
+                        </span>
+                    </button>
+
+                    <div class="email-content">
+
+                        <div class="email-content-inner">
+
+                            <div class="email-details">
+                                <strong>De :</strong>
+                                {{ email["sender"] }}
+                            </div>
+
+                            <div class="email-details">
+                                <strong>Sujet :</strong>
+                                {{ email["subject"] }}
+                            </div>
+
+                            <div class="email-details">
+                                <strong>Statut détecté :</strong>
+                                {{ email["detected_status"] }}
+                            </div>
+
+                            <div class="email-body">
+                                {{ email["body"] or "Contenu non disponible." }}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
     <section class="danger-zone">
 
         <div>
@@ -370,100 +479,16 @@
         </form>
 
     </section>
-    <section class="section-header">
-
-        <div>
-
-            <p class="eyebrow">
-                HISTORIQUE
-            </p>
-
-            <h2>
-                Emails associés
-            </h2>
-
-        </div>
-
-        <span class="email-count">
-            {{ emails|length }} mail(s)
-        </span>
-
-    </section>
-
-
-    <section class="email-list">
-
-        {% for email in emails %}
-
-            <article class="email-card">
-
-                <div class="email-card-header">
-
-                    <div>
-
-                        <strong>
-                            {{ email["subject"] or "(sans sujet)" }}
-                        </strong>
-
-                        <p class="email-sender">
-                            {{ email["sender"] or "-" }}
-                        </p>
-
-                    </div>
-
-
-                    <span
-                        class="
-                            badge
-                            badge-{{ email["detected_status"]|lower }}
-                        "
-                    >
-
-                        {{ status_labels.get(
-                            email["detected_status"],
-                            email["detected_status"]
-                        ) }}
-
-                    </span>
-
-                </div>
-
-
-                <div class="email-meta">
-
-                    <span>
-                        📬 {{ email["mailbox"] }}
-                    </span>
-
-                    <span>
-                        {{ email["received_at"] }}
-                    </span>
-
-                    <span>
-                        Score : {{ email["score"] }}
-                    </span>
-
-                </div>
-
-            </article>
-
-        {% else %}
-
-            <div class="empty-card">
-
-                Aucun email associé à cette candidature.
-
-                <br>
-
-                Elle a peut-être été créée manuellement.
-
-            </div>
-
-        {% endfor %}
-
-    </section>
 
 </div>
+
+<script>
+    function toggleEmail(button) {
+        const item = button.closest(".email-item");
+
+        item.classList.toggle("open");
+    }
+</script>
 
 </body>
 

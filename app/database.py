@@ -2,17 +2,127 @@ import sqlite3
 from pathlib import Path
 from app.models import DetectedEmail
 from datetime import datetime, timezone
-from app.extractor import company_key
+from app.extractor import company_key, job_title_score
 
 DATABASE_PATH = Path("data/job_tracker.db")
 
-def update_application_details(
+from app.extractor import (
+    clean_job_title,
+    job_title_score,
+)
+
+
+def update_application_from_analysis(
     application_id: int,
     company: str,
     job_title: str,
     source: str,
-) -> None:
+) -> bool:
+    """
+    Met à jour les informations issues de l'analyse automatique.
+
+    Retourne True si au moins une information a changé.
+    """
+
     with get_connection() as connection:
+        current = connection.execute(
+            """
+            SELECT
+                company,
+                job_title,
+                source
+            FROM applications
+            WHERE id = ?
+            """,
+            (application_id,),
+        ).fetchone()
+
+        if current is None:
+            return False
+
+        current_company = (
+            current["company"] or ""
+        ).strip()
+
+        current_job_title = (
+            current["job_title"] or ""
+        ).strip()
+
+        current_source = (
+            current["source"] or ""
+        ).strip()
+
+        candidate_company = company.strip()
+        candidate_source = source.strip()
+
+        #
+        # IMPORTANT :
+        # on nettoie aussi l'ancien poste,
+        # car il peut provenir d'une ancienne version
+        # de l'extracteur.
+        #
+        cleaned_current_job = clean_job_title(
+            current_job_title
+        )
+
+        cleaned_candidate_job = clean_job_title(
+            job_title
+        )
+
+        current_score = job_title_score(
+            cleaned_current_job
+        )
+
+        candidate_score = job_title_score(
+            cleaned_candidate_job
+        )
+
+        #
+        # Entreprise
+        #
+        new_company = (
+            candidate_company
+            if candidate_company
+            else current_company
+        )
+
+        #
+        # Source
+        #
+        new_source = (
+            candidate_source
+            if candidate_source
+            else current_source
+        )
+
+        #
+        # Poste
+        #
+        if candidate_score > current_score:
+            new_job_title = cleaned_candidate_job
+
+        elif candidate_score == current_score:
+            #
+            # À qualité égale, on préfère la version
+            # nouvellement nettoyée.
+            #
+            new_job_title = (
+                cleaned_candidate_job
+                or cleaned_current_job
+            )
+
+        else:
+            new_job_title = cleaned_current_job
+
+        changed = (
+            new_company != current_company
+            or new_job_title != current_job_title
+            or new_source != current_source
+        )
+
+        if not changed:
+            return False
+
         connection.execute(
             """
             UPDATE applications
@@ -23,9 +133,92 @@ def update_application_details(
             WHERE id = ?
             """,
             (
-                company.strip(),
-                job_title.strip(),
-                source.strip(),
+                new_company,
+                new_job_title,
+                new_source,
+                application_id,
+            ),
+        )
+
+        connection.commit()
+
+        return True
+
+def update_application_details(
+    application_id: int,
+    company: str,
+    job_title: str,
+    source: str,
+) -> None:
+    with get_connection() as connection:
+
+        current = connection.execute(
+            """
+            SELECT
+                company,
+                job_title,
+                source
+            FROM applications
+            WHERE id = ?
+            """,
+            (application_id,),
+        ).fetchone()
+
+        if current is None:
+            return
+
+        current_company = (
+            current["company"]
+            or ""
+        )
+
+        current_job_title = (
+            current["job_title"]
+            or ""
+        )
+
+        current_source = (
+            current["source"]
+            or ""
+        )
+
+        new_company = (
+            company.strip()
+            if company.strip()
+            else current_company
+        )
+
+        candidate_job_title = (
+            job_title.strip()
+        )
+
+        if (
+            job_title_score(candidate_job_title)
+            > job_title_score(current_job_title)
+        ):
+            new_job_title = candidate_job_title
+        else:
+            new_job_title = current_job_title
+
+        new_source = (
+            source.strip()
+            if source.strip()
+            else current_source
+        )
+
+        connection.execute(
+            """
+            UPDATE applications
+            SET
+                company = ?,
+                job_title = ?,
+                source = ?
+            WHERE id = ?
+            """,
+            (
+                new_company,
+                new_job_title,
+                new_source,
                 application_id,
             ),
         )
@@ -245,6 +438,13 @@ def init_database() -> None:
             "INTEGER NOT NULL DEFAULT 0"
         )
 
+        ensure_column(
+            connection,
+            "emails",
+            "body",
+            "TEXT",
+        )
+
         connection.commit()
 
 def email_exists(message_id: str) -> bool:
@@ -285,9 +485,10 @@ def save_email(
                     subject,
                     received_at,
                     detected_status,
-                    score
+                    score,
+                    body
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     email.message_id,
@@ -298,7 +499,8 @@ def save_email(
                     email.date.isoformat(),
                     email.status,
                     email.score,
-                )
+                    email.body,
+                ),
             )
 
             connection.commit()
@@ -374,6 +576,7 @@ def find_application(
         )
 
     return None
+
 
 def create_application(
     company: str,
@@ -738,12 +941,14 @@ def get_application_emails(
             """
             SELECT
                 id,
+                message_id,
                 mailbox,
                 sender,
                 subject,
                 received_at,
                 detected_status,
-                score
+                score,
+                body
             FROM emails
             WHERE application_id = ?
             ORDER BY received_at DESC
