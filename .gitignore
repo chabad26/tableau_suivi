@@ -24,3 +24,9 @@ config.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Client mail
+
+credentials.json
+token.json
+tokens/
