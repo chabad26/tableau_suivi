@@ -30,3 +30,5 @@ Thumbs.db
 credentials.json
 token.json
 tokens/
+microsoft_token_cache.json
+.env
