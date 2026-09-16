@@ -22,10 +22,5 @@ STATUS_ORDER = [
 ]
 
 
-def get_status_label(
-    status: str,
-) -> str:
-    return STATUS_LABELS.get(
-        status,
-        status,
-    )
+def get_status_label(status: str) -> str:
+    return STATUS_LABELS.get(status, status)

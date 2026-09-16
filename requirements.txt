@@ -19,3 +19,8 @@ propcache==0.5.2
 python-dotenv==1.2.3
 Werkzeug==3.1.8
 yarl==1.24.5
+google-api-python-client==2.200.0
+google-auth-httplib2==0.4.2
+google-auth-oauthlib==1.4.1
+msal==1.38.0
+requests==2.34.2

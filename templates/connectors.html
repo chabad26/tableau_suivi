@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Connecteurs - Job Tracker{% endblock %}
+
+{% block content %}
+<div class="page">
+
+    <div class="detail-topbar">
+        <a
+            href="{{ url_for('index') }}"
+            class="back-link"
+        >
+            ← Retour au tableau
+        </a>
+    </div>
+
+    <header class="header">
+
+        <div>
+            <p class="eyebrow">
+                CONFIGURATION
+            </p>
+
+            <h1>
+                Connecteurs
+            </h1>
+
+            <p class="subtitle">
+                Sources utilisées pour détecter
+                les candidatures.
+            </p>
+        </div>
+
+    </header>
+
+    {% include "partials/flash_messages.html" %}
+
+    <section class="connectors-grid">
+
+        {% for connector in connectors %}
+
+            <article class="connector-card">
+
+                <div class="connector-header">
+
+                    <div>
+                        <h2>
+                            {{ connector.name }}
+                        </h2>
+
+                        <p>
+                            {{ connector.description }}
+                        </p>
+                    </div>
+
+                    <span
+                        class="
+                            connector-status
+                            {% if connector.connected %}
+                                connector-connected
+                            {% elif connector.configured %}
+                                connector-warning
+                            {% else %}
+                                connector-disabled
+                            {% endif %}
+                        "
+                    >
+                        {% if connector.connected %}
+                            ●
+                        {% elif connector.configured %}
+                            ◐
+                        {% else %}
+                            ○
+                        {% endif %}
+
+                        {{ connector.status }}
+                    </span>
+
+                </div>
+
+                <div class="connector-footer">
+
+                      <div class="connector-info">
+                        {% if connector.key == "thunderbird" %}
+                            Détection locale
+
+                        {% elif connector.connected %}
+                            OAuth configuré
+
+                        {% elif connector.configured %}
+                            Authentification requise
+
+                        {% else %}
+                            Configuration requise
+                        {% endif %}
+                    </div>
+
+                    <div class="connector-actions">
+
+                        {% if connector.key == "thunderbird" %}
+
+                            <form
+                                method="post"
+                                action="{{ url_for(
+                                    'test_connector',
+                                    connector_key=connector.key
+                                ) }}"
+                            >
+                                <button
+                                    type="submit"
+                                    class="secondary-button connector-button"
+                                >
+                                    Tester le profil
+                                </button>
+                            </form>
+
+                        {% else %}
+
+                            {% if connector.configured %}
+
+                                <form
+                                    method="post"
+                                    action="{{ url_for(
+                                        'test_connector',
+                                        connector_key=connector.key
+                                    ) }}"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="secondary-button connector-button"
+                                    >
+                                        Tester
+                                    </button>
+                                </form>
+
+                                <form
+                                    method="post"
+                                    action="{{ url_for(
+                                        'reconnect_connector',
+                                        connector_key=connector.key
+                                    ) }}"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="secondary-button connector-button"
+                                    >
+                                        {% if connector.connected %}
+                                            Reconnecter
+                                        {% else %}
+                                            Connecter
+                                        {% endif %}
+                                    </button>
+                                </form>
+
+                            {% endif %}
+
+                        {% endif %}
+
+                    </div>
+                </div>
+
+            </article>
+
+        {% endfor %}
+
+    </section>
+
+</div>
+{% endblock %}

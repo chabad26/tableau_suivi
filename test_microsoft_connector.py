@@ -1,32 +1,19 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.connectors.microsoft import (
-    scan_microsoft,
-)
+from app.connectors.microsoft import scan_microsoft
+from app.settings import API_START_DATE
 
-
-START_DATE = datetime(
-    2026,
-    8,
-    1,
-    tzinfo=ZoneInfo(
-        "Europe/Paris"
-    ),
-)
+START_DATE = API_START_DATE
 
 
 def main() -> None:
-    emails = scan_microsoft(
-        START_DATE
-    )
+    emails = scan_microsoft(START_DATE)
 
     print()
     print("=" * 100)
 
-    print(
-        f"{len(emails)} mail(s) pertinent(s)"
-    )
+    print(f"{len(emails)} mail(s) pertinent(s)")
 
     print("=" * 100)
 
@@ -36,18 +23,11 @@ def main() -> None:
         print(email.sender)
         print(email.subject)
 
-        print(
-            f"Score : {email.score}"
-        )
+        print(f"Score : {email.score}")
 
-        print(
-            f"Statut : {email.status}"
-        )
+        print(f"Statut : {email.status}")
 
-        print(
-            f"Message-ID : "
-            f"{email.message_id}"
-        )
+        print(f"Message-ID : {email.message_id}")
 
 
 if __name__ == "__main__":

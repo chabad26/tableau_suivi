@@ -1,45 +1,29 @@
 from datetime import datetime
 
-from app.connectors.gmail import (
-    CREDENTIALS_FILE,
-    TOKEN_FILE,
-    scan_gmail,
-)
+from app.connectors.base import ConnectorSpec
+from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE, scan_gmail
+from app.connectors.microsoft import MICROSOFT_CLIENT_ID, scan_microsoft
 from app.models import DetectedEmail
 
 
-def scan_external_connectors(
-    since: datetime,
-) -> list[DetectedEmail]:
+def scan_external_connectors(since: datetime) -> list[DetectedEmail]:
 
     emails: list[DetectedEmail] = []
 
-    #
-    # Gmail
-    #
-    # On considère Gmail configuré si on possède
-    # soit le client OAuth, soit déjà un token.
-    #
-    gmail_configured = (
-        CREDENTIALS_FILE.exists()
-        or TOKEN_FILE.exists()
+    # L'ordre reste Gmail puis Microsoft. L'échec d'une source n'arrête pas les autres.
+    connectors = (
+        ConnectorSpec(
+            "Gmail", CREDENTIALS_FILE.exists() or TOKEN_FILE.exists(), scan_gmail
+        ),
+        ConnectorSpec("Microsoft", bool(MICROSOFT_CLIENT_ID), scan_microsoft),
     )
-
-    if gmail_configured:
+    for connector in connectors:
+        if not connector.configured:
+            continue
         try:
-            gmail_emails = scan_gmail(
-                since
-            )
-
-            emails.extend(
-                gmail_emails
-            )
-
+            emails.extend(connector.scan(since))
         except Exception as error:
             print()
-            print(
-                "⚠ Gmail indisponible : "
-                f"{error}"
-            )
+            print(f"⚠ {connector.name} indisponible : {error}")
 
     return emails

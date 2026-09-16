@@ -1,5 +1,8 @@
-from typing import TypedDict
-from flask import flash
+import csv
+from datetime import datetime
+from io import BytesIO, StringIO
+from zoneinfo import ZoneInfo
+
 from flask import (
     Flask,
     abort,
@@ -10,160 +13,185 @@ from flask import (
     send_file,
     url_for,
 )
+from openpyxl import Workbook
+from openpyxl.styles import Font
+
+from app.connectors.gmail import TOKEN_FILE, scan_gmail
+from app.connectors.microsoft import TOKEN_CACHE_FILE, scan_microsoft
+from app.connectors.status import get_connector_statuses
 from app.database import (
-    init_database,
     create_manual_application,
+    delete_application,
     get_application,
     get_application_emails,
     get_applications,
+    init_database,
     set_manual_status,
     update_application_details,
-    delete_application,
 )
+from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
 from app.importer import import_emails
-from app.reclassifier import reclassify_emails
-from datetime import datetime
-from app.statuses import (
-    STATUS_LABELS,
-    STATUS_ORDER
+from app.presentation import (
+    PreparedApplication,
+    application_statistics,
+    prepare_application_rows,
 )
-import csv
-from io import BytesIO, StringIO
-from openpyxl import Workbook
+from app.presentation import format_datetime as _format_datetime
+from app.reclassifier import reclassify_emails
+from app.scanner import scan_all_mailboxes
+from app.settings import API_START_DATE
+from app.statuses import STATUS_LABELS, STATUS_ORDER
 
 app = Flask(__name__)
+
 app.secret_key = "dev-secret-key"
 
-class PreparedApplication(TypedDict):
-    id: int
-    company: str
-    job_title: str
-    source: str
-    status: str
-    status_label: str
-    manual_override: bool
-    note: str
+CONNECTOR_TEST_START_DATE = API_START_DATE
+
+
+# Préparation et compatibilité
+
 
 def prepare_applications(
-    status_filter: str = "",
-    search: str = "",
-) -> list[dict[str, object]]:
+    status_filter: str = "", search: str = ""
+) -> list[PreparedApplication]:
+    """Compatibilité : charge les données, puis délègue leur présentation."""
+    return prepare_application_rows(get_applications(), status_filter, search)
+
+
+def format_datetime(value: str | None) -> str:
+    return _format_datetime(value)
+
+
+# Consultation
+
+
+@app.route("/")
+def index() -> str:
     applications = get_applications()
-
-    prepared: list[dict[str, object]] = []
-
-    search_lower = search.strip().casefold()
-
-    for application in applications:
-        effective_status = (
-            application["manual_status"]
-            if application["manual_override"]
-            else application["current_status"]
-        )
-
-        company = application["company"] or ""
-        job_title = application["job_title"] or ""
-        source = application["source"] or ""
-        note = application["manual_note"] or ""
-
-        if (
-            status_filter
-            and effective_status != status_filter
-        ):
-            continue
-
-        if search_lower:
-            haystack = " ".join(
-                [
-                    company,
-                    job_title,
-                    source,
-                    note,
-                ]
-            ).casefold()
-
-            if search_lower not in haystack:
-                continue
-
-        prepared.append(
-            {
-                "id": application["id"],
-                "company": company,
-                "job_title": job_title,
-                "source": source,
-                "status": effective_status,
-                "status_label": STATUS_LABELS.get(
-                    effective_status,
-                    effective_status,
-                ),
-                "note": note,
-                "first_seen": format_datetime(
-                    application["first_seen"]
-                ),
-                "last_update": format_datetime(
-                    application["last_update"]
-                ),
-                "manual_override": bool(
-                    application["manual_override"]
-                ),
-            }
-        )
-
-    return prepared
-
-def format_datetime(
-    value: str | None,
-) -> str:
-    if not value:
-        return "-"
-
-    try:
-        date = datetime.fromisoformat(
-            value
-        )
-    except ValueError:
-        return value
-
-    return date.strftime(
-        "%d/%m/%Y à %H:%M"
+    status_filter = request.args.get("status", "").strip()
+    search = request.args.get("q", "").strip()
+    prepared = prepare_application_rows(applications, status_filter, search)
+    stats = application_statistics(applications)
+    return render_template(
+        "index.html",
+        applications=prepared,
+        stats=stats,
+        total=stats["total"],
+        status_filter=status_filter,
+        search=request.args.get("q", ""),
+        status_labels=STATUS_LABELS,
+        status_order=STATUS_ORDER,
     )
 
-@app.route(
-    "/application/<int:application_id>/edit",
-    methods=["POST"],
-)
-def edit_application_web(application_id: int):
-    application = get_application(
-        application_id
-    )
+
+@app.route("/application/<int:application_id>")
+def application_detail(application_id: int):
+    application = get_application(application_id)
 
     if application is None:
         abort(404)
 
-    company = request.form.get(
-        "company",
-        ""
-    ).strip()
+    emails = get_application_emails(application_id)
 
-    job_title = request.form.get(
-        "job_title",
-        ""
-    ).strip()
+    formatted_emails: list[dict[str, object]] = []
 
-    source = request.form.get(
-        "source",
-        ""
-    ).strip()
+    for email in emails:
+        item: dict[str, object] = dict(email)
 
-    status = request.form.get(
-        "status",
-        ""
-    ).strip()
+        item["received_at_display"] = format_datetime(email["received_at"])
 
-    note = request.form.get(
-        "note",
-        ""
-    ).strip()
+        formatted_emails.append(item)
+
+    first_seen = format_datetime(application["first_seen"])
+
+    last_update = format_datetime(application["last_update"])
+
+    completion_fields = [
+        application["company"],
+        application["job_title"],
+        application["source"],
+        application["current_status"],
+    ]
+
+    completion = round(
+        sum(bool(field) for field in completion_fields) / len(completion_fields) * 100
+    )
+
+    effective_status: str = str(
+        (
+            application["manual_status"]
+            if application["manual_override"]
+            else application["current_status"]
+        )
+        or "OTHER"
+    )
+
+    return render_template(
+        "application.html",
+        application=application,
+        emails=formatted_emails,
+        completion=completion,
+        effective_status=effective_status,
+        status_label=STATUS_LABELS.get(effective_status, effective_status),
+        status_labels=STATUS_LABELS,
+        first_seen=first_seen,
+        last_update=last_update,
+    )
+
+
+@app.route("/application/new")
+def new_application():
+    return render_template("new_application.html", status_labels=STATUS_LABELS)
+
+
+# Création et modification
+
+
+@app.route("/application/new", methods=["POST"])
+def create_application_web():
+    company = request.form.get("company", "").strip()
+
+    job_title = request.form.get("job_title", "").strip()
+
+    source = request.form.get("source", "").strip()
+
+    status = request.form.get("status", "").strip()
+
+    note = request.form.get("note", "").strip()
+
+    if not company:
+        abort(400)
+
+    if status not in STATUS_LABELS:
+        abort(400)
+
+    if not source:
+        source = "Manuel"
+
+    application_id = create_manual_application(
+        company=company, job_title=job_title, source=source, status=status, note=note
+    )
+
+    return redirect(url_for("application_detail", application_id=application_id))
+
+
+@app.route("/application/<int:application_id>/edit", methods=["POST"])
+def edit_application_web(application_id: int):
+    application = get_application(application_id)
+
+    if application is None:
+        abort(404)
+
+    company = request.form.get("company", "").strip()
+
+    job_title = request.form.get("job_title", "").strip()
+
+    source = request.form.get("source", "").strip()
+
+    status = request.form.get("status", "").strip()
+
+    note = request.form.get("note", "").strip()
 
     if not company:
         abort(400)
@@ -178,23 +206,27 @@ def edit_application_web(application_id: int):
         source=source,
     )
 
-    set_manual_status(
-        application_id=application_id,
-        status=status,
-        note=note,
-    )
+    set_manual_status(application_id=application_id, status=status, note=note)
 
-    return redirect(
-        url_for(
-            "application_detail",
-            application_id=application_id,
-        )
-    )
+    return redirect(url_for("application_detail", application_id=application_id))
 
-@app.route(
-    "/scan",
-    methods=["POST"],
-)
+
+@app.route("/application/<int:application_id>/delete", methods=["POST"])
+def delete_application_web(application_id: int):
+    application = get_application(application_id)
+
+    if application is None:
+        abort(404)
+
+    delete_application(application_id)
+
+    return redirect(url_for("index"))
+
+
+# Import et réanalyse
+
+
+@app.route("/scan", methods=["POST"])
 def scan_emails_web():
     result = import_emails()
 
@@ -216,36 +248,10 @@ def scan_emails_web():
             "info",
         )
 
-    return redirect(
-        url_for("index")
-    )
+    return redirect(url_for("index"))
 
-@app.route(
-    "/application/<int:application_id>/delete",
-    methods=["POST"],
-)
-def delete_application_web(
-    application_id: int,
-):
-    application = get_application(
-        application_id
-    )
 
-    if application is None:
-        abort(404)
-
-    delete_application(
-        application_id
-    )
-
-    return redirect(
-        url_for("index")
-    )
-
-@app.route(
-    "/reclassify",
-    methods=["POST"],
-)
+@app.route("/reclassify", methods=["POST"])
 def reclassify_emails_web():
     result = reclassify_emails()
 
@@ -267,447 +273,153 @@ def reclassify_emails_web():
             "info",
         )
 
-    return redirect(
-        url_for("index")
-    )
+    return redirect(url_for("index"))
+
+
+# Exports
+
 
 @app.route("/export/csv")
 def export_csv():
-    status_filter = request.args.get(
-        "status",
-        ""
-    ).strip()
-
-    search = request.args.get(
-        "q",
-        ""
-    ).strip()
-
     applications = prepare_applications(
-        status_filter=status_filter,
-        search=search,
+        status_filter=request.args.get("status", "").strip(),
+        search=request.args.get("q", "").strip(),
     )
-
-    output = StringIO()
-
-    writer = csv.writer(
-        output,
-        delimiter=";",
-    )
-
-    writer.writerow(
-        [
-            "Entreprise",
-            "Poste",
-            "Source",
-            "Statut",
-            "Note",
-            "Première détection",
-            "Dernière mise à jour",
-            "Modification manuelle",
-        ]
-    )
-
-    for application in applications:
-        writer.writerow(
-            [
-                application["company"],
-                application["job_title"],
-                application["source"],
-                application["status_label"],
-                application["note"],
-                application["first_seen"],
-                application["last_update"],
-                (
-                    "Oui"
-                    if application["manual_override"]
-                    else "Non"
-                ),
-            ]
+    with StringIO() as output:
+        writer = csv.writer(output, delimiter=";")
+        writer.writerow(EXPORT_HEADERS)
+        writer.writerows(
+            application_export_row(application) for application in applications
         )
-
-    csv_content = output.getvalue()
-
-    output.close()
-
+        csv_content = output.getvalue()
     response = app.response_class(
-        "\ufeff" + csv_content,
-        mimetype="text/csv; charset=utf-8",
+        "\ufeff" + csv_content, mimetype="text/csv; charset=utf-8"
     )
-
-    response.headers[
-        "Content-Disposition"
-    ] = (
-        "attachment; "
-        "filename=candidatures.csv"
-    )
-
+    response.headers["Content-Disposition"] = "attachment; filename=candidatures.csv"
     return response
+
 
 @app.route("/export/xlsx")
 def export_xlsx():
-    status_filter = request.args.get(
-        "status",
-        ""
-    ).strip()
-
-    search = request.args.get(
-        "q",
-        ""
-    ).strip()
-
     applications = prepare_applications(
-        status_filter=status_filter,
-        search=search,
+        status_filter=request.args.get("status", "").strip(),
+        search=request.args.get("q", "").strip(),
     )
-
     workbook = Workbook()
-
     sheet = workbook.active
     if sheet is None:
         sheet = workbook.create_sheet()
     sheet.title = "Candidatures"
-
-    headers = [
-        "Entreprise",
-        "Poste",
-        "Source",
-        "Statut",
-        "Note",
-        "Première détection",
-        "Dernière mise à jour",
-        "Modification manuelle",
-    ]
-
-    sheet.append(
-        headers
-    )
-    from openpyxl.styles import Font
+    sheet.append(list(EXPORT_HEADERS))
     for cell in sheet[1]:
-        cell.font = Font(
-            bold=True
-        )
-        
+        cell.font = Font(bold=True)
     for application in applications:
-        sheet.append(
-            [
-                application["company"],
-                application["job_title"],
-                application["source"],
-                application["status_label"],
-                application["note"],
-                application["first_seen"],
-                application["last_update"],
-                (
-                    "Oui"
-                    if application["manual_override"]
-                    else "Non"
-                ),
-            ]
-        )
-
+        sheet.append(application_export_row(application))
     sheet.freeze_panes = "A2"
-
-    sheet.auto_filter.ref = (
-        sheet.dimensions
-    )
-
-    widths = {
-        "A": 28,
-        "B": 50,
-        "C": 25,
-        "D": 20,
-        "E": 45,
-        "F": 22,
-        "G": 22,
-        "H": 22,
-    }
-
-    for column, width in widths.items():
-        sheet.column_dimensions[
-            column
-        ].width = width
-
+    sheet.auto_filter.ref = sheet.dimensions
+    for column, width in EXPORT_COLUMN_WIDTHS.items():
+        sheet.column_dimensions[column].width = width
     output = BytesIO()
-
-    workbook.save(
-        output
-    )
-
+    workbook.save(output)
     output.seek(0)
-
     return send_file(
         output,
         as_attachment=True,
         download_name="candidatures.xlsx",
-        mimetype=(
-            "application/"
-            "vnd.openxmlformats-officedocument."
-            "spreadsheetml.sheet"
-        ),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-@app.route("/")
-def index() -> str:
-    applications = get_applications()
 
-    status_filter = request.args.get(
-        "status",
-        ""
-    ).strip()
+# Connecteurs
 
-    search = request.args.get(
-        "q",
-        ""
-    ).strip()
 
-    prepared = prepare_applications(
-        status_filter=status_filter,
-        search=search,
-    )
+@app.get("/connectors")
+def connectors_page():
+    connectors = get_connector_statuses()
 
-    for application in applications:
-        effective_status: str = str(
-            (
-                application["manual_status"]
-                if application["manual_override"]
-                else application["current_status"]
-            ) or "OTHER"
-        )
+    return render_template("connectors.html", connectors=connectors)
 
-        company = application["company"] or ""
-        job_title = application["job_title"] or ""
-        source = application["source"] or ""
 
-        if status_filter and effective_status != status_filter:
-            continue
+@app.post("/connectors/<connector_key>/test")
+def test_connector(connector_key: str):
+    try:
+        if connector_key == "thunderbird":
+            emails = scan_all_mailboxes()
 
-        if search:
-            haystack = " ".join(
-                [
-                    company.lower(),
-                    job_title.lower(),
-                    source.lower(),
-                ]
+            flash(
+                (
+                    "Thunderbird opérationnel : "
+                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
+                ),
+                "success",
             )
 
-            if search not in haystack:
-                continue
+        elif connector_key == "gmail":
+            emails = scan_gmail(CONNECTOR_TEST_START_DATE)
 
-        prepared.append(
-            {
-                "id": application["id"],
-                "company": company,
-                "job_title": job_title,
-                "source": source,
-                "status": effective_status,
-                "status_label": STATUS_LABELS.get(
-                    effective_status,
-                    effective_status,
+            flash(
+                (
+                    "Gmail opérationnel : "
+                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
                 ),
-                "manual_override": bool(
-                    application["manual_override"]
+                "success",
+            )
+
+        elif connector_key == "microsoft":
+            emails = scan_microsoft(CONNECTOR_TEST_START_DATE)
+
+            flash(
+                (
+                    "Microsoft Graph opérationnel : "
+                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
                 ),
-                "note": application["manual_note"] or "",
-            }
-        )
-
-    stats = {
-        status: 0
-        for status in STATUS_ORDER
-    }
-    stats["total"] = len(applications)
-    stats.update({
-        status: 0
-        for status in (
-            "sent", "received", "interview", "rejected", "offer", "other"
-        )
-    })
-
-    for application in applications:
-        effective_status = (
-            application["manual_status"]
-            if application["manual_override"]
-            else application["current_status"]
-        )
-
-        if effective_status in stats:
-            stats[effective_status] += 1
-
-    for application in applications:
-        effective_status: str = str(
-            (
-                application["manual_status"]
-                if application["manual_override"]
-                else application["current_status"]
-            ) or "OTHER"
-        )
-
-        if effective_status == "SENT":
-            stats["sent"] += 1
-
-        elif effective_status == "RECEIVED":
-            stats["received"] += 1
-
-        elif effective_status == "INTERVIEW":
-            stats["interview"] += 1
-
-        elif effective_status == "REJECTED":
-            stats["rejected"] += 1
-
-        elif effective_status == "OFFER":
-            stats["offer"] += 1
+                "success",
+            )
 
         else:
-            stats["other"] += 1
+            flash("Connecteur inconnu.", "info")
 
-    return render_template(
-        "index.html",
-        applications=prepared,
-        stats=stats,
-        total=stats["total"],
-        status_filter=status_filter,
-        search=request.args.get("q", ""),
-        status_labels=STATUS_LABELS,
-        status_order=STATUS_ORDER,
-    )
+    except Exception as error:
+        flash((f"Erreur avec {connector_key} : {error}"), "error")
 
-@app.route("/application/<int:application_id>")
-def application_detail(application_id: int):
-    application = get_application(
-        application_id
-    )
-
-    if application is None:
-        abort(404)
-
-    emails = get_application_emails(
-        application_id
-    )
-
-    formatted_emails: list[dict[str, object]] = []
-
-    for email in emails:
-        item: dict[str, object] = dict(email)
-
-        item["received_at_display"] = format_datetime(
-            email["received_at"]
-        )
-
-        formatted_emails.append(item)
-        
-    first_seen = format_datetime(
-        application["first_seen"]
-    )
-
-    last_update = format_datetime(
-        application["last_update"]
-    )
-
-    completion_fields = [
-    application["company"],
-    application["job_title"],
-    application["source"],
-    application["current_status"],
-    ]
-
-    completion = round(
-        sum(
-            bool(field)
-            for field in completion_fields
-        )
-        / len(completion_fields)
-        * 100
-    )
-
-    effective_status: str = str(
-        (
-            application["manual_status"]
-            if application["manual_override"]
-            else application["current_status"]
-        ) or "OTHER"
-    )
-
-    return render_template(
-        "application.html",
-        application=application,
-        emails=formatted_emails,
-        completion=completion,
-        effective_status=effective_status,
-        status_label=STATUS_LABELS.get(
-            effective_status,
-            effective_status,
-        ),
-        status_labels=STATUS_LABELS,
-        first_seen=first_seen,
-        last_update=last_update,
-    )
-@app.route("/application/new")
-def new_application():
-    return render_template(
-        "new_application.html",
-        status_labels=STATUS_LABELS,
-    )
+    return redirect(url_for("connectors_page"))
 
 
-@app.route(
-    "/application/new",
-    methods=["POST"],
-)
-def create_application_web():
-    company = request.form.get(
-        "company",
-        ""
-    ).strip()
+@app.post("/connectors/<connector_key>/reconnect")
+def reconnect_connector(connector_key: str):
+    try:
+        if connector_key == "gmail":
+            TOKEN_FILE.unlink(missing_ok=True)
 
-    job_title = request.form.get(
-        "job_title",
-        ""
-    ).strip()
+            emails = scan_gmail(CONNECTOR_TEST_START_DATE)
 
-    source = request.form.get(
-        "source",
-        ""
-    ).strip()
+            flash(
+                (f"Gmail reconnecté avec succès : {len(emails)} mail(s) pertinent(s)."),
+                "success",
+            )
 
-    status = request.form.get(
-        "status",
-        ""
-    ).strip()
+        elif connector_key == "microsoft":
+            TOKEN_CACHE_FILE.unlink(missing_ok=True)
 
-    note = request.form.get(
-        "note",
-        ""
-    ).strip()
+            emails = scan_microsoft(CONNECTOR_TEST_START_DATE)
 
-    if not company:
-        abort(400)
+            flash(
+                (
+                    "Microsoft reconnecté avec succès : "
+                    f"{len(emails)} mail(s) pertinent(s)."
+                ),
+                "success",
+            )
 
-    if status not in STATUS_LABELS:
-        abort(400)
+        else:
+            flash("Ce connecteur ne nécessite pas de reconnexion.", "info")
 
-    if not source:
-        source = "Manuel"
+    except Exception as error:
+        flash((f"Reconnexion impossible : {error}"), "error")
 
-    application_id = create_manual_application(
-        company=company,
-        job_title=job_title,
-        source=source,
-        status=status,
-        note=note,
-    )
+    return redirect(url_for("connectors_page"))
 
-    return redirect(
-        url_for(
-            "application_detail",
-            application_id=application_id,
-        )
-    )
 
 if __name__ == "__main__":
     init_database()
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True,
-    )
+    app.run(host="127.0.0.1", port=5000, debug=True)

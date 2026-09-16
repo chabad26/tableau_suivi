@@ -1,5 +1,11 @@
 📬 Job Tracker
 
+## État du code au 16 septembre 2026
+
+Le code comporte maintenant des connecteurs Thunderbird, Gmail et Microsoft. La disponibilité réelle des API dépend de leur configuration et de l'authentification. Les sections historiques ci-dessous sont conservées.
+
+Voir [le bilan de refactorisation](REFACTORING.md) pour les changements effectués, les commandes de vérification et les améliorations encore possibles.
+
 Job Tracker est une application de suivi de candidatures capable d'analyser automatiquement des emails afin d'identifier les entreprises, les postes, les sources et l'avancement des candidatures.
 
 Le projet est actuellement développé comme un prototype local fonctionnel, avec pour objectif d'évoluer vers une solution générique et multi-source utilisable sur Linux, Windows et Android.

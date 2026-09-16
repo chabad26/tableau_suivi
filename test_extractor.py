@@ -1,9 +1,4 @@
-from app.extractor import (
-    company_key,
-    extract_job_title,
-    normalize_company_name,
-)
-
+from app.extractor import company_key, extract_job_title, normalize_company_name
 
 company_samples = [
     "Équipe de recrutement de Sopra Steria",
@@ -18,22 +13,13 @@ company_samples = [
 
 
 job_samples = [
-    (
-        "Votre candidature : Développeur Full Stack Php Symfony Vue JS - Freelance",
-        "",
-    ),
-    (
-        "Entretien téléphonique - Développeur IT (H/F)",
-        "",
-    ),
+    ("Votre candidature : Développeur Full Stack Php Symfony Vue JS - Freelance", ""),
+    ("Entretien téléphonique - Développeur IT (H/F)", ""),
     (
         "Merci pour votre candidature spontanée",
         "Nous avons bien reçu votre candidature au poste de Technicien systèmes et réseaux (F/H).",
     ),
-    (
-        "Application received",
-        "Job title: Senior Backend Developer",
-    ),
+    ("Application received", "Job title: Senior Backend Developer"),
     (
         "Votre candidature",
         "Vous avez postulé au poste de Administrateur Systèmes et Réseaux.",
@@ -41,33 +27,30 @@ job_samples = [
 ]
 
 
-print()
-print("=" * 90)
-print("TEST ENTREPRISES")
-print("=" * 90)
+def main() -> None:
+    print()
+    print("=" * 90)
+    print("TEST ENTREPRISES")
+    print("=" * 90)
 
-for company in company_samples:
-    normalized = normalize_company_name(company)
-    key = company_key(company)
+    for company in company_samples:
+        normalized = normalize_company_name(company)
+        key = company_key(company)
 
-    print(
-        f"{company:<45}"
-        f" → {normalized:<25}"
-        f" → {key}"
-    )
+        print(f"{company:<45} → {normalized:<25} → {key}")
+
+    print()
+    print("=" * 90)
+    print("TEST POSTES")
+    print("=" * 90)
+
+    for subject, body in job_samples:
+        job_title = extract_job_title(subject, body)
+
+        print(f"Sujet : {subject}")
+        print(f"Poste : {job_title or '-'}")
+        print("-" * 90)
 
 
-print()
-print("=" * 90)
-print("TEST POSTES")
-print("=" * 90)
-
-for subject, body in job_samples:
-    job_title = extract_job_title(
-        subject,
-        body,
-    )
-
-    print(f"Sujet : {subject}")
-    print(f"Poste : {job_title or '-'}")
-    print("-" * 90)
+if __name__ == "__main__":
+    main()

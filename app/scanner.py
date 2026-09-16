@@ -1,47 +1,31 @@
+import mailbox
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
-import mailbox
-from mailrecever import MAILBOXES
 
-from app.models import DetectedEmail
 from app.classifier import (
     decode_text,
-    parse_date,
-    score_message,
     detect_status,
     normalize,
+    parse_date,
+    score_message,
 )
+from app.models import DetectedEmail
+from app.settings import MAILBOX_START_DATE
+from mailrecever import MAILBOXES
 
+START_DATE = MAILBOX_START_DATE
 
-START_DATE = datetime(
-    2026,
-    8,
-    1,
-    0,
-    0,
-    0,
-    tzinfo=timezone.utc,
-)
-
-BLACKLIST_SENDERS = [
-    "locservice",
-    "locservice.fr",
-]
+BLACKLIST_SENDERS = ["locservice", "locservice.fr"]
 
 
 def is_blacklisted_sender(sender: str) -> bool:
     sender_normalized = normalize(sender)
 
-    return any(
-        blocked in sender_normalized
-        for blocked in BLACKLIST_SENDERS
-    )
+    return any(blocked in sender_normalized for blocked in BLACKLIST_SENDERS)
 
 
-def scan_mailbox(
-    name: str,
-    path: Path,
-) -> list[DetectedEmail]:
+def scan_mailbox(name: str, path: Path) -> list[DetectedEmail]:
 
     results: list[DetectedEmail] = []
 
@@ -49,80 +33,64 @@ def scan_mailbox(
         print(f"⚠ Boîte introuvable : {path}")
         return results
 
-    mbox = mailbox.mbox(
-        str(path),
-        create=False,
-    )
+    mbox = mailbox.mbox(str(path), create=False)
 
     scanned = 0
     ignored_old = 0
     ignored_blacklist = 0
     ignored_noise = 0
 
-    for message in mbox:
+    with closing(mbox):
+        for message in mbox:
+            scanned += 1
 
-        scanned += 1
+            #
+            # DATE
+            #
+            date = parse_date(message.get("Date"))
 
-        #
-        # DATE
-        #
-        date = parse_date(
-            message.get("Date")
-        )
+            if date is None:
+                continue
 
-        if date is None:
-            continue
+            if date.astimezone(timezone.utc) < START_DATE:
+                ignored_old += 1
+                continue
 
-        if date.astimezone(timezone.utc) < START_DATE:
-            ignored_old += 1
-            continue
+            #
+            # EXPÉDITEUR
+            #
+            sender = decode_text(message.get("From"))
 
-        #
-        # EXPÉDITEUR
-        #
-        sender = decode_text(
-            message.get("From")
-        )
+            if is_blacklisted_sender(sender):
+                ignored_blacklist += 1
+                continue
 
-        if is_blacklisted_sender(sender):
-            ignored_blacklist += 1
-            continue
+            #
+            # DÉTECTION
+            #
+            score, reasons, body = score_message(message)
 
-        #
-        # DÉTECTION
-        #
-        score, reasons, body = score_message(
-            message
-        )
+            if score < 4:
+                ignored_noise += 1
+                continue
 
-        if score < 4:
-            ignored_noise += 1
-            continue
+            subject = decode_text(message.get("Subject"))
 
-        subject = decode_text(
-            message.get("Subject")
-        )
+            status = detect_status(subject, body)
 
-        status = detect_status(
-            subject,
-            body,
-        )
-
-        results.append(
-            DetectedEmail(
-                mailbox=name,
-                date=date,
-                sender=sender,
-                subject=subject,
-                message_id=decode_text(
-                    message.get("Message-ID")
-                ),
-                score=score,
-                status=status,
-                reasons=reasons,
-                body=body,
+            results.append(
+                DetectedEmail(
+                    mailbox=name,
+                    date=date,
+                    sender=sender,
+                    subject=subject,
+                    message_id=decode_text(message.get("Message-ID")),
+                    score=score,
+                    status=status,
+                    reasons=reasons,
+                    body=body,
+                )
             )
-        )
 
     print()
     print(f"📬 {name}")
@@ -134,21 +102,14 @@ def scan_mailbox(
 
     return results
 
+
 def scan_all_mailboxes() -> list[DetectedEmail]:
 
     results: list[DetectedEmail] = []
 
     for name, path in MAILBOXES.items():
-        results.extend(
-            scan_mailbox(
-                name,
-                path,
-            )
-        )
+        results.extend(scan_mailbox(name, path))
 
-    results.sort(
-        key=lambda email: email.date,
-        reverse=True,
-    )
+    results.sort(key=lambda email: email.date, reverse=True)
 
     return results

@@ -1,14 +1,13 @@
-from datetime import datetime
 import mailbox
-from app.classifier import (
-    decode_text,
-    detect_status,
-    score_message,
-)
-from app.database import get_connection, update_application_from_analysis
-from app.scanner import MAILBOXES
+from contextlib import closing
 from dataclasses import dataclass
+from datetime import datetime
+
+from app.classifier import decode_text, detect_status, score_message
+from app.database import get_connection, update_application_from_analysis
 from app.extractor import extract_application_data
+from app.scanner import MAILBOXES
+
 
 @dataclass
 class ReclassifyResult:
@@ -18,11 +17,9 @@ class ReclassifyResult:
     applications_updated: int
     missing: int
 
+
 def reanalyse_email(
-    message_id: str,
-    subject: str,
-    sender: str,
-    body: str,
+    message_id: str, subject: str, sender: str, body: str
 ) -> tuple[bool, bool, int | None]:
     """
     Recalcule statut + entreprise + poste + source pour un email connu.
@@ -32,16 +29,9 @@ def reanalyse_email(
     - application_id lié au mail
     """
 
-    new_status = detect_status(
-        subject,
-        body,
-    )
+    new_status = detect_status(subject, body)
 
-    company, job_title, source = extract_application_data(
-        subject,
-        sender,
-        body,
-    )
+    company, job_title, source = extract_application_data(subject, sender, body)
 
     with get_connection() as connection:
         row = connection.execute(
@@ -60,10 +50,7 @@ def reanalyse_email(
 
         application_id = row["application_id"]
 
-        changed = (
-            str(row["detected_status"])
-            != new_status
-        )
+        changed = str(row["detected_status"]) != new_status
 
         if changed:
             connection.execute(
@@ -74,11 +61,7 @@ def reanalyse_email(
                     body = ?
                 WHERE message_id = ?
                 """,
-                (
-                    new_status,
-                    body,
-                    message_id,
-                ),
+                (new_status, body, message_id),
             )
 
         connection.commit()
@@ -98,6 +81,7 @@ def reanalyse_email(
         int(application_id) if application_id is not None else None,
     )
 
+
 def get_known_message_ids() -> set[str]:
     """
     Récupère les Message-ID déjà enregistrés dans SQLite.
@@ -113,16 +97,10 @@ def get_known_message_ids() -> set[str]:
             """
         ).fetchall()
 
-    return {
-        str(row["message_id"])
-        for row in rows
-    }
+    return {str(row["message_id"]) for row in rows}
 
 
-def update_email_status(
-    message_id: str,
-    status: str,
-) -> bool:
+def update_email_status(message_id: str, status: str) -> bool:
     """
     Met à jour le statut détecté d'un email.
 
@@ -153,18 +131,12 @@ def update_email_status(
             SET detected_status = ?
             WHERE message_id = ?
             """,
-            (
-                status,
-                message_id,
-            ),
+            (status, message_id),
         )
 
         connection.commit()
 
-    print(
-        f"  🔄 {old_status:<10} → {status:<10} "
-        f"{message_id[:40]}"
-    )
+    print(f"  🔄 {old_status:<10} → {status:<10} {message_id[:40]}")
 
     return True
 
@@ -210,30 +182,18 @@ def recompute_application_statuses() -> int:
 
             for email in emails:
                 try:
-                    email_date = datetime.fromisoformat(
-                        str(email["received_at"])
-                    )
+                    email_date = datetime.fromisoformat(str(email["received_at"]))
                 except ValueError:
                     continue
 
-                if (
-                    latest_date is None
-                    or email_date > latest_date
-                ):
+                if latest_date is None or email_date > latest_date:
                     latest_date = email_date
-                    latest_status = str(
-                        email["detected_status"]
-                    )
+                    latest_status = str(email["detected_status"])
 
-            if (
-                latest_status is None
-                or latest_date is None
-            ):
+            if latest_status is None or latest_date is None:
                 continue
 
-            old_status = str(
-                application["current_status"]
-            )
+            old_status = str(application["current_status"])
 
             if old_status == latest_status:
                 continue
@@ -246,11 +206,7 @@ def recompute_application_statuses() -> int:
                     last_update = ?
                 WHERE id = ?
                 """,
-                (
-                    latest_status,
-                    latest_date.isoformat(),
-                    application_id,
-                ),
+                (latest_status, latest_date.isoformat(), application_id),
             )
 
             updated += 1
@@ -272,19 +228,12 @@ def reclassify_emails() -> ReclassifyResult:
     print("=" * 80)
     print("RECLASSIFICATION DES EMAILS")
     print("=" * 80)
-    print(
-        f"Emails connus dans SQLite : "
-        f"{len(known_message_ids)}"
-    )
+    print(f"Emails connus dans SQLite : {len(known_message_ids)}")
 
     if not known_message_ids:
         print("Aucun email à reclassifier.")
         return ReclassifyResult(
-            scanned=0,
-            found=0,
-            changed=0,
-            applications_updated=0,
-            missing=0,
+            scanned=0, found=0, changed=0, applications_updated=0, missing=0
         )
 
     found_ids: set[str] = set()
@@ -295,94 +244,67 @@ def reclassify_emails() -> ReclassifyResult:
     details_changed = 0
 
     for mailbox_name, path in MAILBOXES.items():
-
         print()
         print(f"📬 {mailbox_name}")
 
         if not path.exists():
-            print(
-                f"  ⚠ Boîte introuvable : {path}"
-            )
+            print(f"  ⚠ Boîte introuvable : {path}")
             continue
 
-        mbox = mailbox.mbox(
-            str(path),
-            create=False,
-        )
+        mbox = mailbox.mbox(str(path), create=False)
 
         mailbox_scanned = 0
         mailbox_found = 0
         mailbox_changed = 0
 
-        for message in mbox:
-            scanned += 1
-            mailbox_scanned += 1
+        with closing(mbox):
+            for message in mbox:
+                scanned += 1
+                mailbox_scanned += 1
 
-            message_id = decode_text(
-                message.get("Message-ID")
-            )
+                message_id = decode_text(message.get("Message-ID"))
 
-            if not message_id:
-                continue
+                if not message_id:
+                    continue
 
-            if message_id not in known_message_ids:
-                continue
+                if message_id not in known_message_ids:
+                    continue
 
-            found_ids.add(message_id)
+                found_ids.add(message_id)
 
-            found += 1
-            mailbox_found += 1
+                found += 1
+                mailbox_found += 1
 
-            subject = decode_text(
-                message.get("Subject")
-            )
+                subject = decode_text(message.get("Subject"))
 
-            # score_message nous restitue déjà
-            # le corps extrait du mail.
-            _, _, body = score_message(
-                message
-            )
+                # score_message nous restitue déjà
+                # le corps extrait du mail.
+                _, _, body = score_message(message)
 
-            sender = decode_text(
-                message.get("From")
-            )
+                sender = decode_text(message.get("From"))
 
-            email_changed, application_changed, __ = reanalyse_email(
-                message_id=message_id,
-                subject=subject,
-                sender=sender,
-                body=body,
-            )
+                email_changed, application_changed, __ = reanalyse_email(
+                    message_id=message_id, subject=subject, sender=sender, body=body
+                )
 
-            if email_changed:
-                changed += 1
-                mailbox_changed += 1
+                if email_changed:
+                    changed += 1
+                    mailbox_changed += 1
 
-            if application_changed:
-                details_changed += 1
+                if application_changed:
+                    details_changed += 1
 
-        print(
-            f"  Parcourus     : {mailbox_scanned}"
-        )
-        print(
-            f"  Emails connus : {mailbox_found}"
-        )
-        print(
-            f"  Modifiés      : {mailbox_changed}"
-        )
-        print(
-            f"Candidatures enrichies   : "
-            f"{details_changed}"
-        )
+        print(f"  Parcourus     : {mailbox_scanned}")
+        print(f"  Emails connus : {mailbox_found}")
+        print(f"  Modifiés      : {mailbox_changed}")
+        print(f"Candidatures enrichies   : {details_changed}")
 
     missing = known_message_ids - found_ids
 
     print()
     print("♻ Recalcul des candidatures...")
 
-    applications_updated = (
-        recompute_application_statuses()
-    )
+    applications_updated = recompute_application_statuses()
 
     print()
     print("=" * 80)
@@ -391,14 +313,8 @@ def reclassify_emails() -> ReclassifyResult:
     print(f"Messages parcourus       : {scanned}")
     print(f"Messages retrouvés       : {found}")
     print(f"Emails reclassifiés      : {changed}")
-    print(
-        f"Candidatures mises à jour: "
-        f"{applications_updated}"
-    )
-    print(
-        f"Messages non retrouvés   : "
-        f"{len(missing)}"
-    )
+    print(f"Candidatures mises à jour: {applications_updated}")
+    print(f"Messages non retrouvés   : {len(missing)}")
 
     return ReclassifyResult(
         scanned=scanned,

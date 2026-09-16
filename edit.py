@@ -1,26 +1,17 @@
 from app.database import (
     clear_manual_override,
-    get_applications,
     create_manual_application,
+    get_applications,
     merge_applications,
     set_manual_status,
 )
-
-from app.statuses import (
-    STATUS_LABELS,
-    STATUS_ORDER,
-)
+from app.statuses import STATUS_LABELS, STATUS_ORDER
 
 STATUS_CHOICES = {
-    str(index): (
-        status,
-        STATUS_LABELS[status],
-    )
-    for index, status in enumerate(
-        STATUS_ORDER,
-        start=1,
-    )
+    str(index): (status, STATUS_LABELS[status])
+    for index, status in enumerate(STATUS_ORDER, start=1)
 }
+
 
 def merge_application_menu() -> None:
     print_applications()
@@ -30,18 +21,11 @@ def merge_application_menu() -> None:
     print("FUSION DE CANDIDATURES")
     print("=" * 50)
 
-    source_id = input(
-        "ID du doublon à supprimer : "
-    ).strip()
+    source_id = input("ID du doublon à supprimer : ").strip()
 
-    target_id = input(
-        "ID de la candidature à conserver : "
-    ).strip()
+    target_id = input("ID de la candidature à conserver : ").strip()
 
-    if (
-        not source_id.isdigit()
-        or not target_id.isdigit()
-    ):
+    if not source_id.isdigit() or not target_id.isdigit():
         print("❌ IDs invalides.")
         return
 
@@ -49,31 +33,24 @@ def merge_application_menu() -> None:
     target_application_id = int(target_id)
 
     if source_application_id == target_application_id:
-        print(
-            "❌ Les deux IDs sont identiques."
-        )
+        print("❌ Les deux IDs sont identiques.")
         return
 
     print()
-    confirmation = input(
-        f"Fusionner {source_application_id} "
-        f"dans {target_application_id} ? [o/N] : "
-    ).strip().lower()
+    confirmation = (
+        input(
+            f"Fusionner {source_application_id} dans {target_application_id} ? [o/N] : "
+        )
+        .strip()
+        .lower()
+    )
 
-    if confirmation not in (
-        "o",
-        "oui",
-        "y",
-        "yes",
-    ):
+    if confirmation not in ("o", "oui", "y", "yes"):
         print("Fusion annulée.")
         return
 
     try:
-        merge_applications(
-            source_application_id,
-            target_application_id,
-        )
+        merge_applications(source_application_id, target_application_id)
 
     except ValueError as error:
         print(f"❌ {error}")
@@ -85,27 +62,22 @@ def merge_application_menu() -> None:
         f"fusionnée dans {target_application_id}."
     )
 
+
 def create_application_manually() -> None:
     print()
     print("=" * 50)
     print("NOUVELLE CANDIDATURE")
     print("=" * 50)
 
-    company = input(
-        "Entreprise : "
-    ).strip()
+    company = input("Entreprise : ").strip()
 
     if not company:
         print("❌ L'entreprise est obligatoire.")
         return
 
-    job_title = input(
-        "Poste : "
-    ).strip()
+    job_title = input("Poste : ").strip()
 
-    source = input(
-        "Source [Centre de formation] : "
-    ).strip()
+    source = input("Source [Centre de formation] : ").strip()
 
     if not source:
         source = "Centre de formation"
@@ -113,41 +85,27 @@ def create_application_manually() -> None:
     status = ask_status()
 
     print()
-    note = input(
-        "Note facultative : "
-    ).strip()
+    note = input("Note facultative : ").strip()
 
     application_id = create_manual_application(
-        company=company,
-        job_title=job_title,
-        source=source,
-        status=status,
-        note=note,
+        company=company, job_title=job_title, source=source, status=status, note=note
     )
 
     print()
-    print(
-        f"✅ Candidature créée avec l'ID {application_id}."
-    )
+    print(f"✅ Candidature créée avec l'ID {application_id}.")
+
 
 def print_applications() -> None:
     applications = get_applications()
 
     print()
     print("=" * 100)
-    print(
-        f"{'ID':<5}"
-        f"{'ENTREPRISE':<32}"
-        f"{'POSTE':<45}"
-        f"{'STATUT':<15}"
-    )
+    print(f"{'ID':<5}{'ENTREPRISE':<32}{'POSTE':<45}{'STATUT':<15}")
     print("=" * 100)
 
     for app in applications:
         effective_status = (
-            app["manual_status"]
-            if app["manual_override"]
-            else app["current_status"]
+            app["manual_status"] if app["manual_override"] else app["current_status"]
         )
 
         company = app["company"] or "-"
@@ -159,21 +117,14 @@ def print_applications() -> None:
         if len(job_title) > 43:
             job_title = job_title[:40] + "..."
 
-        print(
-            f"{app['id']:<5}"
-            f"{company:<32}"
-            f"{job_title:<45}"
-            f"{effective_status:<15}"
-        )
+        print(f"{app['id']:<5}{company:<32}{job_title:<45}{effective_status:<15}")
 
     print("=" * 100)
 
 
 def ask_application_id() -> int:
     while True:
-        value = input(
-            "\nID de la candidature : "
-        ).strip()
+        value = input("\nID de la candidature : ").strip()
 
         if value.isdigit():
             return int(value)
@@ -189,9 +140,7 @@ def ask_status() -> str:
         print(f"  {key}. {label}")
 
     while True:
-        choice = input(
-            "\nChoix : "
-        ).strip()
+        choice = input("\nChoix : ").strip()
 
         if choice in STATUS_CHOICES:
             return STATUS_CHOICES[choice][0]
@@ -206,15 +155,9 @@ def edit_application() -> None:
     status = ask_status()
 
     print()
-    note = input(
-        "Note facultative : "
-    ).strip()
+    note = input("Note facultative : ").strip()
 
-    set_manual_status(
-        application_id=application_id,
-        status=status,
-        note=note,
-    )
+    set_manual_status(application_id=application_id, status=status, note=note)
 
     print()
     print("✅ Modification enregistrée.")
@@ -225,9 +168,7 @@ def clear_override() -> None:
 
     application_id = ask_application_id()
 
-    clear_manual_override(
-        application_id
-    )
+    clear_manual_override(application_id)
 
     print()
     print("✅ Modification manuelle supprimée.")
@@ -247,9 +188,7 @@ def main() -> None:
         print("5. Fusionner deux candidatures")
         print("0. Quitter")
 
-        choice = input(
-            "\nChoix : "
-        ).strip()
+        choice = input("\nChoix : ").strip()
 
         if choice == "1":
             edit_application()
@@ -272,6 +211,7 @@ def main() -> None:
 
         else:
             print("Choix invalide.")
+
 
 if __name__ == "__main__":
     main()

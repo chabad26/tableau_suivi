@@ -1,29 +1,8 @@
-<!DOCTYPE html>
+{% extends "base.html" %}
 
-<html lang="fr">
+{% block title %}{{ application["company"] }} - Suivi candidature{% endblock %}
 
-<head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        {{ application["company"] }} - Suivi candidature
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='style.css') }}"
-    >
-
-</head>
-
-<body>
-
+{% block content %}
 <div class="page">
 
     <div class="detail-topbar">
@@ -154,7 +133,7 @@
 
         </div>
 
-        
+
 
         <div class="detail-card">
 
@@ -481,15 +460,8 @@
     </section>
 
 </div>
+{% endblock %}
 
-<script>
-    function toggleEmail(button) {
-        const item = button.closest(".email-item");
-
-        item.classList.toggle("open");
-    }
-</script>
-
-</body>
-
-</html>
+{% block scripts %}
+<script src="{{ url_for('static', filename='application.js') }}"></script>
+{% endblock %}

@@ -1,19 +1,17 @@
-from pathlib import Path
+import html
 import mailbox
 import re
-from datetime import datetime, timezone, timedelta
-from email.header import decode_header, make_header
-from email.utils import parsedate_to_datetime
-from dataclasses import dataclass
-from email.message import Message
-from typing import TypedDict
-import html
 import unicodedata
+from contextlib import closing
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from email.header import decode_header, make_header
 from email.message import Message
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from typing import TypedDict
 
-PROFILE = Path(
-    "/home/oliv/snap/thunderbird/common/.thunderbird/jzmiasv2.default"
-)
+PROFILE = Path("/home/oliv/snap/thunderbird/common/.thunderbird/jzmiasv2.default")
 
 MAILBOXES: dict[str, Path] = {
     "Gmail": PROFILE / "ImapMail/imap.gmail.com/INBOX",
@@ -22,15 +20,7 @@ MAILBOXES: dict[str, Path] = {
     "OVH": PROFILE / "ImapMail/ssl0.ovh.net/INBOX",
 }
 
-START_DATE = datetime(
-    2026,
-    8,
-    1,
-    0,
-    0,
-    0,
-    tzinfo=timezone.utc
-)
+START_DATE = datetime(2026, 8, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 
 POSITIVE_KEYWORDS = [
@@ -93,10 +83,7 @@ NEGATIVE_KEYWORDS = [
 ]
 
 
-BLACKLIST_SENDERS = [
-    "locservice",
-    "locservice.fr",
-]
+BLACKLIST_SENDERS = ["locservice", "locservice.fr"]
 
 
 STATUS_LABELS = {
@@ -110,6 +97,7 @@ STATUS_LABELS = {
     "PROPOSED": "Proposée",
 }
 
+
 @dataclass
 class DetectedEmail:
     mailbox: str
@@ -120,6 +108,7 @@ class DetectedEmail:
     score: int
     status: str
     reasons: list[str]
+
 
 EmailResult = TypedDict(
     "EmailResult",
@@ -135,6 +124,7 @@ EmailResult = TypedDict(
     },
 )
 
+
 def html_to_text(content: str) -> str:
     """
     Conversion HTML légère vers texte brut.
@@ -143,51 +133,25 @@ def html_to_text(content: str) -> str:
 
     # Supprime scripts et styles
     content = re.sub(
-        r"<(script|style).*?>.*?</\1>",
-        " ",
-        content,
-        flags=re.IGNORECASE | re.DOTALL,
+        r"<(script|style).*?>.*?</\1>", " ", content, flags=re.IGNORECASE | re.DOTALL
     )
 
     # Quelques balises doivent devenir des espaces / retours
-    content = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        content,
-        flags=re.IGNORECASE,
-    )
+    content = re.sub(r"<br\s*/?>", "\n", content, flags=re.IGNORECASE)
 
-    content = re.sub(
-        r"</p\s*>",
-        "\n",
-        content,
-        flags=re.IGNORECASE,
-    )
+    content = re.sub(r"</p\s*>", "\n", content, flags=re.IGNORECASE)
 
     # Supprime toutes les autres balises
-    content = re.sub(
-        r"<[^>]+>",
-        " ",
-        content,
-    )
+    content = re.sub(r"<[^>]+>", " ", content)
 
-    content = html.unescape(
-        content
-    )
+    content = html.unescape(content)
 
-    content = re.sub(
-        r"[ \t]+",
-        " ",
-        content,
-    )
+    content = re.sub(r"[ \t]+", " ", content)
 
-    content = re.sub(
-        r"\n\s*\n+",
-        "\n",
-        content,
-    )
+    content = re.sub(r"\n\s*\n+", "\n", content)
 
     return content.strip()
+
 
 def decode_text(value: str | None) -> str:
     if not value:
@@ -214,10 +178,7 @@ def normalize(text: str | None) -> str:
     #
     # Normalisation Unicode
     #
-    text = unicodedata.normalize(
-        "NFKC",
-        text,
-    )
+    text = unicodedata.normalize("NFKC", text)
 
     #
     # Espaces Unicode / caractères invisibles
@@ -232,31 +193,19 @@ def normalize(text: str | None) -> str:
     ]
 
     for char in invisible_chars:
-        text = text.replace(
-            char,
-            "",
-        )
+        text = text.replace(char, "")
 
-    text = text.replace(
-        "\u00a0",
-        " ",
-    )
+    text = text.replace("\u00a0", " ")
 
     #
     # Espaces multiples / retours ligne
     #
-    text = re.sub(
-        r"\s+",
-        " ",
-        text,
-    )
+    text = re.sub(r"\s+", " ", text)
 
     return text.strip().casefold()
 
 
-def get_body(
-    message: Message,
-) -> str:
+def get_body(message: Message) -> str:
     """
     Extrait le texte d'un email, qu'il soit text/plain,
     text/html ou multipart.
@@ -266,115 +215,66 @@ def get_body(
     html_parts: list[str] = []
 
     if message.is_multipart():
-
         for part in message.walk():
-
             content_type = part.get_content_type()
 
-            disposition = (
-                part.get_content_disposition()
-            )
+            disposition = part.get_content_disposition()
 
             # Ignore les pièces jointes
             if disposition == "attachment":
                 continue
 
-            if content_type not in (
-                "text/plain",
-                "text/html",
-            ):
+            if content_type not in ("text/plain", "text/html"):
                 continue
 
-            payload = part.get_payload(
-                decode=True
-            )
+            payload = part.get_payload(decode=True)
 
-            if not isinstance(
-                payload,
-                bytes,
-            ):
+            if not isinstance(payload, bytes):
                 continue
 
-            charset = (
-                part.get_content_charset()
-                or "utf-8"
-            )
+            charset = part.get_content_charset() or "utf-8"
 
             try:
-                text = payload.decode(
-                    charset,
-                    errors="replace",
-                )
+                text = payload.decode(charset, errors="replace")
             except LookupError:
-                text = payload.decode(
-                    "utf-8",
-                    errors="replace",
-                )
+                text = payload.decode("utf-8", errors="replace")
 
             if content_type == "text/plain":
-                plain_parts.append(
-                    text
-                )
+                plain_parts.append(text)
 
             elif content_type == "text/html":
-                html_parts.append(
-                    html_to_text(text)
-                )
+                html_parts.append(html_to_text(text))
 
     else:
+        content_type = message.get_content_type()
 
-        content_type = (
-            message.get_content_type()
-        )
+        payload = message.get_payload(decode=True)
 
-        payload = message.get_payload(
-            decode=True
-        )
-
-        if isinstance(
-            payload,
-            bytes,
-        ):
-            charset = (
-                message.get_content_charset()
-                or "utf-8"
-            )
+        if isinstance(payload, bytes):
+            charset = message.get_content_charset() or "utf-8"
 
             try:
-                text = payload.decode(
-                    charset,
-                    errors="replace",
-                )
+                text = payload.decode(charset, errors="replace")
             except LookupError:
-                text = payload.decode(
-                    "utf-8",
-                    errors="replace",
-                )
+                text = payload.decode("utf-8", errors="replace")
 
             if content_type == "text/html":
-                html_parts.append(
-                    html_to_text(text)
-                )
+                html_parts.append(html_to_text(text))
             else:
-                plain_parts.append(
-                    text
-                )
+                plain_parts.append(text)
 
     #
     # On privilégie text/plain.
     # HTML sert de fallback si le mail n'a pas de version texte.
     #
     if plain_parts:
-        return "\n".join(
-            plain_parts
-        ).strip()
+        return "\n".join(plain_parts).strip()
 
     if html_parts:
-        return "\n".join(
-            html_parts
-        ).strip()
+        return "\n".join(html_parts).strip()
 
     return ""
+
 
 def parse_date(value: str | None) -> datetime | None:
     if not value:
@@ -384,9 +284,7 @@ def parse_date(value: str | None) -> datetime | None:
         date = parsedate_to_datetime(value)
 
         if date.tzinfo is None:
-            date = date.replace(
-                tzinfo=timezone.utc
-            )
+            date = date.replace(tzinfo=timezone.utc)
 
         return date
 
@@ -397,10 +295,7 @@ def parse_date(value: str | None) -> datetime | None:
 def is_blacklisted_sender(sender: str) -> bool:
     sender = normalize(sender)
 
-    return any(
-        blocked in sender
-        for blocked in BLACKLIST_SENDERS
-    )
+    return any(blocked in sender for blocked in BLACKLIST_SENDERS)
 
 
 def contains_any(text: str, keywords: list[str]) -> bool:
@@ -435,7 +330,7 @@ def detect_status(subject: str, body: str) -> str:
         "profil non retenu",
         "ne donnerons pas suite",
         "ne donnons pas suite",
-                # English
+        # English
         "application unsuccessful",
         "application not successful",
         "application was unsuccessful",
@@ -463,8 +358,7 @@ def detect_status(subject: str, body: str) -> str:
         "entretien rh",
         "convocation entretien",
         "rendez-vous entretien",
-
-                # English
+        # English
         "interview invitation",
         "invitation to interview",
         "phone interview",
@@ -490,8 +384,7 @@ def detect_status(subject: str, body: str) -> str:
         "technical assessment",
         "exercice technique",
         "cas pratique",
-
-            # English
+        # English
         "coding challenge",
         "coding assessment",
         "technical challenge",
@@ -515,7 +408,6 @@ def detect_status(subject: str, body: str) -> str:
         "promesse d'embauche",
         "proposition salariale",
         "nous souhaitons vous faire une offre",
-
         # English
         "job offer",
         "employment offer",
@@ -535,7 +427,6 @@ def detect_status(subject: str, body: str) -> str:
     sent_subject = [
         "votre candidature a été envoyée",
         "votre candidature a ete envoyee",
-
         # English
         "your application has been sent",
         "application submitted",
@@ -563,8 +454,7 @@ def detect_status(subject: str, body: str) -> str:
         "candidature est arrivee",
         "confirmation de votre candidature",
         "confirmation de l'enregistrement de votre candidature",
-
-            # English
+        # English
         "thank you for your application",
         "thank you for applying",
         "we received your application",
@@ -572,7 +462,6 @@ def detect_status(subject: str, body: str) -> str:
         "application received",
         "application confirmation",
         "confirmation of your application",
-
     ]
 
     if contains_any(subject_text, received_subject):
@@ -606,7 +495,6 @@ def detect_status(subject: str, body: str) -> str:
         "nous ne pouvons malheureusement pas donner suite a votre candidature",
         "nous avons choisi de poursuivre avec d'autres candidats",
         "nous avons choisi de poursuivre avec d’autres candidats",
-
         # English
         "we have decided not to move forward with your application",
         "we have decided not to proceed with your application",
@@ -645,7 +533,6 @@ def detect_status(subject: str, body: str) -> str:
         "nous vous invitons a un entretien",
         "nous souhaitons échanger avec vous",
         "nous souhaitons echanger avec vous",
-
         # English
         "we would like to invite you to an interview",
         "we would like to schedule an interview",
@@ -665,7 +552,6 @@ def detect_status(subject: str, body: str) -> str:
         "nous vous invitons a realiser un test technique",
         "nous vous proposons un test technique",
         "nous vous proposons un exercice technique",
-
         # English
         "we would like you to complete a technical test",
         "we would like you to complete a coding test",
@@ -683,7 +569,6 @@ def detect_status(subject: str, body: str) -> str:
         "nous souhaitons vous faire une proposition d'embauche",
         "nous sommes heureux de vous proposer le poste",
         "nous avons le plaisir de vous proposer le poste",
-
         # English
         "we are pleased to offer you the position",
         "we are happy to offer you the position",
@@ -701,42 +586,33 @@ def detect_status(subject: str, body: str) -> str:
         return "RECEIVED"
     return "OTHER"
 
+
 def score_message(message: Message) -> tuple[int, list[str], str]:
 
-    subject = normalize(
-        message.get("Subject")
-    )
+    subject = normalize(message.get("Subject"))
 
-    sender = normalize(
-        message.get("From")
-    )
+    sender = normalize(message.get("From"))
 
     score = 0
     reasons: list[str] = []
-    
+
     # Sujet positif
     for keyword in POSITIVE_KEYWORDS:
         if keyword in subject:
             score += 5
-            reasons.append(
-                f"sujet:{keyword}"
-            )
+            reasons.append(f"sujet:{keyword}")
 
     # Expéditeur orienté recrutement
     for keyword in RECRUITMENT_SENDERS:
         if keyword in sender:
             score += 1
-            reasons.append(
-                f"expéditeur:{keyword}"
-            )
+            reasons.append(f"expéditeur:{keyword}")
 
     # Bruit évident
     for keyword in NEGATIVE_KEYWORDS:
         if keyword in subject:
             score -= 6
-            reasons.append(
-                f"bruit:{keyword}"
-            )
+            reasons.append(f"bruit:{keyword}")
 
     #
     # On ne décode le corps que si le mail
@@ -745,38 +621,27 @@ def score_message(message: Message) -> tuple[int, list[str], str]:
     body = ""
 
     if -2 < score < 5:
-
-        body = normalize(
-            get_body(message)
-        )
+        body = normalize(get_body(message))
 
         for keyword in POSITIVE_KEYWORDS:
             if keyword in body:
                 score += 2
-                reasons.append(
-                    f"corps:{keyword}"
-                )
+                reasons.append(f"corps:{keyword}")
 
         for keyword in NEGATIVE_KEYWORDS:
             if keyword in body:
                 score -= 2
-                reasons.append(
-                    f"bruit-corps:{keyword}"
-                )
+                reasons.append(f"bruit-corps:{keyword}")
 
     if not body:
-        body = normalize(
-            get_body(message)
-        )
+        body = normalize(get_body(message))
 
     return score, reasons, body
 
 
 def scan_mailbox(name: str, path: Path) -> list[EmailResult]:
     if not path.exists():
-        print(
-            f"⚠ Boîte introuvable : {path}"
-        )
+        print(f"⚠ Boîte introuvable : {path}")
 
         return []
 
@@ -787,111 +652,86 @@ def scan_mailbox(name: str, path: Path) -> list[EmailResult]:
 
     results: list[EmailResult] = []
 
-    mbox = mailbox.mbox(
-        path,
-        create=False
-    )
+    mbox = mailbox.mbox(path, create=False)
 
     scanned = 0
     ignored_old = 0
     ignored_blacklist = 0
     ignored_noise = 0
 
-    for message in mbox:
+    with closing(mbox):
+        for message in mbox:
+            scanned += 1
 
-        scanned += 1
+            #
+            # DATE
+            #
+            date = parse_date(message.get("Date"))
 
-        #
-        # DATE
-        #
-        date = parse_date(
-            message.get("Date")
-        )
+            if date is None:
+                continue
 
-        if date is None:
-            continue
+            date_utc = date.astimezone(timezone.utc)
 
-        date_utc = date.astimezone(
-            timezone.utc
-        )
+            if date_utc < START_DATE:
+                ignored_old += 1
+                continue
 
-        if date_utc < START_DATE:
-            ignored_old += 1
-            continue
+            #
+            # EXPÉDITEUR
+            #
+            sender = decode_text(message.get("From"))
 
-        #
-        # EXPÉDITEUR
-        #
-        sender = decode_text(
-            message.get("From")
-        )
+            if is_blacklisted_sender(sender):
+                ignored_blacklist += 1
+                continue
 
-        if is_blacklisted_sender(sender):
-            ignored_blacklist += 1
-            continue
+            #
+            # SCORE
+            #
+            score, reasons, body = score_message(message)
 
-        #
-        # SCORE
-        #
-        score, reasons, body = score_message(
-            message
-        )
+            if score < 4:
+                ignored_noise += 1
+                continue
 
-        if score < 4:
-            ignored_noise += 1
-            continue
+            #
+            # Si score_message n'a pas eu besoin
+            # du corps, on le récupère maintenant
+            # pour classifier correctement le statut.
+            #
+            if not body:
+                body = get_body(message)
 
-        #
-        # Si score_message n'a pas eu besoin
-        # du corps, on le récupère maintenant
-        # pour classifier correctement le statut.
-        #
-        if not body:
-            body = get_body(message)
+            subject = decode_text(message.get("Subject"))
 
-        subject = decode_text(
-            message.get("Subject")
-        )
+            status = detect_status(subject, body)
 
-        status = detect_status(
-            subject,
-            body
-        )
+            results.append(
+                {
+                    "mailbox": name,
+                    "date": date,
+                    "from": sender,
+                    "subject": subject,
+                    "message_id": decode_text(message.get("Message-ID")),
+                    "score": score,
+                    "status": status,
+                    "reasons": reasons,
+                }
+            )
 
-        results.append({
-            "mailbox": name,
-            "date": date,
-            "from": sender,
-            "subject": subject,
-            "message_id": decode_text(
-                message.get("Message-ID")
-            ),
-            "score": score,
-            "status": status,
-            "reasons": reasons,
-        })
+    print(f"{scanned} mails parcourus")
 
-    print(
-        f"{scanned} mails parcourus"
-    )
+    print(f"{ignored_old} ignorés car antérieurs au 01/08/2026")
 
-    print(
-        f"{ignored_old} ignorés car antérieurs au 01/08/2026"
-    )
+    print(f"{ignored_blacklist} ignorés car leur expéditeur figure sur la liste noire")
 
-    print(
-        f"{ignored_blacklist} ignorés car leur expéditeur figure sur la liste noire"
-    )
+    print(f"{ignored_noise} ignorés comme bruit")
 
-    print(
-        f"{ignored_noise} ignorés comme bruit"
-    )
-
-    print(
-        f"{len(results)} candidatures potentielles trouvées"
-    )
+    print(f"{len(results)} candidatures potentielles trouvées")
 
     return results
+
 
 def print_review_section(results: list[EmailResult]) -> None:
     print()
@@ -899,10 +739,7 @@ def print_review_section(results: list[EmailResult]) -> None:
     print("🔎 À VÉRIFIER")
     print("=" * 100)
 
-    review = [
-        r for r in results
-        if r["status"] in {"OFFER", "OTHER"}
-    ]
+    review = [r for r in results if r["status"] in {"OFFER", "OTHER"}]
 
     if not review:
         print("Aucun cas douteux.")
@@ -915,11 +752,7 @@ def print_review_section(results: list[EmailResult]) -> None:
         print(f"Boîte   : {result['mailbox']}")
         print(f"De      : {result['from']}")
         print(f"Sujet   : {result['subject']}")
-        print(
-            f"Statut  : "
-            f"{STATUS_LABELS[result['status']]} "
-            f"[{result['status']}]"
-        )
+        print(f"Statut  : {STATUS_LABELS[result['status']]} [{result['status']}]")
         print(f"Score   : {result['score']}")
 
 
@@ -927,10 +760,7 @@ def print_recent_results(results: list[EmailResult], hours: int = 24) -> None:
     now = datetime.now(timezone.utc)
     limit = now - timedelta(hours=hours)
 
-    recent = [
-        r for r in results
-        if r["date"].astimezone(timezone.utc) >= limit
-    ]
+    recent = [r for r in results if r["date"].astimezone(timezone.utc) >= limit]
 
     print()
     print("=" * 100)
@@ -948,37 +778,23 @@ def print_recent_results(results: list[EmailResult], hours: int = 24) -> None:
         print(f"Boîte   : {result['mailbox']}")
         print(f"De      : {result['from']}")
         print(f"Sujet   : {result['subject']}")
-        print(
-            f"Statut  : "
-            f"{STATUS_LABELS[result['status']]} "
-            f"[{result['status']}]"
-        )
+        print(f"Statut  : {STATUS_LABELS[result['status']]} [{result['status']}]")
+
 
 def main() -> None:
 
     all_results: list[EmailResult] = []
 
     for name, path in MAILBOXES.items():
+        results = scan_mailbox(name, path)
 
-        results = scan_mailbox(
-            name,
-            path
-        )
-
-        all_results.extend(
-            results
-        )
+        all_results.extend(results)
 
     #
     # Du plus récent au plus ancien
     #
     all_results.sort(
-        key=lambda x: (
-            x["date"].timestamp()
-            if x["date"]
-            else 0
-        ),
-        reverse=True
+        key=lambda x: x["date"].timestamp() if x["date"] else 0, reverse=True
     )
 
     print()
@@ -987,81 +803,43 @@ def main() -> None:
     print("🎯 CANDIDATURES DÉTECTÉES")
     print("#" * 100)
 
-    status_counter = {
-        status: 0
-        for status in STATUS_LABELS
-    }
+    status_counter = {status: 0 for status in STATUS_LABELS}
 
     for result in all_results:
-
-        status_counter[
-            result["status"]
-        ] += 1
+        status_counter[result["status"]] += 1
 
         print()
         print("-" * 100)
 
-        print(
-            "Date    : "
-            + result["date"].strftime(
-                "%d/%m/%Y %H:%M"
-            )
-        )
+        print("Date    : " + result["date"].strftime("%d/%m/%Y %H:%M"))
 
-        print(
-            f"Boîte   : {result['mailbox']}"
-        )
+        print(f"Boîte   : {result['mailbox']}")
 
-        print(
-            f"De      : {result['from']}"
-        )
+        print(f"De      : {result['from']}")
 
-        print(
-            f"Sujet   : {result['subject']}"
-        )
+        print(f"Sujet   : {result['subject']}")
 
-        print(
-            f"Statut  : "
-            f"{STATUS_LABELS[result['status']]}"
-            f" [{result['status']}]"
-        )
+        print(f"Statut  : {STATUS_LABELS[result['status']]} [{result['status']}]")
 
-        print(
-            f"Score   : {result['score']}"
-        )
+        print(f"Score   : {result['score']}")
 
         if result["message_id"]:
-            print(
-                f"ID      : "
-                f"{result['message_id']}"
-            )
+            print(f"ID      : {result['message_id']}")
 
-        print(
-            "Raisons : "
-            + ", ".join(
-                result["reasons"]
-            )
-        )
+        print("Raisons : " + ", ".join(result["reasons"]))
 
     print()
     print("=" * 100)
     print("📊 RÉSUMÉ")
     print("=" * 100)
 
-    print(
-        f"Total : {len(all_results)}"
-    )
+    print(f"Total : {len(all_results)}")
 
     for status, label in STATUS_LABELS.items():
-
-        count = status_counter[
-            status
-        ]
+        count = status_counter[status]
 
         if count:
-            print(
-                f"{label:<25} : {count}"
-            )
+            print(f"{label:<25} : {count}")
 
     print("=" * 100)
 

@@ -1,9 +1,7 @@
 import re
-
 from email.utils import parseaddr
 
 from app.classifier import normalize
-
 
 COMPANY_PREFIX_PATTERNS = [
     r"^équipe de recrutement de\s+",
@@ -30,16 +28,10 @@ COMPANY_SUFFIX_PATTERNS = [
 
 
 def clean_text(text: str) -> str:
-    return re.sub(
-        r"\s+",
-        " ",
-        text,
-    ).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
 
-def looks_like_person_name(
-    text: str,
-) -> bool:
+def looks_like_person_name(text: str) -> bool:
     text = clean_text(text)
 
     if not text:
@@ -64,93 +56,50 @@ def looks_like_person_name(
         "human",
     }
 
-    normalized_words = {
-        word.casefold()
-        for word in words
-    }
+    normalized_words = {word.casefold() for word in words}
 
     if normalized_words & business_words:
         return False
 
-    return all(
-        word[0].isalpha()
-        for word in words
-        if word
-    )
+    return all(word[0].isalpha() for word in words if word)
 
 
-def normalize_company_name(
-    company: str,
-) -> str:
+def normalize_company_name(company: str) -> str:
     company = clean_text(company)
 
     if not company:
         return "Entreprise inconnue"
 
-    company = re.sub(
-        r"^(?:re|fw|fwd)\s*:\s*",
-        "",
-        company,
-        flags=re.IGNORECASE,
-    ).strip()
+    company = re.sub(r"^(?:re|fw|fwd)\s*:\s*", "", company, flags=re.IGNORECASE).strip()
 
     for pattern in COMPANY_PREFIX_PATTERNS:
-        company = re.sub(
-            pattern,
-            "",
-            company,
-            flags=re.IGNORECASE,
-        ).strip()
+        company = re.sub(pattern, "", company, flags=re.IGNORECASE).strip()
 
     for pattern in COMPANY_SUFFIX_PATTERNS:
-        company = re.sub(
-            pattern,
-            "",
-            company,
-            flags=re.IGNORECASE,
-        ).strip()
+        company = re.sub(pattern, "", company, flags=re.IGNORECASE).strip()
 
     if " - " in company:
-        left, right = company.rsplit(
-            " - ",
-            1,
-        )
+        left, right = company.rsplit(" - ", 1)
 
         if looks_like_person_name(left):
             company = right.strip()
 
-    company = re.sub(
-        r"\s+",
-        " ",
-        company,
-    ).strip(" -–—")
+    company = re.sub(r"\s+", " ", company).strip(" -–—")
 
     return company
 
 
-def company_key(
-    company: str,
-) -> str:
-    company = normalize_company_name(
-        company
-    )
+def company_key(company: str) -> str:
+    company = normalize_company_name(company)
 
-    company = normalize(
-        company
-    )
+    company = normalize(company)
 
-    company = re.sub(
-        r"[^a-z0-9]",
-        "",
-        company,
-    )
+    company = re.sub(r"[^a-z0-9]", "", company)
 
     return company
 
 
-def extract_source(
-    sender: str,
-) -> str:
+def extract_source(sender: str) -> str:
     sender_lower = sender.casefold()
 
     if "hellowork" in sender_lower:
@@ -186,10 +135,7 @@ def extract_source(
     return "Direct"
 
 
-def extract_company(
-    subject: str,
-    sender: str,
-) -> str:
+def extract_company(subject: str, sender: str) -> str:
     subject = clean_text(subject)
 
     patterns = [
@@ -204,27 +150,17 @@ def extract_company(
     ]
 
     for pattern in patterns:
-        match = re.search(
-            pattern,
-            subject,
-            flags=re.IGNORECASE,
-        )
+        match = re.search(pattern, subject, flags=re.IGNORECASE)
 
         if match:
-            return clean_text(
-                match.group(1)
-            )
+            return clean_text(match.group(1))
 
     match = re.match(
-        r"^(.+?)\s*[-–]\s*merci pour votre candidature",
-        subject,
-        flags=re.IGNORECASE,
+        r"^(.+?)\s*[-–]\s*merci pour votre candidature", subject, flags=re.IGNORECASE
     )
 
     if match:
-        return clean_text(
-            match.group(1)
-        )
+        return clean_text(match.group(1))
 
     match = re.match(
         r"^(.+?)\s*[-–]\s*(?:invitation|entretien|convocation)",
@@ -233,81 +169,51 @@ def extract_company(
     )
 
     if match:
-        return clean_text(
-            match.group(1)
-        )
+        return clean_text(match.group(1))
 
-    match = re.match(
-        r"^(.+?)\.jobs\s*[-–]",
-        subject,
-        flags=re.IGNORECASE,
-    )
+    match = re.match(r"^(.+?)\.jobs\s*[-–]", subject, flags=re.IGNORECASE)
 
     if match:
-        return clean_text(
-            match.group(1)
-        )
+        return clean_text(match.group(1))
 
-    display_name, email_address = parseaddr(
-        sender
-    )
+    display_name, email_address = parseaddr(sender)
 
     if display_name:
-        company = clean_text(
-            display_name
-        )
+        company = clean_text(display_name)
 
         if company:
             return company
 
     if "@" in email_address:
-        domain = email_address.split(
-            "@",
-            1,
-        )[1]
+        domain = email_address.split("@", 1)[1]
 
-        domain = domain.split(
-            ".",
-        )[0]
+        domain = domain.split(".")[0]
 
         return domain.capitalize()
 
     return "Entreprise inconnue"
 
-def normalize_job_title_for_scoring(
-    title: str,
-) -> str:
-    title = normalize(
-        title
-    )
+
+def normalize_job_title_for_scoring(title: str) -> str:
+    title = normalize(title)
 
     # Normalisation de quelques écritures inclusives
     title = re.sub(
-        r"([a-z]+)·(?:e|se|te|ne|re|le|ve)\b",
-        r"\1",
-        title,
-        flags=re.IGNORECASE,
+        r"([a-z]+)·(?:e|se|te|ne|re|le|ve)\b", r"\1", title, flags=re.IGNORECASE
     )
 
     title = re.sub(
-        r"([a-z]+)\.(?:e|se|te|ne|re|le|ve)\b",
-        r"\1",
-        title,
-        flags=re.IGNORECASE,
+        r"([a-z]+)\.(?:e|se|te|ne|re|le|ve)\b", r"\1", title, flags=re.IGNORECASE
     )
 
     title = re.sub(
-        r"([a-z]+)-(?:e|se|te|ne|re|le|ve)\b",
-        r"\1",
-        title,
-        flags=re.IGNORECASE,
+        r"([a-z]+)-(?:e|se|te|ne|re|le|ve)\b", r"\1", title, flags=re.IGNORECASE
     )
 
     return title
 
-def clean_job_title(
-    title: str,
-) -> str:
+
+def clean_job_title(title: str) -> str:
     title = clean_text(title)
 
     prefixes = [
@@ -324,17 +230,21 @@ def clean_job_title(
         r"^.+?\s+merci d'avoir postule pour le poste\s+",
     ]
 
-    for pattern in prefixes:
-        title = re.sub(
-            pattern,
-            "",
-            title,
-            flags=re.IGNORECASE,
-        ).strip()
+    cut_patterns = [
+        r"\s+et vous contact",
+        r"\s+et nous",
+        r"\s+nous vous",
+        r"\s+merci de",
+        r"\s+pour rejoindre",
+    ]
 
-    title = title.strip(
-        " :-–—|.,"
-    )
+    for pattern in cut_patterns:
+        title = re.split(pattern, title, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+
+    for pattern in prefixes:
+        title = re.sub(pattern, "", title, flags=re.IGNORECASE).strip()
+
+    title = title.strip(" :-–—|.,")
 
     if len(title) < 4:
         return ""
@@ -356,15 +266,16 @@ def clean_job_title(
     if title.casefold() in bad_titles:
         return ""
 
+    # Nettoyage HTML résiduel
+    title = re.sub(r"<[^>]+>", " ", title)
+
+    title = re.sub(r"\s+", " ", title).strip()
+
     return title
 
 
-def job_title_score(
-    title: str,
-) -> int:
-    title = clean_job_title(
-        title
-    )
+def job_title_score(title: str) -> int:
+    title = clean_job_title(title)
 
     if not title:
         return 0
@@ -404,16 +315,9 @@ def job_title_score(
         "network",
     }
 
-    normalized_title = normalize_job_title_for_scoring(
-        title
-    )
+    normalized_title = normalize_job_title_for_scoring(title)
 
-    normalized_words = {
-        word.strip(
-            "()/-"
-        )
-        for word in normalized_title.split()
-    }
+    normalized_words = {word.strip("()/-") for word in normalized_title.split()}
 
     if normalized_words & useful_words:
         score += 3
@@ -421,40 +325,27 @@ def job_title_score(
     return score
 
 
-def extract_job_title(
-    subject: str,
-    body: str = "",
-) -> str:
-    subject = clean_text(
-        subject
-    )
+def extract_job_title(subject: str, body: str = "") -> str:
+    subject = clean_text(subject)
 
-    body = clean_text(
-        body
-    )
+    body = clean_text(body)
 
     subject_patterns = [
         r"votre candidature\s*:\s*(.+)$",
-
         (
             r"candidature au poste de\s+(.+?)"
             r"(?:\s+n['’]est pas retenue"
             r"|\s+n['’]a pas été retenue|$)"
         ),
-
         r"merci de votre candidature pour être\s+(.+)$",
-
         r"confirmation de votre candidature\s+(.+)$",
-
         (
             r"candidature pour l['’]offre\s+(.+?)"
             r"(?:\s+référence|\s+reference|$)"
         ),
-
         r"entretien téléphonique\s*[-–—]\s*(.+)$",
         r"entretien telephonique\s*[-–—]\s*(.+)$",
         r"entretien technique\s*[-–—]\s*(.+)$",
-
         # English
         r"application for\s+(.+)$",
         r"your application for\s+(.+)$",
@@ -463,56 +354,38 @@ def extract_job_title(
     ]
 
     for pattern in subject_patterns:
-        match = re.search(
-            pattern,
-            subject,
-            flags=re.IGNORECASE,
-        )
+        match = re.search(pattern, subject, flags=re.IGNORECASE)
 
         if match:
-            title = clean_job_title(
-                match.group(1)
-            )
+            title = clean_job_title(match.group(1))
 
             if title:
                 return title
 
     body_patterns = [
         r"intitulé du poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",
-
         r"intitule du poste\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
-
         r"poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",
-
         r"poste de\s+(.{3,120}?)(?:\.|,|référence|reference|$)",
-
         (
             r"candidature au poste de\s+(.{3,120}?)"
             r"(?:\.|,|référence|reference|$)"
         ),
-
         (
             r"vous avez postulé(?:e)? "
             r"(?:au poste de|à l['’]offre)\s+"
             r"(.{3,120}?)(?:\.|,|référence|reference|$)"
         ),
-
         (
             r"votre candidature pour\s+(.{3,120}?)"
             r"(?:\.|,|référence|reference|$)"
         ),
-
         # English
         r"job title\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
-
         r"position\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
-
         r"role\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
-
         r"you applied for\s+(.{3,120}?)(?:\.|,|reference|$)",
-
         r"your application for\s+(.{3,120}?)(?:\.|,|reference|$)",
-
         (
             r"application for the position of\s+"
             r"(.{3,120}?)(?:\.|,|reference|$)"
@@ -520,16 +393,10 @@ def extract_job_title(
     ]
 
     for pattern in body_patterns:
-        match = re.search(
-            pattern,
-            body,
-            flags=re.IGNORECASE,
-        )
+        match = re.search(pattern, body, flags=re.IGNORECASE)
 
         if match:
-            title = clean_job_title(
-                match.group(1)
-            )
+            title = clean_job_title(match.group(1))
 
             if title:
                 return title
@@ -538,30 +405,14 @@ def extract_job_title(
 
 
 def extract_application_data(
-    subject: str,
-    sender: str,
-    body: str = "",
+    subject: str, sender: str, body: str = ""
 ) -> tuple[str, str, str]:
-    company = extract_company(
-        subject,
-        sender,
-    )
+    company = extract_company(subject, sender)
 
-    company = normalize_company_name(
-        company
-    )
+    company = normalize_company_name(company)
 
-    job_title = extract_job_title(
-        subject,
-        body,
-    )
+    job_title = extract_job_title(subject, body)
 
-    source = extract_source(
-        sender
-    )
+    source = extract_source(sender)
 
-    return (
-        company,
-        job_title,
-        source,
-    )
+    return (company, job_title, source)

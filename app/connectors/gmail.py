@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import base64
-import html
-import re
-
 from datetime import datetime
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
@@ -13,30 +10,23 @@ from typing import Any
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-# Les stubs tiers référencent oauth2client.Credentials, absent ici.
-from googleapiclient.discovery import build  # pyright: ignore[reportUnknownVariableType]
 
-from app.classifier import (
-    detect_status,
-    score_message,
+# Les stubs tiers référencent oauth2client.Credentials, absent ici.
+from googleapiclient.discovery import (
+    build,  # pyright: ignore[reportUnknownVariableType]
 )
+
+from app.classifier import detect_status, score_message
+from app.connectors.common import build_email_message as _build_email_message
+from app.connectors.common import html_to_text as _html_to_text
+from app.mail_filters import should_analyze_email
 from app.models import DetectedEmail
 
-from app.mail_filters import (
-    should_analyze_email,
-)
+SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-]
+CREDENTIALS_FILE = Path("credentials.json")
 
-CREDENTIALS_FILE = Path(
-    "credentials.json"
-)
-
-TOKEN_FILE = Path(
-    "token.json"
-)
+TOKEN_FILE = Path("token.json")
 
 
 def get_credentials() -> Credentials:
@@ -45,8 +35,7 @@ def get_credentials() -> Credentials:
     if TOKEN_FILE.exists():
         # google-auth n'annote pas les paramètres filename et scopes.
         credentials = Credentials.from_authorized_user_file(  # pyright: ignore[reportUnknownMemberType]
-            str(TOKEN_FILE),
-            SCOPES,
+            str(TOKEN_FILE), SCOPES
         )
 
     if (
@@ -61,14 +50,9 @@ def get_credentials() -> Credentials:
         )
 
     if not credentials or not credentials.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(
-            str(CREDENTIALS_FILE),
-            SCOPES,
-        )
+        flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
 
-        credentials = flow.run_local_server(
-            port=0,
-        )
+        credentials = flow.run_local_server(port=0)
 
         TOKEN_FILE.write_text(
             # Le paramètre facultatif strip n'est pas annoté dans google-auth.
@@ -79,253 +63,108 @@ def get_credentials() -> Credentials:
     return credentials
 
 
-def decode_base64_url(
-    data: str,
-) -> str:
+def decode_base64_url(data: str) -> str:
     if not data:
         return ""
 
     try:
-        decoded = base64.urlsafe_b64decode(
-            data + "=" * (-len(data) % 4)
-        )
+        decoded = base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
 
-        return decoded.decode(
-            "utf-8",
-            errors="replace",
-        )
+        return decoded.decode("utf-8", errors="replace")
 
     except Exception:
         return ""
 
 
-def html_to_text(
-    value: str,
-) -> str:
-    value = re.sub(
-        r"<style.*?>.*?</style>",
-        " ",
-        value,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
+def html_to_text(value: str) -> str:
+    """Point d'entrée historique vers la conversion commune."""
+    return _html_to_text(value)
 
-    value = re.sub(
-        r"<script.*?>.*?</script>",
-        " ",
-        value,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
 
-    value = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        value,
-        flags=re.IGNORECASE,
-    )
+def extract_body(payload: dict[str, Any]) -> str:
 
-    value = re.sub(
-        r"</p>",
-        "\n",
-        value,
-        flags=re.IGNORECASE,
-    )
+    mime_type = str(payload.get("mimeType", "")).casefold()
 
-    value = re.sub(
-        r"<[^>]+>",
-        " ",
-        value,
-    )
+    body = payload.get("body", {})
 
-    value = html.unescape(
-        value
-    )
-
-    value = re.sub(
-        r"[ \t]+",
-        " ",
-        value,
-    )
-
-    value = re.sub(
-        r"\n\s*\n+",
-        "\n\n",
-        value,
-    )
-
-    return value.strip()
-
-def extract_body(
-    payload: dict[str, Any],
-) -> str:
-
-    mime_type = str(
-        payload.get(
-            "mimeType",
-            "",
-        )
-    ).casefold()
-
-    body = payload.get(
-        "body",
-        {},
-    )
-
-    data = body.get(
-        "data",
-        "",
-    )
+    data = body.get("data", "")
 
     if mime_type == "text/plain" and data:
-        return decode_base64_url(
-            data
-        ).strip()
+        return decode_base64_url(data).strip()
 
     if mime_type == "text/html" and data:
-        return html_to_text(
-            decode_base64_url(
-                data
-            )
-        )
+        return html_to_text(decode_base64_url(data))
 
-    parts = payload.get(
-        "parts",
-        [],
-    )
+    parts = payload.get("parts", [])
 
     plain_texts: list[str] = []
     html_texts: list[str] = []
 
     for part in parts:
-        part_mime = str(
-            part.get(
-                "mimeType",
-                "",
-            )
-        ).casefold()
+        part_mime = str(part.get("mimeType", "")).casefold()
 
-        extracted = extract_body(
-            part
-        )
+        extracted = extract_body(part)
 
         if not extracted:
             continue
 
         if part_mime == "text/plain":
-            plain_texts.append(
-                extracted
-            )
+            plain_texts.append(extracted)
 
         elif part_mime == "text/html":
-            html_texts.append(
-                extracted
-            )
+            html_texts.append(extracted)
 
-        elif part_mime.startswith(
-            "multipart/"
-        ):
+        elif part_mime.startswith("multipart/"):
             #
             # Le contenu a déjà été nettoyé
             # récursivement.
             #
-            plain_texts.append(
-                extracted
-            )
+            plain_texts.append(extracted)
 
     if plain_texts:
-        return "\n\n".join(
-            plain_texts
-        ).strip()
+        return "\n\n".join(plain_texts).strip()
 
     if html_texts:
-        return "\n\n".join(
-            html_texts
-        ).strip()
+        return "\n\n".join(html_texts).strip()
 
     return ""
 
-def get_header(
-    headers: list[dict[str, Any]],
-    name: str,
-) -> str:
+
+def get_header(headers: list[dict[str, Any]], name: str) -> str:
     wanted = name.casefold()
 
     for header in headers:
-        header_name = str(
-            header.get(
-                "name",
-                "",
-            )
-        )
+        header_name = str(header.get("name", ""))
 
         if header_name.casefold() == wanted:
-            return str(
-                header.get(
-                    "value",
-                    "",
-                )
-            )
+            return str(header.get("value", ""))
 
     return ""
 
 
-def parse_google_date(
-    value: str,
-) -> datetime:
+def parse_google_date(value: str) -> datetime:
     try:
-        return parsedate_to_datetime(
-            value
-        )
+        return parsedate_to_datetime(value)
 
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         pass
 
     return datetime.now().astimezone()
 
 
 def build_email_message(
-    sender: str,
-    subject: str,
-    date: str,
-    message_id: str,
-    body: str,
+    sender: str, subject: str, date: str, message_id: str, body: str
 ) -> EmailMessage:
-    message = EmailMessage()
-
-    if sender:
-        message["From"] = sender
-
-    if subject:
-        message["Subject"] = subject
-
-    if date:
-        message["Date"] = date
-
-    if message_id:
-        message["Message-ID"] = message_id
-
-    message.set_content(
-        body
-    )
-
-    return message
+    return _build_email_message(sender, subject, message_id, body, date=date)
 
 
-def scan_gmail(
-    since: datetime,
-) -> list[DetectedEmail]:
+def scan_gmail(since: datetime) -> list[DetectedEmail]:
 
     credentials = get_credentials()
 
-    service: Any = build(
-        "gmail",
-        "v1",
-        credentials=credentials,
-        cache_discovery=False,
-    )
+    service: Any = build("gmail", "v1", credentials=credentials, cache_discovery=False)
 
-    query = (
-        f"after:{since.strftime('%Y/%m/%d')}"
-    )
+    query = f"after:{since.strftime('%Y/%m/%d')}"
 
     detected_emails: list[DetectedEmail] = []
 
@@ -340,25 +179,15 @@ def scan_gmail(
         request = (
             service.users()
             .messages()
-            .list(
-                userId="me",
-                q=query,
-                pageToken=page_token,
-                maxResults=100,
-            )
+            .list(userId="me", q=query, pageToken=page_token, maxResults=100)
         )
 
         result = request.execute()
 
-        messages = result.get(
-            "messages",
-            [],
-        )
+        messages = result.get("messages", [])
 
         for message_ref in messages:
-            gmail_id = message_ref.get(
-                "id"
-            )
+            gmail_id = message_ref.get("id")
 
             if not gmail_id:
                 continue
@@ -368,56 +197,30 @@ def scan_gmail(
             data = (
                 service.users()
                 .messages()
-                .get(
-                    userId="me",
-                    id=gmail_id,
-                    format="full",
-                )
+                .get(userId="me", id=gmail_id, format="full")
                 .execute()
             )
 
-            payload = data.get(
-                "payload",
-                {},
-            )
+            payload = data.get("payload", {})
 
-            headers = payload.get(
-                "headers",
-                [],
-            )
+            headers = payload.get("headers", [])
 
-            sender = get_header(
-                headers,
-                "From",
-            )
+            sender = get_header(headers, "From")
 
-            subject = get_header(
-                headers,
-                "Subject",
-            )
+            subject = get_header(headers, "Subject")
 
-            date_header = get_header(
-                headers,
-                "Date",
-            )
+            date_header = get_header(headers, "Date")
 
-            message_id = get_header(
-                headers,
-                "Message-ID",
-            )
+            message_id = get_header(headers, "Message-ID")
 
             #
             # Certains messages peuvent ne pas avoir
             # de Message-ID RFC.
             #
             if not message_id:
-                message_id = (
-                    f"gmail:{gmail_id}"
-                )
+                message_id = f"gmail:{gmail_id}"
 
-            body = extract_body(
-                payload
-            )
+            body = extract_body(payload)
 
             email_message = build_email_message(
                 sender=sender,
@@ -427,33 +230,20 @@ def scan_gmail(
                 body=body,
             )
 
-            if not should_analyze_email(
-                sender=sender,
-                subject=subject,
-                body=body,
-            ):
+            if not should_analyze_email(sender=sender, subject=subject, body=body):
                 continue
 
-            score, reasons, normalized_body = (
-                score_message(
-                    email_message
-                )
-            )
+            score, reasons, normalized_body = score_message(email_message)
 
             if score < 5:
                 continue
 
-            status = detect_status(
-                subject,
-                normalized_body,
-            )
+            status = detect_status(subject, normalized_body)
 
             detected_emails.append(
                 DetectedEmail(
                     mailbox="Gmail API",
-                    date=parse_google_date(
-                        date_header
-                    ),
+                    date=parse_google_date(date_header),
                     sender=sender,
                     subject=subject,
                     message_id=message_id,
@@ -464,20 +254,13 @@ def scan_gmail(
                 )
             )
 
-        page_token = result.get(
-            "nextPageToken"
-        )
+        page_token = result.get("nextPageToken")
 
         if not page_token:
             break
 
-    print(
-        f"  Parcourus  : {total_seen}"
-    )
+    print(f"  Parcourus  : {total_seen}")
 
-    print(
-        f"  Détectés   : "
-        f"{len(detected_emails)}"
-    )
+    print(f"  Détectés   : {len(detected_emails)}")
 
     return detected_emails
