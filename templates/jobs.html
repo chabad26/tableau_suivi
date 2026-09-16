@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Travaux — Job Tracker{% endblock %}
+{% block content %}
+<div class="page">
+<h1>Scans et réanalyses</h1>
+{% include 'partials/flash_messages.html' %}
+<p>Les travaux sont exécutés dans l'ordre. Une demande identique déjà en attente n'est pas ajoutée deux fois.</p>
+<p>Si un travail reste en attente, lancer <code>.venv/bin/python worker.py</code> dans un terminal. Pour une première connexion ou une reconnexion, suivre les instructions OAuth dans ce terminal.</p>
+<p><a href="{{ url_for('jobs_page') }}">Actualiser</a> · <a href="{{ url_for('connectors_page') }}">Connecteurs</a></p>
+{% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}
+{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:thunderbird': 'Test Thunderbird', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
+{% for job in jobs %}
+<section class="card">
+<h2>{{ kinds.get(job.kind, job.kind) }} — {{ states[job.state] }}</h2>
+<p>Demandé le {{ job.created_at }} UTC</p>
+{% if job.result %}
+<ul>
+{% for key, label in [('detected', 'Emails détectés'), ('added', 'Emails ajoutés'), ('found', 'Emails réanalysés'), ('changed', 'Statuts modifiés'), ('applications_updated', 'Statuts des candidatures actualisés'), ('missing', 'Emails sans corps récupérable')] %}
+{% if key in job.result %}<li>{{ label }} : {{ job.result[key] }}</li>{% endif %}
+{% endfor %}
+</ul>
+{% if job.result.unavailable_sources %}<p role="alert">Résultat partiel. Sources indisponibles : {{ job.result.unavailable_sources|join(', ') }}.</p>{% endif %}
+{% endif %}
+{% if job.error %}<p role="alert">{{ job.error }}</p>{% endif %}
+</section>
+{% else %}<p>Aucun travail demandé.</p>{% endfor %}
+</div>
+{% endblock %}

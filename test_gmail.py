@@ -10,11 +10,14 @@ from googleapiclient.discovery import (
     build,  # pyright: ignore[reportUnknownVariableType]
 )
 
+from app.settings import GMAIL_CREDENTIALS_FILE, GMAIL_TOKEN_FILE
+
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-CREDENTIALS_FILE = Path("credentials.json")
 
-TOKEN_FILE = Path("token.json")
+CREDENTIALS_FILE = GMAIL_CREDENTIALS_FILE
+
+TOKEN_FILE = GMAIL_TOKEN_FILE
 
 
 def get_credentials() -> Credentials:
@@ -23,7 +26,7 @@ def get_credentials() -> Credentials:
     if TOKEN_FILE.exists():
         # google-auth n'annote pas les paramètres filename et scopes.
         credentials = Credentials.from_authorized_user_file(  # pyright: ignore[reportUnknownMemberType]
-            TOKEN_FILE, SCOPES
+            str(TOKEN_FILE), SCOPES
         )
 
     if (
@@ -42,6 +45,7 @@ def get_credentials() -> Credentials:
 
         credentials = flow.run_local_server(port=0)
 
+        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
         TOKEN_FILE.write_text(
             # Le paramètre facultatif strip n'est pas annoté dans google-auth.
             credentials.to_json(),  # pyright: ignore[reportUnknownMemberType]

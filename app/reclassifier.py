@@ -1,7 +1,7 @@
 import mailbox
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.classifier import decode_text, detect_status, score_message
 from app.database import get_connection, update_application_from_analysis
@@ -52,7 +52,7 @@ def reanalyse_email(
 
         changed = str(row["detected_status"]) != new_status
 
-        if changed:
+        if changed or body:
             connection.execute(
                 """
                 UPDATE emails
@@ -183,6 +183,8 @@ def recompute_application_statuses() -> int:
             for email in emails:
                 try:
                     email_date = datetime.fromisoformat(str(email["received_at"]))
+                    if email_date.tzinfo is None:
+                        email_date = email_date.replace(tzinfo=timezone.utc)
                 except ValueError:
                     continue
 
@@ -216,7 +218,7 @@ def recompute_application_statuses() -> int:
     return updated
 
 
-def reclassify_emails() -> ReclassifyResult:
+def reclassify_mailboxes() -> ReclassifyResult:
     """
     Recherche les emails connus dans les boîtes Thunderbird
     et leur applique les règles actuelles de detect_status().
@@ -323,3 +325,50 @@ def reclassify_emails() -> ReclassifyResult:
         applications_updated=applications_updated,
         missing=len(missing),
     )
+
+
+def reclassify_emails() -> ReclassifyResult:
+    """Réanalyse le contenu archivé de toutes les sources, sans OAuth.
+
+    Les anciens messages sans corps sont recherchés dans les mbox en secours.
+    Les messages sans contenu récupérable sont comptés comme manquants.
+    """
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT message_id, subject, sender, body FROM emails ORDER BY received_at, id"
+        ).fetchall()
+    pending = {str(row["message_id"]) for row in rows if not row["body"]}
+    recovered: dict[str, tuple[str, str, str]] = {}
+    if pending:
+        for path in MAILBOXES.values():
+            if not path.exists():
+                continue
+            with closing(mailbox.mbox(str(path), create=False)) as messages:
+                for message in messages:
+                    message_id = decode_text(message.get("Message-ID"))
+                    if message_id in pending and message_id not in recovered:
+                        _, _, body = score_message(message)
+                        if body:
+                            recovered[message_id] = (
+                                decode_text(message.get("Subject")),
+                                decode_text(message.get("From")),
+                                body,
+                            )
+    found = changed = 0
+    for row in rows:
+        message_id = str(row["message_id"])
+        if row["body"]:
+            content = (
+                str(row["subject"] or ""),
+                str(row["sender"] or ""),
+                str(row["body"]),
+            )
+        elif message_id in recovered:
+            content = recovered[message_id]
+        else:
+            continue
+        found += 1
+        status_changed, _, _ = reanalyse_email(message_id, *content)
+        changed += int(status_changed)
+    updated = recompute_application_statuses()
+    return ReclassifyResult(len(rows), found, changed, updated, len(rows) - found)

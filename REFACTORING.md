@@ -41,6 +41,8 @@ Pyright est configuré en mode **basic**. Ce contrôle ne constitue pas une vali
 
 ## Modifications encore possibles
 
+**Mise à jour :** la configuration unifiée, les travaux hors requête HTTP, la réanalyse multi-source et la stratégie de suppression SQLite ont depuis été implémentés. Voir [EVOLUTIONS.md](EVOLUTIONS.md). La liste ci-dessous conserve le bilan initial.
+
 Ces évolutions ne sont pas incluses dans cette refactorisation.
 
 1. **Initialisation Flask indépendante du lancement** : introduire `create_app()` et des Blueprints, puis garantir l'initialisation du schéma également avec `flask run` ou un serveur WSGI.

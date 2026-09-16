@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,7 @@ class ImportResult:
     detected: int
     added: int
     processed: int
+    unavailable_sources: list[str] = field(default_factory=list)
 
 
 def deduplicate_emails(emails: list[DetectedEmail]) -> list[DetectedEmail]:
@@ -59,7 +60,8 @@ def import_emails() -> ImportResult:
     #
     # 2. APIs / connecteurs externes
     #
-    detected_emails.extend(scan_external_connectors(START_DATE))
+    errors: list[str] = []
+    detected_emails.extend(scan_external_connectors(START_DATE, errors=errors))
 
     #
     # 3. Déduplication inter-connecteurs
@@ -100,4 +102,9 @@ def import_emails() -> ImportResult:
         added += 1
         processed += 1
 
-    return ImportResult(detected=len(detected_emails), added=added, processed=processed)
+    return ImportResult(
+        detected=len(detected_emails),
+        added=added,
+        processed=processed,
+        unavailable_sources=errors,
+    )

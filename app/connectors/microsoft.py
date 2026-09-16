@@ -15,17 +15,15 @@ from app.connectors.common import build_email_message as _build_email_message
 from app.connectors.common import html_to_text as _html_to_text
 from app.mail_filters import should_analyze_email
 from app.models import DetectedEmail
-from app.settings import ENV_FILE
+from app.settings import (
+    MICROSOFT_AUTHORITY,
+    MICROSOFT_CLIENT_ID,
+    MICROSOFT_TOKEN_CACHE_FILE,
+)
 
-load_dotenv(ENV_FILE)
-
-MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID", "")
-
-AUTHORITY = "https://login.microsoftonline.com/common"
-
+AUTHORITY = MICROSOFT_AUTHORITY
 SCOPES = ["Mail.Read"]
-
-TOKEN_CACHE_FILE = Path("microsoft_token_cache.json")
+TOKEN_CACHE_FILE = MICROSOFT_TOKEN_CACHE_FILE
 
 
 def html_to_text(value: str) -> str:
@@ -46,6 +44,7 @@ def save_cache(cache: msal.SerializableTokenCache) -> None:
     if not cache.has_state_changed:
         return
 
+    TOKEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     TOKEN_CACHE_FILE.write_text(cache.serialize(), encoding="utf-8")
 
 

@@ -6,7 +6,9 @@ from app.connectors.microsoft import MICROSOFT_CLIENT_ID, scan_microsoft
 from app.models import DetectedEmail
 
 
-def scan_external_connectors(since: datetime) -> list[DetectedEmail]:
+def scan_external_connectors(
+    since: datetime, errors: list[str] | None = None
+) -> list[DetectedEmail]:
 
     emails: list[DetectedEmail] = []
 
@@ -24,6 +26,8 @@ def scan_external_connectors(since: datetime) -> list[DetectedEmail]:
             emails.extend(connector.scan(since))
         except Exception as error:
             print()
-            print(f"⚠ {connector.name} indisponible : {error}")
+            print(f"⚠ {connector.name} indisponible ({type(error).__name__})")
+            if errors is not None:
+                errors.append(connector.name)
 
     return emails

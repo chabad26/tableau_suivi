@@ -6,9 +6,7 @@ from pathlib import Path
 
 from app.extractor import clean_job_title, company_key, job_title_score
 from app.models import DetectedEmail
-
-DATABASE_PATH = Path("data/job_tracker.db")
-
+from app.settings import DATABASE_PATH
 
 # Connexion et migrations
 
@@ -18,6 +16,8 @@ def get_connection() -> sqlite3.Connection:
 
     connection = sqlite3.connect(DATABASE_PATH)
 
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout = 10000")
     connection.row_factory = sqlite3.Row
 
     return connection
@@ -100,6 +100,29 @@ def init_database() -> None:
         )
 
         ensure_column(connection, "emails", "body", "TEXT")
+
+        # Répare les anciennes références sans supprimer les messages.
+        connection.execute("""
+            UPDATE emails SET application_id = NULL
+            WHERE application_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM applications WHERE id = emails.application_id)
+        """)
+        # Compatibilité avec les anciennes tables sans contrainte FK :
+        # mêmes garanties sans reconstruire ni perdre des colonnes historiques.
+        connection.execute("""
+            CREATE TRIGGER IF NOT EXISTS detach_application_emails
+            BEFORE DELETE ON applications BEGIN
+                UPDATE emails SET application_id = NULL WHERE application_id = OLD.id;
+            END
+        """)
+        for operation in ("INSERT", "UPDATE"):
+            connection.execute(f"""
+                CREATE TRIGGER IF NOT EXISTS emails_application_{operation.lower()}
+                BEFORE {operation} ON emails
+                WHEN NEW.application_id IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM applications WHERE id = NEW.application_id)
+                BEGIN SELECT RAISE(ABORT, 'Unknown application'); END
+            """)
 
         connection.commit()
 

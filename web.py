@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import datetime
 from io import BytesIO, StringIO
 from zoneinfo import ZoneInfo
@@ -31,6 +32,7 @@ from app.database import (
 )
 from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
 from app.importer import import_emails
+from app.jobs import enqueue, init_jobs, list_jobs
 from app.presentation import (
     PreparedApplication,
     application_statistics,
@@ -39,12 +41,12 @@ from app.presentation import (
 from app.presentation import format_datetime as _format_datetime
 from app.reclassifier import reclassify_emails
 from app.scanner import scan_all_mailboxes
-from app.settings import API_START_DATE
+from app.settings import API_START_DATE, SECRET_KEY
 from app.statuses import STATUS_LABELS, STATUS_ORDER
 
 app = Flask(__name__)
 
-app.secret_key = "dev-secret-key"
+app.secret_key = SECRET_KEY
 
 CONNECTOR_TEST_START_DATE = API_START_DATE
 
@@ -226,54 +228,34 @@ def delete_application_web(application_id: int):
 # Import et réanalyse
 
 
+@app.before_request
+def ensure_storage():
+    init_database()
+    init_jobs()
+
+
+def submit_job(kind: str):
+    enqueue(kind)
+    flash("Travail enregistré. Son avancement est disponible ci-dessous.", "info")
+    return redirect(url_for("jobs_page"), code=303)
+
+
+@app.get("/jobs")
+def jobs_page():
+    jobs = [dict(row) for row in list_jobs()]
+    for job in jobs:
+        job["result"] = json.loads(job["result"]) if job["result"] else {}
+    return render_template("jobs.html", jobs=jobs)
+
+
 @app.route("/scan", methods=["POST"])
 def scan_emails_web():
-    result = import_emails()
-
-    if result.added:
-        flash(
-            (
-                f"Scan terminé : "
-                f"{result.added} nouveau(x) mail(s) importé(s) "
-                f"sur {result.detected} détecté(s)."
-            ),
-            "success",
-        )
-    else:
-        flash(
-            (
-                f"Scan terminé : aucun nouveau mail. "
-                f"{result.detected} mail(s) pertinent(s) détecté(s)."
-            ),
-            "info",
-        )
-
-    return redirect(url_for("index"))
+    return submit_job("scan")
 
 
 @app.route("/reclassify", methods=["POST"])
 def reclassify_emails_web():
-    result = reclassify_emails()
-
-    if result.changed or result.applications_updated:
-        flash(
-            (
-                f"Reclassification terminée : "
-                f"{result.changed} mail(s) reclassifié(s), "
-                f"{result.applications_updated} candidature(s) mise(s) à jour."
-            ),
-            "success",
-        )
-    else:
-        flash(
-            (
-                f"Reclassification terminée : "
-                f"aucun changement sur {result.found} mail(s) retrouvé(s)."
-            ),
-            "info",
-        )
-
-    return redirect(url_for("index"))
+    return submit_job("reclassify")
 
 
 # Exports
@@ -342,82 +324,16 @@ def connectors_page():
 
 @app.post("/connectors/<connector_key>/test")
 def test_connector(connector_key: str):
-    try:
-        if connector_key == "thunderbird":
-            emails = scan_all_mailboxes()
-
-            flash(
-                (
-                    "Thunderbird opérationnel : "
-                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
-                ),
-                "success",
-            )
-
-        elif connector_key == "gmail":
-            emails = scan_gmail(CONNECTOR_TEST_START_DATE)
-
-            flash(
-                (
-                    "Gmail opérationnel : "
-                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
-                ),
-                "success",
-            )
-
-        elif connector_key == "microsoft":
-            emails = scan_microsoft(CONNECTOR_TEST_START_DATE)
-
-            flash(
-                (
-                    "Microsoft Graph opérationnel : "
-                    f"{len(emails)} mail(s) pertinent(s) détecté(s)."
-                ),
-                "success",
-            )
-
-        else:
-            flash("Connecteur inconnu.", "info")
-
-    except Exception as error:
-        flash((f"Erreur avec {connector_key} : {error}"), "error")
-
-    return redirect(url_for("connectors_page"))
+    if connector_key not in {"thunderbird", "gmail", "microsoft"}:
+        abort(404)
+    return submit_job(f"test:{connector_key}")
 
 
 @app.post("/connectors/<connector_key>/reconnect")
 def reconnect_connector(connector_key: str):
-    try:
-        if connector_key == "gmail":
-            TOKEN_FILE.unlink(missing_ok=True)
-
-            emails = scan_gmail(CONNECTOR_TEST_START_DATE)
-
-            flash(
-                (f"Gmail reconnecté avec succès : {len(emails)} mail(s) pertinent(s)."),
-                "success",
-            )
-
-        elif connector_key == "microsoft":
-            TOKEN_CACHE_FILE.unlink(missing_ok=True)
-
-            emails = scan_microsoft(CONNECTOR_TEST_START_DATE)
-
-            flash(
-                (
-                    "Microsoft reconnecté avec succès : "
-                    f"{len(emails)} mail(s) pertinent(s)."
-                ),
-                "success",
-            )
-
-        else:
-            flash("Ce connecteur ne nécessite pas de reconnexion.", "info")
-
-    except Exception as error:
-        flash((f"Reconnexion impossible : {error}"), "error")
-
-    return redirect(url_for("connectors_page"))
+    if connector_key not in {"gmail", "microsoft"}:
+        abort(404)
+    return submit_job(f"reconnect:{connector_key}")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 
 from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE
-from app.connectors.microsoft import TOKEN_CACHE_FILE
+from app.connectors.microsoft import MICROSOFT_CLIENT_ID, TOKEN_CACHE_FILE
 
 
 @dataclass
@@ -22,7 +22,7 @@ def get_connector_statuses() -> list[ConnectorStatus]:
 
     gmail_token = TOKEN_FILE.exists()
 
-    microsoft_client_id = bool(os.getenv("MICROSOFT_CLIENT_ID", ""))
+    microsoft_client_id = bool(MICROSOFT_CLIENT_ID)
 
     microsoft_token = TOKEN_CACHE_FILE.exists()
 

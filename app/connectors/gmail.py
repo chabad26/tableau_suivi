@@ -21,12 +21,14 @@ from app.connectors.common import build_email_message as _build_email_message
 from app.connectors.common import html_to_text as _html_to_text
 from app.mail_filters import should_analyze_email
 from app.models import DetectedEmail
+from app.settings import GMAIL_CREDENTIALS_FILE, GMAIL_TOKEN_FILE
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-CREDENTIALS_FILE = Path("credentials.json")
 
-TOKEN_FILE = Path("token.json")
+CREDENTIALS_FILE = GMAIL_CREDENTIALS_FILE
+
+TOKEN_FILE = GMAIL_TOKEN_FILE
 
 
 def get_credentials() -> Credentials:
@@ -54,11 +56,12 @@ def get_credentials() -> Credentials:
 
         credentials = flow.run_local_server(port=0)
 
-        TOKEN_FILE.write_text(
-            # Le paramètre facultatif strip n'est pas annoté dans google-auth.
-            credentials.to_json(),  # pyright: ignore[reportUnknownMemberType]
-            encoding="utf-8",
-        )
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TOKEN_FILE.write_text(
+        # Le paramètre facultatif strip n'est pas annoté dans google-auth.
+        credentials.to_json(),  # pyright: ignore[reportUnknownMemberType]
+        encoding="utf-8",
+    )
 
     return credentials
 

@@ -11,7 +11,10 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import TypedDict
 
+from app.settings import MAILBOX_START_DATE, configured_mailboxes
+
 PROFILE = Path("/home/oliv/snap/thunderbird/common/.thunderbird/jzmiasv2.default")
+
 
 MAILBOXES: dict[str, Path] = {
     "Gmail": PROFILE / "ImapMail/imap.gmail.com/INBOX",
@@ -20,7 +23,8 @@ MAILBOXES: dict[str, Path] = {
     "OVH": PROFILE / "ImapMail/ssl0.ovh.net/INBOX",
 }
 
-START_DATE = datetime(2026, 8, 1, 0, 0, 0, tzinfo=timezone.utc)
+MAILBOXES = configured_mailboxes(MAILBOXES)
+START_DATE = MAILBOX_START_DATE
 
 
 POSITIVE_KEYWORDS = [

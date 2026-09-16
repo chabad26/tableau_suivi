@@ -1,3 +1,9 @@
+## Évolutions : configuration et scans en arrière-plan
+
+Les scans nécessitent désormais un worker dans un second terminal : `.venv/bin/python worker.py`. Le serveur se lance toujours avec `.venv/bin/python web.py`.
+
+Voir [configuration, lancement et fonctionnement](EVOLUTIONS.md) et [.env.example](.env.example). Les travaux se suivent depuis **Travaux en cours** dans l'interface.
+
 📬 Job Tracker
 
 ## État du code au 16 septembre 2026

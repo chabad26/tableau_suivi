@@ -7,13 +7,19 @@ from typing import Any
 import msal
 import requests
 
-CLIENT_ID = "9be3a7c9-53f7-4f6b-a319-491582e9ede8"
+from app.settings import (
+    MICROSOFT_AUTHORITY,
+    MICROSOFT_CLIENT_ID,
+    MICROSOFT_TOKEN_CACHE_FILE,
+)
 
-AUTHORITY = "https://login.microsoftonline.com/common"
+CLIENT_ID = MICROSOFT_CLIENT_ID
+
+AUTHORITY = MICROSOFT_AUTHORITY
 
 SCOPES = ["Mail.Read"]
 
-TOKEN_CACHE_FILE = Path("microsoft_token_cache.json")
+TOKEN_CACHE_FILE = MICROSOFT_TOKEN_CACHE_FILE
 
 
 def load_cache() -> msal.SerializableTokenCache:
@@ -29,10 +35,13 @@ def save_cache(cache: msal.SerializableTokenCache) -> None:
     if not cache.has_state_changed:
         return
 
+    TOKEN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     TOKEN_CACHE_FILE.write_text(cache.serialize(), encoding="utf-8")
 
 
 def get_access_token() -> str:
+    if not CLIENT_ID:
+        raise RuntimeError("MICROSOFT_CLIENT_ID non configuré dans .env.")
     cache = load_cache()
 
     app = msal.PublicClientApplication(
