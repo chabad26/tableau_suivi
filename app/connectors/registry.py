@@ -4,7 +4,15 @@ from app.connectors.base import ConnectorSpec
 from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE, scan_gmail
 from app.connectors.microsoft import MICROSOFT_CLIENT_ID, scan_microsoft
 from app.models import DetectedEmail
-
+from app.connectors.imap import (
+    scan_imap,
+)
+from app.settings import (
+    IMAP_ENABLED,
+    IMAP_HOST,
+    IMAP_PASSWORD,
+    IMAP_USERNAME,
+)
 
 def scan_external_connectors(
     since: datetime, errors: list[str] | None = None
@@ -18,6 +26,16 @@ def scan_external_connectors(
             "Gmail", CREDENTIALS_FILE.exists() or TOKEN_FILE.exists(), scan_gmail
         ),
         ConnectorSpec("Microsoft", bool(MICROSOFT_CLIENT_ID), scan_microsoft),
+        ConnectorSpec(
+            "IMAP",
+            (
+                IMAP_ENABLED
+                and bool(IMAP_HOST)
+                and bool(IMAP_USERNAME)
+                and bool(IMAP_PASSWORD)
+            ),
+            scan_imap,
+        ),
     )
     for connector in connectors:
         if not connector.configured:

@@ -33,6 +33,15 @@ body {
   padding: 40px 0 70px;
 }
 
+.app-navigation {
+  width: min(1400px, 94%);
+  margin: 0 auto;
+  padding-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .header {
   margin-bottom: 28px;
 }

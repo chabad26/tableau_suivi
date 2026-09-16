@@ -3,7 +3,21 @@
 import html
 import re
 from email.message import EmailMessage
+from email.header import decode_header, make_header
 
+
+def decode_mime_header(value: str) -> str:
+    if not value:
+        return ""
+
+    try:
+        return str(
+            make_header(
+                decode_header(value)
+            )
+        ).strip()
+    except (LookupError, UnicodeError):
+        return value.strip()
 
 def html_to_text(value: str) -> str:
     """Conserve les règles de nettoyage historiques des deux API."""

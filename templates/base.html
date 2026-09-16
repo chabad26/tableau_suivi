@@ -7,7 +7,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<nav><a href="{{ url_for('index') }}">Candidatures</a> · <a href="{{ url_for('jobs_page') }}">Travaux en cours</a></nav>
+<nav class="app-navigation" aria-label="Navigation principale">
+    <a class="secondary-button" href="{{ url_for('index') }}">Candidatures</a>
+    <a class="secondary-button" href="{{ url_for('jobs_page') }}">Travaux en cours</a>
+</nav>
 {% block content %}{% endblock %}
 {% block scripts %}{% endblock %}
 </body>

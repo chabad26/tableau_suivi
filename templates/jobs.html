@@ -6,7 +6,10 @@
 {% include 'partials/flash_messages.html' %}
 <p>Les travaux sont exécutés dans l'ordre. Une demande identique déjà en attente n'est pas ajoutée deux fois.</p>
 <p>Si un travail reste en attente, lancer <code>.venv/bin/python worker.py</code> dans un terminal. Pour une première connexion ou une reconnexion, suivre les instructions OAuth dans ce terminal.</p>
-<p><a href="{{ url_for('jobs_page') }}">Actualiser</a> · <a href="{{ url_for('connectors_page') }}">Connecteurs</a></p>
+<div class="header-actions">
+    <a class="secondary-button" href="{{ url_for('jobs_page') }}">↻ Actualiser</a>
+    <a class="secondary-button" href="{{ url_for('connectors_page') }}">⚙ Connecteurs</a>
+</div>
 {% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}
 {% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:thunderbird': 'Test Thunderbird', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
 {% for job in jobs %}

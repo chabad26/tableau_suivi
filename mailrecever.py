@@ -195,6 +195,12 @@ def normalize(text: str | None) -> str:
         "\ufeff",
         "\u00ad",
     ]
+    text = re.sub(
+        r"\b(pourrons|pouvons|pourrait|pourra|sera)pas\b",
+        r"\1 pas",
+        text,
+        flags=re.IGNORECASE,
+    )
 
     for char in invisible_chars:
         text = text.replace(char, "")

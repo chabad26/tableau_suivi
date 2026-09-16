@@ -64,3 +64,37 @@ def configured_mailboxes(defaults: dict[str, Path]) -> dict[str, Path]:
         name: path if path.is_absolute() else PROJECT_ROOT / path
         for name, path in paths.items()
     }
+
+IMAP_ENABLED = (
+    os.getenv("IMAP_ENABLED", "false")
+    .strip()
+    .casefold()
+    in {"1", "true", "yes", "on"}
+)
+
+IMAP_HOST = os.getenv(
+    "IMAP_HOST",
+    "",
+).strip()
+
+IMAP_PORT = int(
+    os.getenv(
+        "IMAP_PORT",
+        "993",
+    )
+)
+
+IMAP_USERNAME = os.getenv(
+    "IMAP_USERNAME",
+    "",
+).strip()
+
+IMAP_PASSWORD = os.getenv(
+    "IMAP_PASSWORD",
+    "",
+)
+
+IMAP_FOLDER = os.getenv(
+    "IMAP_FOLDER",
+    "INBOX",
+).strip()
