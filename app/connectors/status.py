@@ -1,11 +1,21 @@
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 
 from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE
 from app.connectors.microsoft import MICROSOFT_CLIENT_ID, TOKEN_CACHE_FILE
+from app.settings import (
+    IMAP_ENABLED,
+    IMAP_HOST,
+    IMAP_PASSWORD,
+    IMAP_USERNAME,
+)
 
+imap_configured = (
+    IMAP_ENABLED
+    and bool(IMAP_HOST)
+    and bool(IMAP_USERNAME)
+    and bool(IMAP_PASSWORD)
+)
 
 @dataclass
 class ConnectorStatus:
@@ -57,6 +67,21 @@ def get_connector_statuses() -> list[ConnectorStatus]:
                 "Connecté"
                 if microsoft_client_id and microsoft_token
                 else ("À connecter" if microsoft_client_id else "Non configuré")
+            ),
+        ),
+        ConnectorStatus(
+            key="imap",
+            name="IMAP",
+            description=(
+                "Connexion générique aux boîtes mail "
+                "SFR, Orange, Free, OVH et autres fournisseurs."
+            ),
+            configured=imap_configured,
+            connected=imap_configured,
+            status=(
+                "Configuré"
+                if imap_configured
+                else "Non configuré"
             ),
         ),
     ]

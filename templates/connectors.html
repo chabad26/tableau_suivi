@@ -84,6 +84,11 @@
                         {% if connector.key == "thunderbird" %}
                             Détection locale
 
+                        
+                        {% elif connector.key == "imap"
+                            and connector.configured %}
+                            Configuration IMAP prête
+                            
                         {% elif connector.connected %}
                             OAuth configuré
 

@@ -12,6 +12,7 @@ KINDS = {
     "test:thunderbird",
     "test:gmail",
     "test:microsoft",
+    "test:imap",
     "reconnect:gmail",
     "reconnect:microsoft",
 }
@@ -60,22 +61,39 @@ def execute(kind: str) -> dict:
     from app.reclassifier import reclassify_emails
     from app.scanner import scan_all_mailboxes
     from app.settings import API_START_DATE
-
+    from app.connectors.imap import scan_imap
     if kind == "scan":
         return asdict(import_emails())
     if kind == "reclassify":
         return asdict(reclassify_emails())
     action, connector = kind.split(":")
     if action == "reconnect":
-        (TOKEN_FILE if connector == "gmail" else TOKEN_CACHE_FILE).unlink(
-            missing_ok=True
-        )
+        if connector == "gmail":
+            TOKEN_FILE.unlink(
+                missing_ok=True
+            )
+
+        elif connector == "microsoft":
+            TOKEN_CACHE_FILE.unlink(
+                missing_ok=True
+            )
+
+        else:
+            raise ValueError(
+                f"Reconnecteur inconnu : {connector}"
+            )
     if connector == "thunderbird":
         emails = scan_all_mailboxes()
     elif connector == "gmail":
         emails = scan_gmail(API_START_DATE)
-    else:
+    elif connector == "imap":
+        emails = scan_imap(API_START_DATE)
+    elif connector == "microsoft":
         emails = scan_microsoft(API_START_DATE)
+    else:
+        raise ValueError(
+            f"Connecteur inconnu : {connector}"
+        )
     return {"detected": len(emails)}
 
 

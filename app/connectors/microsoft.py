@@ -168,18 +168,11 @@ def scan_microsoft(since: datetime) -> list[DetectedEmail]:
             if content_type == "html":
                 body = html_to_text(body)
 
-            #
-            # Filtre générique partagé
-            # avec Gmail.
-            #
-            is_candidate = should_analyze_email(sender, subject, body)
-
-            print(f"{'✅' if is_candidate else '❌'} {subject[:80]}")
-
-            if not is_candidate:
-                continue
-
-            if not should_analyze_email(sender, subject, body):
+            if not should_analyze_email(
+                sender,
+                subject,
+                body,
+            ):
                 continue
 
             email_message = build_email_message(
