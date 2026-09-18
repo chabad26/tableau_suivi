@@ -87,6 +87,27 @@ def init_database() -> None:
         """)
 
         connection.execute("""
+            CREATE TABLE IF NOT EXISTS imap_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                email TEXT UNIQUE NOT NULL,
+                provider TEXT,
+
+                host TEXT NOT NULL,
+                port INTEGER NOT NULL DEFAULT 993,
+                use_ssl INTEGER NOT NULL DEFAULT 1,
+
+                username TEXT NOT NULL,
+                folder TEXT NOT NULL DEFAULT 'INBOX',
+
+                enabled INTEGER NOT NULL DEFAULT 1,
+
+                created_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_applications_company
             ON applications(company)
         """)
@@ -788,3 +809,142 @@ def delete_application(application_id: int) -> None:
         )
 
         connection.commit()
+
+def get_imap_accounts() -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                email,
+                provider,
+                host,
+                port,
+                use_ssl,
+                username,
+                folder,
+                enabled,
+                created_at
+            FROM imap_accounts
+            ORDER BY email
+            """
+        ).fetchall()
+
+        return list(rows)
+
+
+def get_imap_account(
+    account_id: int,
+) -> sqlite3.Row | None:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT *
+            FROM imap_accounts
+            WHERE id = ?
+            """,
+            (account_id,),
+        ).fetchone()
+
+def get_enabled_imap_accounts() -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                email,
+                provider,
+                host,
+                port,
+                use_ssl,
+                username,
+                folder,
+                enabled
+            FROM imap_accounts
+            WHERE enabled = 1
+            ORDER BY email
+            """
+        ).fetchall()
+
+        return list(rows)
+    
+def update_imap_account(
+    account_id: int,
+    email: str,
+    provider: str,
+    host: str,
+    port: int,
+    use_ssl: bool,
+    username: str,
+    folder: str,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE imap_accounts
+            SET
+                email = ?,
+                provider = ?,
+                host = ?,
+                port = ?,
+                use_ssl = ?,
+                username = ?,
+                folder = ?
+            WHERE id = ?
+            """,
+            (
+                email.strip(),
+                provider.strip(),
+                host.strip(),
+                port,
+                1 if use_ssl else 0,
+                username.strip(),
+                folder.strip() or "INBOX",
+                account_id,
+            ),
+        )
+
+        connection.commit()
+
+def create_imap_account(
+    email: str,
+    provider: str,
+    host: str,
+    port: int,
+    use_ssl: bool,
+    username: str,
+    folder: str = "INBOX",
+) -> int:
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO imap_accounts (
+                email,
+                provider,
+                host,
+                port,
+                use_ssl,
+                username,
+                folder
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                email.strip(),
+                provider.strip(),
+                host.strip(),
+                port,
+                1 if use_ssl else 0,
+                username.strip(),
+                folder.strip() or "INBOX",
+            ),
+        )
+
+        connection.commit()
+
+        if cursor.lastrowid is None:
+            raise RuntimeError(
+                "Impossible de créer le compte IMAP."
+            )
+
+        return int(cursor.lastrowid)

@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Connecteurs - Job Tracker{% endblock %}
+{% block title %}
+Connecteurs - Job Tracker
+{% endblock %}
 
 {% block content %}
+
 <div class="page">
 
     <div class="detail-topbar">
@@ -17,6 +20,7 @@
     <header class="header">
 
         <div>
+
             <p class="eyebrow">
                 CONFIGURATION
             </p>
@@ -29,6 +33,16 @@
                 Sources utilisées pour détecter
                 les candidatures.
             </p>
+
+        </div>
+
+        <div>
+            <a
+                href="{{ url_for('add_imap_account') }}"
+                class="primary-button"
+            >
+                + Ajouter une boîte mail
+            </a>
         </div>
 
     </header>
@@ -44,6 +58,7 @@
                 <div class="connector-header">
 
                     <div>
+
                         <h2>
                             {{ connector.name }}
                         </h2>
@@ -51,54 +66,115 @@
                         <p>
                             {{ connector.description }}
                         </p>
+
                     </div>
 
                     <span
                         class="
                             connector-status
+
                             {% if connector.connected %}
                                 connector-connected
+
                             {% elif connector.configured %}
                                 connector-warning
+
                             {% else %}
                                 connector-disabled
+
                             {% endif %}
                         "
                     >
+
                         {% if connector.connected %}
                             ●
+
                         {% elif connector.configured %}
                             ◐
+
                         {% else %}
                             ○
+
                         {% endif %}
 
                         {{ connector.status }}
+
                     </span>
 
                 </div>
 
                 <div class="connector-footer">
 
-                      <div class="connector-info">
+                    <div class="connector-info">
+
                         {% if connector.key == "thunderbird" %}
+
                             Détection locale
 
-                        
                         {% elif connector.key == "imap"
                             and connector.configured %}
+
                             Configuration IMAP prête
-                            
+
                         {% elif connector.connected %}
+
                             OAuth configuré
 
                         {% elif connector.configured %}
+
                             Authentification requise
 
                         {% else %}
+
                             Configuration requise
+
                         {% endif %}
+
                     </div>
+
+
+                    {% if connector.key == "imap"
+                        and imap_accounts %}
+
+                        <div class="imap-account-list">
+
+                            {% for account in imap_accounts %}
+
+                                <div class="imap-account-row">
+
+                                    <div>
+                                        <strong>
+                                            {{ account["email"] }}
+                                        </strong>
+
+                                        <span>
+                                            {{ account["provider"] or "IMAP" }}
+                                        </span>
+
+                                        <span>
+                                            {{ account["host"] }}:{{ account["port"] }}
+                                        </span>
+                                    </div>
+
+                                    <div class="connector-actions">
+                                        <a
+                                            href="{{ url_for(
+                                                'edit_imap_account',
+                                                account_id=account['id']
+                                            ) }}"
+                                            class="secondary-button connector-button"
+                                        >
+                                            Modifier
+                                        </a>
+                                    </div>
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    {% endif %}
+
 
                     <div class="connector-actions">
 
@@ -111,13 +187,40 @@
                                     connector_key=connector.key
                                 ) }}"
                             >
+
                                 <button
                                     type="submit"
                                     class="secondary-button connector-button"
                                 >
                                     Tester le profil
                                 </button>
+
                             </form>
+
+
+                        {% elif connector.key == "imap" %}
+
+                            {% if connector.configured %}
+
+                                <form
+                                    method="post"
+                                    action="{{ url_for(
+                                        'test_connector',
+                                        connector_key=connector.key
+                                    ) }}"
+                                >
+
+                                    <button
+                                        type="submit"
+                                        class="secondary-button connector-button"
+                                    >
+                                        Tester
+                                    </button>
+
+                                </form>
+
+                            {% endif %}
+
 
                         {% else %}
 
@@ -130,12 +233,14 @@
                                         connector_key=connector.key
                                     ) }}"
                                 >
+
                                     <button
                                         type="submit"
                                         class="secondary-button connector-button"
                                     >
                                         Tester
                                     </button>
+
                                 </form>
 
                                 <form
@@ -145,16 +250,20 @@
                                         connector_key=connector.key
                                     ) }}"
                                 >
+
                                     <button
                                         type="submit"
                                         class="secondary-button connector-button"
                                     >
+
                                         {% if connector.connected %}
                                             Reconnecter
                                         {% else %}
                                             Connecter
                                         {% endif %}
+
                                     </button>
+
                                 </form>
 
                             {% endif %}
@@ -162,6 +271,7 @@
                         {% endif %}
 
                     </div>
+
                 </div>
 
             </article>
@@ -171,4 +281,5 @@
     </section>
 
 </div>
+
 {% endblock %}

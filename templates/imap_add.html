@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}
+Ajouter une boîte mail - Job Tracker
+{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <div class="detail-topbar">
+        <a
+            href="{{ url_for('connectors_page') }}"
+            class="back-link"
+        >
+            ← Retour aux connecteurs
+        </a>
+    </div>
+
+    <header class="header">
+
+        <div>
+            <p class="eyebrow">
+                MESSAGERIE
+            </p>
+
+            <h1>
+                Ajouter une boîte mail
+            </h1>
+
+            <p class="subtitle">
+                Détection automatique du fournisseur
+                et configuration IMAP.
+            </p>
+        </div>
+
+    </header>
+
+    {% include "partials/flash_messages.html" %}
+
+    <section class="detail-card">
+
+        <form
+            method="post"
+            action="{{ url_for('detect_imap_account') }}"
+        >
+
+            <div class="form-group">
+
+                <label for="email">
+                    Adresse email
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="{{ email_address }}"
+                    placeholder="exemple@sfr.fr"
+                    required
+                >
+
+            </div>
+
+            <button
+                type="submit"
+                class="secondary-button"
+            >
+                Détecter le fournisseur
+            </button>
+
+        </form>
+
+    </section>
+
+    {% if email_address %}
+
+        <section class="detail-card">
+
+            {% if detected %}
+
+                <h2>
+                    {{ detected.name }}
+                </h2>
+
+                <form
+                    method="post"
+                    action="{{ url_for('save_imap_account') }}"
+                >
+
+                    <input
+                        type="hidden"
+                        name="provider"
+                        value="{{ detected.key }}"
+                    >
+
+                    <div class="form-group">
+                        <label>
+                            Adresse email
+                        </label>
+
+                        <input
+                            type="email"
+                            name="email"
+                            value="{{ email_address }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Serveur IMAP
+                        </label>
+
+                        <input
+                            type="text"
+                            name="host"
+                            value="{{ detected.imap_host }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Port
+                        </label>
+
+                        <input
+                            type="number"
+                            name="port"
+                            value="{{ detected.imap_port }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Identifiant
+                        </label>
+
+                        <input
+                            type="text"
+                            name="username"
+                            value="{{ email_address }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Mot de passe
+                        </label>
+
+                        <input
+                            type="password"
+                            name="password"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Dossier
+                        </label>
+
+                        <input
+                            type="text"
+                            name="folder"
+                            value="INBOX"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="use_ssl"
+                                checked
+                            >
+                            SSL/TLS
+                        </label>
+
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        Enregistrer la boîte
+                    </button>
+
+                </form>
+
+            {% else %}
+
+                <h2>
+                    Fournisseur inconnu
+                </h2>
+
+                <p>
+                    Aucun fournisseur connu pour cette adresse.
+                </p>
+
+                <p>
+                    On ajoutera juste après la saisie manuelle
+                    et la détection OVH par domaine personnalisé.
+                </p>
+
+            {% endif %}
+
+        </section>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

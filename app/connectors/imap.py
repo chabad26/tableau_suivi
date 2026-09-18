@@ -4,11 +4,12 @@ import email
 import imaplib
 import ssl
 import time
-
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
-
+from app.database import get_enabled_imap_accounts
+from app.secrets import get_imap_password
 from app.classifier import (
     detect_status,
     score_message,
@@ -18,6 +19,7 @@ from app.mail_filters import (
 )
 from app.models import DetectedEmail
 from app.settings import (
+    IMAP_ENABLED,
     IMAP_FOLDER,
     IMAP_HOST,
     IMAP_PASSWORD,
@@ -30,6 +32,76 @@ from app.connectors.common import (
     html_to_text,
 
 )
+
+@dataclass(frozen=True)
+class ImapAccount:
+    key: str
+    label: str
+    host: str
+    port: int
+    use_ssl: bool
+    username: str
+    password: str
+    folder: str
+
+def get_imap_accounts() -> list[ImapAccount]:
+    accounts: list[ImapAccount] = []
+
+    for row in get_enabled_imap_accounts():
+        account_id = int(row["id"])
+
+        password = get_imap_password(
+            account_id
+        )
+
+        if not password:
+            print(
+                f"⚠ Mot de passe IMAP absent : "
+                f"{row['email']}"
+            )
+            continue
+
+        accounts.append(
+            ImapAccount(
+                key=f"db:{account_id}",
+                label=str(row["email"]),
+                host=str(row["host"]),
+                port=int(row["port"]),
+                use_ssl=bool(row["use_ssl"]),
+                username=str(row["username"]),
+                password=password,
+                folder=str(
+                    row["folder"]
+                    or "INBOX"
+                ),
+            )
+        )
+
+    # Compatibilité avec l'ancien compte .env.
+    #
+    # Dès qu'on aura migré tous les comptes vers SQLite/keyring,
+    # on pourra supprimer cette partie.
+    if (
+        not accounts
+        and IMAP_ENABLED
+        and IMAP_HOST
+        and IMAP_USERNAME
+        and IMAP_PASSWORD
+    ):
+        accounts.append(
+            ImapAccount(
+                key="legacy-env",
+                label=IMAP_USERNAME,
+                host=IMAP_HOST,
+                port=IMAP_PORT,
+                use_ssl=True,
+                username=IMAP_USERNAME,
+                password=IMAP_PASSWORD,
+                folder=IMAP_FOLDER,
+            )
+        )
+
+    return accounts
 
 def get_message_body(
     message: Message,
@@ -119,64 +191,110 @@ def get_message_body(
 
     return text.strip()
 
-def connect_imap() -> imaplib.IMAP4_SSL:
-    """Réessaie les coupures transitoires avant toute authentification."""
-    context = ssl.create_default_context()
+def connect_imap(
+    account: ImapAccount,
+) -> imaplib.IMAP4:
     for attempt in range(3):
         try:
-            return imaplib.IMAP4_SSL(
-                IMAP_HOST,
-                IMAP_PORT,
-                ssl_context=context,
+            if account.use_ssl:
+                context = ssl.create_default_context()
+
+                return imaplib.IMAP4_SSL(
+                    account.host,
+                    account.port,
+                    ssl_context=context,
+                    timeout=15,
+                )
+
+            return imaplib.IMAP4(
+                account.host,
+                account.port,
                 timeout=15,
             )
+
         except ssl.SSLCertVerificationError:
             raise RuntimeError(
-                "Certificat TLS IMAP non valide. Vérifier le nom du serveur, "
-                "l'heure système et les certificats de confiance."
+                "Certificat TLS IMAP non valide."
             ) from None
-        except (ConnectionResetError, TimeoutError, ssl.SSLEOFError):
+
+        except (
+            ConnectionResetError,
+            TimeoutError,
+            ssl.SSLEOFError,
+        ):
             if attempt == 2:
                 raise RuntimeError(
-                    "Connexion IMAP interrompue ou trop lente avant authentification "
-                    "après 3 tentatives. Vérifier la disponibilité du serveur "
-                    "et le réseau, puis réessayer."
+                    "Connexion IMAP interrompue "
+                    "après 3 tentatives."
                 ) from None
-            time.sleep(attempt + 1)
-    raise RuntimeError("Connexion IMAP impossible.")
 
+            time.sleep(
+                attempt + 1
+            )
+
+    raise RuntimeError(
+        "Connexion IMAP impossible."
+    )
 
 def scan_imap(
     since: datetime,
 ) -> list[DetectedEmail]:
-
     detected: list[DetectedEmail] = []
 
-    connection = connect_imap()
+    accounts = get_imap_accounts()
+
+    for account in accounts:
+        try:
+            detected.extend(
+                scan_imap_account(
+                    account,
+                    since,
+                )
+            )
+
+        except Exception as error:
+            print()
+            print(
+                f"⚠ IMAP {account.label} "
+                f"indisponible "
+                f"({type(error).__name__})"
+            )
+
+    return detected
+
+def scan_imap_account(
+    account: ImapAccount,
+    since: datetime,
+) -> list[DetectedEmail]:
+    detected: list[DetectedEmail] = []
+
+    connection = connect_imap(
+        account
+    )
 
     try:
         connection.login(
-            IMAP_USERNAME,
-            IMAP_PASSWORD,
+            account.username,
+            account.password,
         )
 
         status, _ = connection.select(
-            IMAP_FOLDER,
+            account.folder,
             readonly=True,
         )
 
         if status != "OK":
             raise RuntimeError(
-                f"Dossier IMAP inaccessible : "
-                f"{IMAP_FOLDER}"
+                "Dossier IMAP inaccessible."
             )
 
         imap_date = since.strftime(
             "%d-%b-%Y"
         )
 
-        status, data = connection.search(
-            None,
+        status, data = connection.uid(
+            "search",
+            None,  # type: ignore[arg-type]
             "SINCE",
             imap_date,
         )
@@ -193,15 +311,18 @@ def scan_imap(
         )
 
         print()
-        print("📨 IMAP")
+        print(
+            f"📨 IMAP — {account.label}"
+        )
 
         total_seen = 0
 
-        for imap_id in message_ids:
+        for imap_uid in message_ids:
             total_seen += 1
 
-            status, raw_data = connection.fetch(
-                imap_id,
+            status, raw_data = connection.uid(
+                "fetch",
+                imap_uid,
                 "(RFC822)",
             )
 
@@ -214,6 +335,10 @@ def scan_imap(
                 if (
                     isinstance(item, tuple)
                     and len(item) >= 2
+                    and isinstance(
+                        item[1],
+                        bytes,
+                    )
                 ):
                     raw_message = item[1]
                     break
@@ -243,6 +368,38 @@ def scan_imap(
                 )
             )
 
+            date_header = str(
+                message.get(
+                    "Date",
+                    "",
+                )
+            )
+
+            try:
+                date = parsedate_to_datetime(
+                    date_header
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                date = datetime.now(
+                    timezone.utc
+                )
+
+            if date.tzinfo is None:
+                date = date.replace(
+                    tzinfo=timezone.utc
+                )
+
+            # SINCE travaille à la journée.
+            # On affine ici avec l'heure exacte.
+            if (
+                date.astimezone(timezone.utc)
+                < since.astimezone(timezone.utc)
+            ):
+                continue
+
             message_id = str(
                 message.get(
                     "Message-ID",
@@ -252,8 +409,8 @@ def scan_imap(
 
             if not message_id:
                 message_id = (
-                    f"imap:{IMAP_HOST}:"
-                    f"{imap_id.decode()}"
+                    f"imap:{account.key}:"
+                    f"{imap_uid.decode()}"
                 )
 
             body = get_message_body(
@@ -267,20 +424,22 @@ def scan_imap(
             ):
                 continue
 
-            date_header = str(message.get("Date", ""))
-
-            normalized_message = build_email_message(
-                sender=sender,
-                subject=subject,
-                message_id=message_id,
-                body=body,
-                date=date_header,
+            normalized_message = (
+                build_email_message(
+                    sender=sender,
+                    subject=subject,
+                    message_id=message_id,
+                    body=body,
+                    date=date_header,
+                )
             )
 
-            score, reasons, normalized_body = (
-                score_message(
-                    normalized_message
-                )
+            (
+                score,
+                reasons,
+                normalized_body,
+            ) = score_message(
+                normalized_message
             )
 
             if score < 5:
@@ -291,17 +450,10 @@ def scan_imap(
                 normalized_body,
             )
 
-            try:
-                date = parsedate_to_datetime(date_header)
-            except (TypeError, ValueError):
-                date = datetime.now().astimezone()
-            if date.tzinfo is None:
-                date = date.replace(tzinfo=timezone.utc)
-
             detected.append(
                 DetectedEmail(
                     mailbox=(
-                        f"IMAP {IMAP_HOST}"
+                        f"IMAP {account.label}"
                     ),
                     date=date,
                     sender=sender,

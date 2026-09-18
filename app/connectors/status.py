@@ -17,6 +17,10 @@ imap_configured = (
     and bool(IMAP_PASSWORD)
 )
 
+from app.database import (
+    get_enabled_imap_accounts,
+)
+
 @dataclass
 class ConnectorStatus:
     key: str
@@ -35,7 +39,18 @@ def get_connector_statuses() -> list[ConnectorStatus]:
     microsoft_client_id = bool(MICROSOFT_CLIENT_ID)
 
     microsoft_token = TOKEN_CACHE_FILE.exists()
-
+    imap_accounts = (
+        get_enabled_imap_accounts()
+    )
+    imap_status = (
+        f"{len(imap_accounts)} boîte(s)"
+        if imap_accounts
+        else (
+            "Configuré"
+            if imap_configured
+            else "Non configuré"
+        )
+    )
     return [
         ConnectorStatus(
             key="thunderbird",
@@ -78,10 +93,6 @@ def get_connector_statuses() -> list[ConnectorStatus]:
             ),
             configured=imap_configured,
             connected=imap_configured,
-            status=(
-                "Configuré"
-                if imap_configured
-                else "Non configuré"
-            ),
+            status=imap_status,
         ),
     ]

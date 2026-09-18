@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
+import dns.exception
+import dns.resolver
 
 @dataclass(frozen=True)
 class MailProvider:
@@ -12,6 +13,7 @@ class MailProvider:
     imap_port: int = 993
     use_ssl: bool = True
     username_is_email: bool = True
+    mx_suffixes: tuple[str, ...] = ()
 
 
 MAIL_PROVIDERS: tuple[MailProvider, ...] = (
@@ -63,6 +65,9 @@ MAIL_PROVIDERS: tuple[MailProvider, ...] = (
         name="OVHcloud",
         domains=(),
         imap_host="ssl0.ovh.net",
+        mx_suffixes=(
+            "ovh.net",
+        ),
     ),
 )
 
@@ -93,6 +98,83 @@ def detect_provider(
 
     return None
 
+def get_mx_hosts(
+    email_address: str,
+) -> list[str]:
+    domain = extract_domain(
+        email_address
+    )
+
+    if not domain:
+        return []
+
+    try:
+        answers = dns.resolver.resolve(
+            domain,
+            "MX",
+            lifetime=3.0,
+        )
+
+    except (
+        dns.resolver.NXDOMAIN,
+        dns.resolver.NoAnswer,
+        dns.resolver.NoNameservers,
+        dns.exception.Timeout,
+    ):
+        return []
+
+    hosts: list[str] = []
+
+    for answer in answers:
+        host = str(
+            answer.exchange
+        ).rstrip(
+            "."
+        ).casefold()
+
+        hosts.append(host)
+
+    return hosts
+
+def detect_provider_by_mx(
+    email_address: str,
+) -> MailProvider | None:
+    mx_hosts = get_mx_hosts(
+        email_address
+    )
+
+    for provider in MAIL_PROVIDERS:
+
+        if not provider.mx_suffixes:
+            continue
+
+        for host in mx_hosts:
+
+            if any(
+                host == suffix
+                or host.endswith(
+                    "." + suffix
+                )
+                for suffix
+                in provider.mx_suffixes
+            ):
+                return provider
+
+    return None
+
+def detect_provider_smart(
+    email_address: str,
+) -> MailProvider | None:
+    provider = detect_provider(
+        email_address
+    )
+
+    if provider is not None:
+        return provider
+
+    return detect_provider_by_mx(
+        email_address
+    )
 
 def get_provider(
     key: str,

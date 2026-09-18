@@ -3,7 +3,6 @@ import json
 from datetime import datetime
 from io import BytesIO, StringIO
 from zoneinfo import ZoneInfo
-
 from flask import (
     Flask,
     abort,
@@ -21,15 +20,27 @@ from app.connectors.gmail import TOKEN_FILE, scan_gmail
 from app.connectors.microsoft import TOKEN_CACHE_FILE, scan_microsoft
 from app.connectors.status import get_connector_statuses
 from app.database import (
+    create_imap_account,
     create_manual_application,
     delete_application,
     get_application,
     get_application_emails,
     get_applications,
+    get_imap_accounts,
+    update_imap_account,
     init_database,
     set_manual_status,
     update_application_details,
 )
+from app.mail_providers import (
+    MAIL_PROVIDERS,
+    detect_provider,
+    get_provider,
+    detect_provider_smart,
+
+)
+
+from app.secrets import set_imap_password
 from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
 from app.importer import import_emails
 from app.jobs import enqueue, init_jobs, list_jobs
@@ -63,8 +74,134 @@ def format_datetime(value: str | None) -> str:
     return _format_datetime(value)
 
 
+def get_imap_account(account_id: int):
+    """Return the configured IMAP account identified by ``account_id``."""
+    for account in get_imap_accounts():
+        if int(account["id"]) == account_id:
+            return account
+    return None
+
+
 # Consultation
 
+@app.get("/connectors/imap/add")
+def add_imap_account():
+    return render_template(
+        "imap_add.html",
+        detected=None,
+        email_address="",
+    )
+
+
+@app.post("/connectors/imap/detect")
+def detect_imap_account():
+    email_address = (
+        request.form.get(
+            "email",
+            "",
+        )
+        .strip()
+    )
+
+    provider = detect_provider_smart(
+        email_address
+    )
+
+    return render_template(
+        "imap_add.html",
+        detected=provider,
+        email_address=email_address,
+    )
+
+@app.post("/connectors/imap/add")
+def save_imap_account():
+    email_address = request.form.get(
+        "email",
+        "",
+    ).strip()
+
+    provider_key = request.form.get(
+        "provider",
+        "",
+    ).strip()
+
+    host = request.form.get(
+        "host",
+        "",
+    ).strip()
+
+    username = request.form.get(
+        "username",
+        "",
+    ).strip()
+
+    password = request.form.get(
+        "password",
+        "",
+    )
+
+    folder = (
+        request.form.get(
+            "folder",
+            "INBOX",
+        ).strip()
+        or "INBOX"
+    )
+
+    try:
+        port = int(
+            request.form.get(
+                "port",
+                "993",
+            )
+        )
+    except ValueError:
+        abort(400)
+
+    use_ssl = (
+        request.form.get(
+            "use_ssl"
+        )
+        == "on"
+    )
+
+    if not email_address:
+        abort(400)
+
+    if not host:
+        abort(400)
+
+    if not username:
+        abort(400)
+
+    if not password:
+        abort(400)
+
+    account_id = create_imap_account(
+        email=email_address,
+        provider=provider_key,
+        host=host,
+        port=port,
+        use_ssl=use_ssl,
+        username=username,
+        folder=folder,
+    )
+
+    set_imap_password(
+        account_id,
+        password,
+    )
+
+    flash(
+        "Boîte IMAP ajoutée.",
+        "success",
+    )
+
+    return redirect(
+        url_for(
+            "connectors_page"
+        )
+    )
 
 @app.route("/")
 def index() -> str:
@@ -222,6 +359,115 @@ def delete_application_web(application_id: int):
 
     return redirect(url_for("index"))
 
+@app.get("/connectors/imap/<int:account_id>/edit")
+def edit_imap_account(account_id: int):
+    account = get_imap_account(
+        account_id
+    )
+
+    if account is None:
+        abort(404)
+
+    return render_template(
+        "imap_edit.html",
+        account=account,
+    )
+
+
+@app.post("/connectors/imap/<int:account_id>/edit")
+def update_imap_account_web(
+    account_id: int,
+):
+    account = get_imap_account(
+        account_id
+    )
+
+    if account is None:
+        abort(404)
+
+    email_address = request.form.get(
+        "email",
+        "",
+    ).strip()
+
+    provider = request.form.get(
+        "provider",
+        "",
+    ).strip()
+
+    host = request.form.get(
+        "host",
+        "",
+    ).strip()
+
+    username = request.form.get(
+        "username",
+        "",
+    ).strip()
+
+    password = request.form.get(
+        "password",
+        "",
+    )
+
+    folder = (
+        request.form.get(
+            "folder",
+            "INBOX",
+        ).strip()
+        or "INBOX"
+    )
+
+    try:
+        port = int(
+            request.form.get(
+                "port",
+                "993",
+            )
+        )
+    except ValueError:
+        abort(400)
+
+    use_ssl = (
+        request.form.get("use_ssl")
+        == "on"
+    )
+
+    if not email_address:
+        abort(400)
+
+    if not host:
+        abort(400)
+
+    if not username:
+        abort(400)
+
+    update_imap_account(
+        account_id=account_id,
+        email=email_address,
+        provider=provider,
+        host=host,
+        port=port,
+        use_ssl=use_ssl,
+        username=username,
+        folder=folder,
+    )
+
+    # Vide = on conserve l'ancien mot de passe.
+    if password:
+        set_imap_password(
+            account_id,
+            password,
+        )
+
+    flash(
+        "Boîte IMAP mise à jour.",
+        "success",
+    )
+
+    return redirect(
+        url_for("connectors_page")
+    )
 
 # Import et réanalyse
 
@@ -317,8 +563,13 @@ def export_xlsx():
 def connectors_page():
     connectors = get_connector_statuses()
 
-    return render_template("connectors.html", connectors=connectors)
+    imap_accounts = get_imap_accounts()
 
+    return render_template(
+        "connectors.html",
+        connectors=connectors,
+        imap_accounts=imap_accounts,
+    )
 
 @app.post("/connectors/<connector_key>/test")
 def test_connector(connector_key: str):

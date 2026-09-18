@@ -998,3 +998,49 @@ tbody tr:last-child td {
     flex-direction: column;
   }
 }
+.completion-fill {
+    width: var(--completion);
+}
+.imap-account-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.connector-card {
+    min-height: 250px;
+}
+
+.connector-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.imap-account-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.imap-account-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.6rem;
+}
+
+.imap-account-row > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.connector-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}

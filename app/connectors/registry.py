@@ -13,13 +13,23 @@ from app.settings import (
     IMAP_PASSWORD,
     IMAP_USERNAME,
 )
+from app.database import (
+    get_enabled_imap_accounts,
+)
 
 def scan_external_connectors(
     since: datetime, errors: list[str] | None = None
 ) -> list[DetectedEmail]:
 
     emails: list[DetectedEmail] = []
-
+    imap_configured = bool(
+    get_enabled_imap_accounts()
+    ) or (
+        IMAP_ENABLED
+        and bool(IMAP_HOST)
+        and bool(IMAP_USERNAME)
+        and bool(IMAP_PASSWORD)
+    )
     # L'ordre reste Gmail puis Microsoft. L'échec d'une source n'arrête pas les autres.
     connectors = (
         ConnectorSpec(
@@ -28,12 +38,7 @@ def scan_external_connectors(
         ConnectorSpec("Microsoft", bool(MICROSOFT_CLIENT_ID), scan_microsoft),
         ConnectorSpec(
             "IMAP",
-            (
-                IMAP_ENABLED
-                and bool(IMAP_HOST)
-                and bool(IMAP_USERNAME)
-                and bool(IMAP_PASSWORD)
-            ),
+            imap_configured,
             scan_imap,
         ),
     )
