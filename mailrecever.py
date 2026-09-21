@@ -18,7 +18,6 @@ PROFILE = Path("/home/oliv/snap/thunderbird/common/.thunderbird/jzmiasv2.default
 
 MAILBOXES: dict[str, Path] = {
     "Gmail": PROFILE / "ImapMail/imap.gmail.com/INBOX",
-    "SFR": PROFILE / "ImapMail/imap.sfr.fr/INBOX",
     "Outlook": PROFILE / "ImapMail/outlook.office365.com/INBOX",
     "OVH": PROFILE / "ImapMail/ssl0.ovh.net/INBOX",
 }
