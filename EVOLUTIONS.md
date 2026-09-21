@@ -11,7 +11,6 @@ Le fichier `.env` à la racine du projet est chargé au démarrage, même quand 
 - `GMAIL_CREDENTIALS_FILE`, `GMAIL_TOKEN_FILE`, `MICROSOFT_TOKEN_CACHE_FILE` : chemins OAuth.
 - `DATABASE_PATH` : base SQLite, `data/job_tracker.db` par défaut.
 - `SCAN_START_DATE` : date ISO de début des scans, `2026-08-01` par défaut. Une date sans fuseau est interprétée en Europe/Paris ; un offset explicite est accepté. Thunderbird et les API partagent désormais le même instant de départ.
-- `THUNDERBIRD_MAILBOXES` : objet JSON facultatif associant noms et chemins mbox. `{}` désactive les boîtes locales ; en l'absence de cette clé, les chemins historiques restent utilisés.
 - `FLASK_SECRET_KEY` : clé privée de session. Sans valeur, une clé aléatoire est créée à chaque démarrage ; les sessions précédentes deviennent alors invalides.
 
 Les chemins relatifs partent de la racine du projet. Les répertoires parents des caches OAuth sont créés au besoin. Le `.env` personnel n'a pas été modifié par cette évolution.
