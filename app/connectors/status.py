@@ -1,12 +1,6 @@
 from dataclasses import dataclass
 from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE
 from app.connectors.microsoft import MICROSOFT_CLIENT_ID, TOKEN_CACHE_FILE
-from app.settings import (
-    IMAP_ENABLED,
-    IMAP_HOST,
-    IMAP_PASSWORD,
-    IMAP_USERNAME,
-)
 from app.database import (
     get_enabled_imap_accounts,
 )
