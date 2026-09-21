@@ -5,17 +5,13 @@ import contextlib
 import csv
 import io
 import json
-import mailbox
 import tempfile
 import unittest
 from dataclasses import replace
 from datetime import datetime, timezone
-from email.message import EmailMessage
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
 from openpyxl import load_workbook
-
 import web
 from app import database, importer, jobs, reclassifier
 from app.connectors import gmail, microsoft, registry, status
@@ -76,16 +72,21 @@ class OfflineCase(unittest.TestCase):
         database.init_database()
         self.client = web.app.test_client()
 
-    def application(self, company="Entreprise Fictive", **changes):
-        fields = dict(
+    def application(
+        self,
+        company: str = "Entreprise Fictive",
+        job_title: str = "Développeur Python",
+        source: str = "Fixture",
+        status: str = "RECEIVED",
+        date: datetime = NOW,
+    ) -> int:
+        return database.create_application(
             company=company,
-            job_title="Développeur Python",
-            source="Fixture",
-            status="RECEIVED",
-            date=NOW,
+            job_title=job_title,
+            source=source,
+            status=status,
+            date=date,
         )
-        fields.update(changes)
-        return database.create_application(**fields)
 
 
 class StorageAndImportTests(OfflineCase):
@@ -160,6 +161,7 @@ class StorageAndImportTests(OfflineCase):
         database.set_manual_status(application_id, "INTERVIEW", "Note fictive")
         self.assertEqual(reclassifier.recompute_application_statuses(), 1)
         row = database.get_application(application_id)
+        assert row is not None
         self.assertEqual(row["current_status"], "REJECTED")
         self.assertEqual(row["manual_status"], "INTERVIEW")
         self.assertTrue(row["manual_override"])
@@ -191,6 +193,7 @@ class WebTests(OfflineCase):
         workbook = load_workbook(io.BytesIO(excel_response.data))
         try:
             sheet = workbook.active
+            assert sheet is not None
             rows = [list(row) for row in sheet.iter_rows(values_only=True)]
             self.assertEqual(rows, csv_rows)
             self.assertEqual(sheet.freeze_panes, "A2")
@@ -224,8 +227,11 @@ class WebTests(OfflineCase):
             },
         )
         self.assertEqual(response.status_code, 302)
+        application = database.get_application(application_id)
+        if application is None:
+            self.fail("Application was not found after creation")
         self.assertEqual(
-            database.get_application(application_id)["manual_status"], "INTERVIEW"
+            application["manual_status"], "INTERVIEW"
         )
         self.assertEqual(
             self.client.post(f"/application/{application_id}/delete").status_code, 302
@@ -466,6 +472,7 @@ class EvolutionTests(OfflineCase):
             result = reclassifier.reclassify_emails()
         self.assertEqual((result.found, result.changed, result.missing), (3, 3, 0))
         row = database.get_application(app_id)
+        assert row is not None
         self.assertEqual(row["manual_status"], "OFFER")
         self.assertEqual(row["manual_note"], "Note privée fictive")
         self.assertEqual(row["current_status"], "REJECTED")
@@ -542,10 +549,16 @@ class EvolutionTests(OfflineCase):
                 settings.configured_path("GMAIL_TOKEN_FILE", ""),
                 settings.PROJECT_ROOT / "tokens/fixture.json",
             )
+        configured = settings.configured_date(
+            "2026-08-01T00:00:00+00:00"
+        )
+
+        offset = configured.utcoffset()
+
+        assert offset is not None
+
         self.assertEqual(
-            settings.configured_date("2026-08-01T00:00:00+00:00")
-            .utcoffset()
-            .total_seconds(),
+            offset.total_seconds(),
             0,
         )
         self.assertIsNotNone(settings.configured_date("2026-08-01").tzinfo)
