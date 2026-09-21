@@ -1,6 +1,4 @@
-import os
 from dataclasses import dataclass
-
 from app.connectors.gmail import CREDENTIALS_FILE, TOKEN_FILE
 from app.connectors.microsoft import MICROSOFT_CLIENT_ID, TOKEN_CACHE_FILE
 from app.settings import (
@@ -9,11 +7,9 @@ from app.settings import (
     IMAP_PASSWORD,
     IMAP_USERNAME,
 )
-
 from app.database import (
     get_enabled_imap_accounts,
 )
-
 @dataclass
 class ConnectorStatus:
     key: str
@@ -22,7 +18,6 @@ class ConnectorStatus:
     configured: bool
     connected: bool
     status: str
-
 
 def get_connector_statuses() -> list[ConnectorStatus]:
 
@@ -60,24 +55,7 @@ def get_connector_statuses() -> list[ConnectorStatus]:
     imap_accounts = (
         get_enabled_imap_accounts()
     )
-    imap_status = (
-        f"{len(imap_accounts)} boîte(s)"
-        if imap_accounts
-        else (
-            "Configuré"
-            if imap_configured
-            else "Non configuré"
-        )
-    )
     return [
-        ConnectorStatus(
-            key="thunderbird",
-            name="Thunderbird",
-            description=("Analyse les boîtes mail locales de Thunderbird."),
-            configured=True,
-            connected=True,
-            status="Local",
-        ),
         ConnectorStatus(
             key="gmail",
             name="Gmail",

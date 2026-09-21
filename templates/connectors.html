@@ -178,46 +178,50 @@ Connecteurs - Job Tracker
 
                                     {% endif %}
 
-                                    <form
-                                        method="post"
-                                        action="{{ url_for(
-                                            'test_imap_account_web',
-                                            account_id=account['id']
-                                        ) }}"
-                                    >
-                                        <button
-                                            type="submit"
-                                            class="secondary-button connector-button"
-                                        >
-                                            Tester
-                                        </button>
-                                    </form>
+                                    <div class="connector-actions">
 
-                                    {% if account["last_status"] == "auth_error" %}
-
-                                    <a
-                                        href="{{ url_for(
-                                            'edit_imap_account',
-                                            account_id=account['id']
-                                        ) }}"
-                                        class="primary-button connector-button"
-                                    >
-                                        🔑 Corriger les identifiants
-                                    </a>
-
-                                    {% else %}
-
-                                        <a
-                                            href="{{ url_for(
-                                                'edit_imap_account',
+                                        <form
+                                            method="post"
+                                            action="{{ url_for(
+                                                'test_imap_account_web',
                                                 account_id=account['id']
                                             ) }}"
-                                            class="secondary-button connector-button"
                                         >
-                                            Modifier
-                                        </a>
+                                            <button
+                                                type="submit"
+                                                class="secondary-button connector-button"
+                                            >
+                                                Tester
+                                            </button>
+                                        </form>
 
-                                    {% endif %}
+                                        {% if account["last_status"] == "auth_error" %}
+
+                                            <a
+                                                href="{{ url_for(
+                                                    'edit_imap_account',
+                                                    account_id=account['id']
+                                                ) }}"
+                                                class="primary-button connector-button"
+                                            >
+                                                🔑 Corriger les identifiants
+                                            </a>
+
+                                        {% else %}
+
+                                            <a
+                                                href="{{ url_for(
+                                                    'edit_imap_account',
+                                                    account_id=account['id']
+                                                ) }}"
+                                                class="secondary-button connector-button"
+                                            >
+                                                Modifier
+                                            </a>
+
+                                        {% endif %}
+
+                                    </div>
 
                                 </div>
 

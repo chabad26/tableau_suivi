@@ -580,7 +580,6 @@ def connectors_page():
 @app.post("/connectors/<connector_key>/test")
 def test_connector(connector_key: str):
     if connector_key not in {
-        "thunderbird",
         "gmail",
         "microsoft",
         "imap",
