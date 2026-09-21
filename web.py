@@ -92,6 +92,22 @@ def add_imap_account():
         email_address="",
     )
 
+@app.post(
+    "/connectors/imap/<int:account_id>/test"
+)
+def test_imap_account_web(
+    account_id: int,
+):
+    account = get_imap_account(
+        account_id
+    )
+
+    if account is None:
+        abort(404)
+
+    return submit_job(
+        f"test:imap:{account_id}"
+    )
 
 @app.post("/connectors/imap/detect")
 def detect_imap_account():

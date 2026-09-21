@@ -28,8 +28,21 @@ def init_jobs() -> None:
 
 
 def enqueue(kind: str) -> str:
-    if kind not in KINDS:
-        raise ValueError("Travail inconnu")
+    valid_dynamic_kind = (
+        kind.startswith("test:imap:")
+        and kind.removeprefix(
+            "test:imap:"
+        ).isdigit()
+    )
+
+    if (
+        kind not in KINDS
+        and not valid_dynamic_kind
+    ):
+        raise ValueError(
+            "Travail inconnu"
+        )
+    
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         existing = connection.execute(
@@ -61,11 +74,30 @@ def execute(kind: str) -> dict:
     from app.reclassifier import reclassify_emails
     from app.scanner import scan_all_mailboxes
     from app.settings import API_START_DATE
-    from app.connectors.imap import scan_imap
+    from app.connectors.imap import (
+        scan_imap,
+        test_imap_account,
+    )
     if kind == "scan":
         return asdict(import_emails())
     if kind == "reclassify":
         return asdict(reclassify_emails())
+    if kind.startswith("test:imap:"):
+        account_id = int(
+            kind.removeprefix(
+                "test:imap:"
+            )
+        )
+
+        emails = test_imap_account(
+            account_id,
+            API_START_DATE,
+        )
+
+        return {
+            "detected": len(emails),
+            "imap_account_id": account_id,
+        }
     action, connector = kind.split(":")
     if action == "reconnect":
         if connector == "gmail":

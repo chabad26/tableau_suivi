@@ -35,7 +35,6 @@ from app.connectors.common import (
     html_to_text,
     sanitize_header_value,
 )
-import traceback
 
 class ImapAuthenticationError(Exception):
     pass
@@ -313,11 +312,17 @@ def scan_imap_account(
     )
 
     try:
-        connection.login(
-            account.username,
-            account.password,
-        )
-    
+        try:
+            connection.login(
+                account.username,
+                account.password,
+            )
+        
+        except imaplib.IMAP4.error as error:
+            raise ImapAuthenticationError(
+                "Authentification IMAP refusée."
+            ) from error
+
         status, _ = connection.select(
             account.folder,
             readonly=True,
@@ -520,9 +525,6 @@ def scan_imap_account(
                     f"({type(error).__name__}: {error})"
                 )
                 continue
-                print(
-                    f"  Parcourus : {total_seen}"
-                )
 
         print(
             f"  Détectés  : {len(detected)}"
@@ -530,11 +532,6 @@ def scan_imap_account(
         print(
             f"  Parcourus : {total_seen}"
         )
-
-    except imaplib.IMAP4.error as error:
-        raise ImapAuthenticationError(
-            "Authentification IMAP refusée."
-        ) from error
     
     finally:
         try:
@@ -543,3 +540,57 @@ def scan_imap_account(
             pass
 
     return detected
+
+def get_imap_account_config(
+    account_id: int,
+) -> ImapAccount | None:
+    for account in get_imap_accounts():
+        if account.account_id == account_id:
+            return account
+
+    return None
+
+def test_imap_account(
+    account_id: int,
+    since: datetime,
+) -> list[DetectedEmail]:
+    account = get_imap_account_config(
+        account_id
+    )
+
+    if account is None:
+        raise ValueError(
+            "Compte IMAP introuvable."
+        )
+
+    try:
+        emails = scan_imap_account(
+            account,
+            since,
+        )
+
+    except ImapAuthenticationError:
+        update_imap_account_health(
+            account_id,
+            "auth_error",
+            "Identifiants refusés",
+        )
+
+        raise
+
+    except Exception:
+        update_imap_account_health(
+            account_id,
+            "error",
+            "Connexion ou lecture impossible",
+        )
+
+        raise
+
+    update_imap_account_health(
+        account_id,
+        "connected",
+        None,
+    )
+
+    return emails
