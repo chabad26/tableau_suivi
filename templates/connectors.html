@@ -107,11 +107,7 @@ Connecteurs - Job Tracker
 
                     <div class="connector-info">
 
-                        {% if connector.key == "thunderbird" %}
-
-                            Détection locale
-
-                        {% elif connector.key == "imap"
+                        {% if connector.key == "imap"
                             and connector.configured %}
 
                             Configuration IMAP prête
@@ -234,24 +230,7 @@ Connecteurs - Job Tracker
 
                     <div class="connector-actions">
 
-                        {% if connector.key == "thunderbird" %}
-
-                            <form
-                                method="post"
-                                action="{{ url_for(
-                                    'test_connector',
-                                    connector_key=connector.key
-                                ) }}"
-                            >
-                                <button
-                                    type="submit"
-                                    class="secondary-button connector-button"
-                                >
-                                    Tester le profil
-                                </button>
-                            </form>
-
-                        {% elif connector.key == "imap" %}
+                        {% if connector.key == "imap" %}
 
                             {# Actions déjà affichées dans chaque compte #}
 

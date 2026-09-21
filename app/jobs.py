@@ -9,7 +9,6 @@ from app.database import get_connection
 KINDS = {
     "scan",
     "reclassify",
-    "test:thunderbird",
     "test:gmail",
     "test:microsoft",
     "test:imap",
@@ -72,7 +71,6 @@ def execute(kind: str) -> dict:
     from app.connectors.microsoft import TOKEN_CACHE_FILE, scan_microsoft
     from app.importer import import_emails
     from app.reclassifier import reclassify_emails
-    from app.scanner import scan_all_mailboxes
     from app.settings import API_START_DATE
     from app.connectors.imap import (
         scan_imap,
@@ -114,8 +112,6 @@ def execute(kind: str) -> dict:
             raise ValueError(
                 f"Reconnecteur inconnu : {connector}"
             )
-    if connector == "thunderbird":
-        emails = scan_all_mailboxes()
     elif connector == "gmail":
         emails = scan_gmail(API_START_DATE)
     elif connector == "imap":

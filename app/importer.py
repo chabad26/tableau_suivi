@@ -1,7 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from app.connectors.registry import scan_external_connectors
 from app.database import (
     email_exists,
@@ -11,11 +8,9 @@ from app.database import (
 )
 from app.extractor import extract_application_data
 from app.models import DetectedEmail
-from app.scanner import scan_all_mailboxes
 from app.settings import API_START_DATE
 
 START_DATE = API_START_DATE
-
 
 @dataclass
 class ImportResult:
@@ -52,19 +47,14 @@ def import_emails() -> ImportResult:
 
     detected_emails: list[DetectedEmail] = []
 
-    #
-    # 1. Sources locales
-    #
-    detected_emails.extend(scan_all_mailboxes())
 
-    #
-    # 2. APIs / connecteurs externes
+    # 1. APIs / connecteurs externes
     #
     errors: list[str] = []
     detected_emails.extend(scan_external_connectors(START_DATE, errors=errors))
 
     #
-    # 3. Déduplication inter-connecteurs
+    # 2. Déduplication inter-connecteurs
     #
     detected_emails = deduplicate_emails(detected_emails)
 

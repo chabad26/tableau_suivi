@@ -12,17 +12,22 @@ STATUS_LABELS = {
 
 
 STATUS_ORDER = [
-    "PROPOSED",
     "SENT",
     "RECEIVED",
     "INTERVIEW",
-    "TEST",
-    "OFFER",
     "REJECTED",
     "EXPIRED",
     "OTHER",
 ]
 
+EDITABLE_STATUS_LABELS = {
+    "SENT": "Envoyée",
+    "RECEIVED": "Reçue",
+    "INTERVIEW": "Entretien",
+    "REJECTED": "Refus",
+    "EXPIRED": "Sans réponse",
+    "OTHER": "À analyser",
+}
 
 def get_status_label(status: str) -> str:
     return STATUS_LABELS.get(status, status)
