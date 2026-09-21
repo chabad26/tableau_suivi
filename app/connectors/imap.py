@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from app.database import get_enabled_imap_accounts
+from app.database import (
+    get_enabled_imap_accounts,
+    update_imap_account_health,
+)
 from app.secrets import get_imap_password
 from app.classifier import (
     detect_status,
@@ -31,12 +34,14 @@ from app.connectors.common import (
     decode_mime_header,
     html_to_text,
     sanitize_header_value,
-
 )
 import traceback
 
+class ImapAuthenticationError(Exception):
+    pass
 @dataclass(frozen=True)
 class ImapAccount:
+    account_id: int | None
     key: str
     label: str
     host: str
@@ -65,6 +70,7 @@ def get_imap_accounts() -> list[ImapAccount]:
 
         accounts.append(
             ImapAccount(
+                account_id=account_id,
                 key=f"db:{account_id}",
                 label=str(row["email"]),
                 host=str(row["host"]),
@@ -92,6 +98,7 @@ def get_imap_accounts() -> list[ImapAccount]:
     ):
         accounts.append(
             ImapAccount(
+                account_id=None,
                 key="legacy-env",
                 label=IMAP_USERNAME,
                 host=IMAP_HOST,
@@ -238,29 +245,61 @@ def connect_imap(
         "Connexion IMAP impossible."
     )
 
+
 def scan_imap(
     since: datetime,
 ) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
+
     accounts = get_imap_accounts()
+
     for account in accounts:
         try:
+            emails = scan_imap_account(
+                account,
+                since,
+            )
+
             detected.extend(
-                scan_imap_account(
-                    account,
-                    since,
+                emails
+            )
+
+            if account.account_id is not None:
+                update_imap_account_health(
+                    account.account_id,
+                    "connected",
+                    None,
                 )
+
+        except ImapAuthenticationError:
+            if account.account_id is not None:
+                update_imap_account_health(
+                    account.account_id,
+                    "auth_error",
+                    "Identifiants refusés",
+                )
+
+            print()
+            print(
+                f"⚠ IMAP {account.label} "
+                "authentification refusée"
             )
 
         except Exception as error:
+            if account.account_id is not None:
+                update_imap_account_health(
+                    account.account_id,
+                    "error",
+                    "Connexion ou lecture impossible",
+                )
+
             print()
             print(
                 f"⚠ IMAP {account.label} "
                 f"indisponible "
-                f"({type(error).__name__}: {error})"
+                f"({type(error).__name__})"
             )
 
-            traceback.print_exc()
     return detected
 
 def scan_imap_account(
@@ -278,7 +317,7 @@ def scan_imap_account(
             account.username,
             account.password,
         )
-
+    
         status, _ = connection.select(
             account.folder,
             readonly=True,
@@ -491,6 +530,12 @@ def scan_imap_account(
         print(
             f"  Parcourus : {total_seen}"
         )
+
+    except imaplib.IMAP4.error as error:
+        raise ImapAuthenticationError(
+            "Authentification IMAP refusée."
+        ) from error
+    
     finally:
         try:
             connection.logout()

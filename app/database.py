@@ -111,7 +111,26 @@ def init_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_applications_company
             ON applications(company)
         """)
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "last_status",
+            "TEXT NOT NULL DEFAULT 'unknown'",
+        )
 
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "last_error",
+            "TEXT",
+        )
+
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "last_checked_at",
+            "TEXT",
+        )
         ensure_column(connection, "applications", "manual_status", "TEXT")
 
         ensure_column(connection, "applications", "manual_note", "TEXT")
@@ -136,6 +155,7 @@ def init_database() -> None:
                 UPDATE emails SET application_id = NULL WHERE application_id = OLD.id;
             END
         """)
+
         for operation in ("INSERT", "UPDATE"):
             connection.execute(f"""
                 CREATE TRIGGER IF NOT EXISTS emails_application_{operation.lower()}
@@ -948,3 +968,27 @@ def create_imap_account(
             )
 
         return int(cursor.lastrowid)
+
+def update_imap_account_health(
+    account_id: int,
+    status: str,
+    error: str | None = None,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE imap_accounts
+            SET
+                last_status = ?,
+                last_error = ?,
+                last_checked_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                status,
+                error,
+                account_id,
+            ),
+        )
+
+        connection.commit()

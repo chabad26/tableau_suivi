@@ -10,13 +10,6 @@ from app.settings import (
     IMAP_USERNAME,
 )
 
-imap_configured = (
-    IMAP_ENABLED
-    and bool(IMAP_HOST)
-    and bool(IMAP_USERNAME)
-    and bool(IMAP_PASSWORD)
-)
-
 from app.database import (
     get_enabled_imap_accounts,
 )
@@ -32,6 +25,31 @@ class ConnectorStatus:
 
 
 def get_connector_statuses() -> list[ConnectorStatus]:
+
+    imap_accounts = get_enabled_imap_accounts()
+
+    legacy_imap_configured = (
+        IMAP_ENABLED
+        and bool(IMAP_HOST)
+        and bool(IMAP_USERNAME)
+        and bool(IMAP_PASSWORD)
+    )
+
+    imap_configured = (
+        bool(imap_accounts)
+        or legacy_imap_configured
+    )
+
+    imap_status = (
+        f"{len(imap_accounts)} boîte(s)"
+        if imap_accounts
+        else (
+            "Configuré"
+            if imap_configured
+            else "Non configuré"
+        )
+    )
+    
     gmail_credentials = CREDENTIALS_FILE.exists()
 
     gmail_token = TOKEN_FILE.exists()

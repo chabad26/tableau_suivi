@@ -167,6 +167,58 @@ Connecteurs - Job Tracker
                                             Modifier
                                         </a>
                                     </div>
+                                    {% if account["last_status"] == "connected" %}
+
+                                        <span class="imap-status imap-status-ok">
+                                            ● Connecté
+                                        </span>
+
+                                    {% elif account["last_status"] == "auth_error" %}
+
+                                        <span class="imap-status imap-status-error">
+                                            ● Identifiants refusés
+                                        </span>
+
+                                    {% elif account["last_status"] == "error" %}
+
+                                        <span class="imap-status imap-status-error">
+                                            ● Connexion impossible
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="imap-status imap-status-unknown">
+                                            ○ Non testé
+                                        </span>
+
+                                    {% endif %}
+
+                                    {% if account["last_status"] == "auth_error" %}
+
+                                    <a
+                                        href="{{ url_for(
+                                            'edit_imap_account',
+                                            account_id=account['id']
+                                        ) }}"
+                                        class="primary-button connector-button"
+                                    >
+                                        🔑 Corriger les identifiants
+                                    </a>
+
+                                    {% else %}
+
+                                        <a
+                                            href="{{ url_for(
+                                                'edit_imap_account',
+                                                account_id=account['id']
+                                            ) }}"
+                                            class="secondary-button connector-button"
+                                        >
+                                            Modifier
+                                        </a>
+
+                                    {% endif %}
+                                    
                                 </div>
 
                             {% endfor %}
