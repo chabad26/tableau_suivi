@@ -853,18 +853,30 @@ def get_imap_accounts() -> list[sqlite3.Row]:
         return list(rows)
 
 
-def get_imap_account(
-    account_id: int,
-) -> sqlite3.Row | None:
+def get_imap_accounts() -> list[sqlite3.Row]:
     with get_connection() as connection:
-        return connection.execute(
+        rows = connection.execute(
             """
-            SELECT *
+            SELECT
+                id,
+                email,
+                provider,
+                host,
+                port,
+                use_ssl,
+                username,
+                folder,
+                enabled,
+                created_at,
+                last_status,
+                last_error,
+                last_checked_at
             FROM imap_accounts
-            WHERE id = ?
-            """,
-            (account_id,),
-        ).fetchone()
+            ORDER BY email
+            """
+        ).fetchall()
+
+        return list(rows)
 
 def get_enabled_imap_accounts() -> list[sqlite3.Row]:
     with get_connection() as connection:
@@ -879,7 +891,10 @@ def get_enabled_imap_accounts() -> list[sqlite3.Row]:
                 use_ssl,
                 username,
                 folder,
-                enabled
+                enabled,
+                last_status,
+                last_error,
+                last_checked_at
             FROM imap_accounts
             WHERE enabled = 1
             ORDER BY email
