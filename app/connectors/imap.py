@@ -30,8 +30,10 @@ from app.connectors.common import (
     build_email_message,
     decode_mime_header,
     html_to_text,
+    sanitize_header_value,
 
 )
+import traceback
 
 @dataclass(frozen=True)
 class ImapAccount:
@@ -240,9 +242,7 @@ def scan_imap(
     since: datetime,
 ) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
-
     accounts = get_imap_accounts()
-
     for account in accounts:
         try:
             detected.extend(
@@ -257,9 +257,10 @@ def scan_imap(
             print(
                 f"⚠ IMAP {account.label} "
                 f"indisponible "
-                f"({type(error).__name__})"
+                f"({type(error).__name__}: {error})"
             )
 
+            traceback.print_exc()
     return detected
 
 def scan_imap_account(
@@ -320,160 +321,176 @@ def scan_imap_account(
         for imap_uid in message_ids:
             total_seen += 1
 
-            status, raw_data = connection.uid(
-                "fetch",
-                imap_uid,
-                "(RFC822)",
-            )
-
-            if status != "OK":
-                continue
-
-            raw_message = None
-
-            for item in raw_data:
-                if (
-                    isinstance(item, tuple)
-                    and len(item) >= 2
-                    and isinstance(
-                        item[1],
-                        bytes,
-                    )
-                ):
-                    raw_message = item[1]
-                    break
-
-            if not raw_message:
-                continue
-
-            message = email.message_from_bytes(
-                raw_message
-            )
-
-            sender = decode_mime_header(
-                str(
-                    message.get(
-                        "From",
-                        "",
-                    )
-                )
-            )
-
-            subject = decode_mime_header(
-                str(
-                    message.get(
-                        "Subject",
-                        "",
-                    )
-                )
-            )
-
-            date_header = str(
-                message.get(
-                    "Date",
-                    "",
-                )
-            )
-
             try:
-                date = parsedate_to_datetime(
+                status, raw_data = connection.uid(
+                    "fetch",
+                    imap_uid,
+                    "(RFC822)",
+                )
+
+                if status != "OK":
+                    continue
+
+                raw_message = None
+
+                for item in raw_data:
+                    if (
+                        isinstance(item, tuple)
+                        and len(item) >= 2
+                        and isinstance(item[1], bytes)
+                    ):
+                        raw_message = item[1]
+                        break
+
+                if not raw_message:
+                    continue
+
+                message = email.message_from_bytes(
+                    raw_message
+                )
+
+                sender = decode_mime_header(
+                    str(
+                        message.get(
+                            "From",
+                            "",
+                        )
+                    )
+                )
+
+                subject = decode_mime_header(
+                    str(
+                        message.get(
+                            "Subject",
+                            "",
+                        )
+                    )
+                )
+
+                date_header = str(
+                    message.get(
+                        "Date",
+                        "",
+                    )
+                )
+
+                try:
+                    date = parsedate_to_datetime(
+                        date_header
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    date = datetime.now(
+                        timezone.utc
+                    )
+
+                if date.tzinfo is None:
+                    date = date.replace(
+                        tzinfo=timezone.utc
+                    )
+
+                if (
+                    date.astimezone(timezone.utc)
+                    < since.astimezone(timezone.utc)
+                ):
+                    continue
+
+                message_id = str(
+                    message.get(
+                        "Message-ID",
+                        "",
+                    )
+                ).strip()
+
+                if not message_id:
+                    message_id = (
+                        f"imap:{account.key}:"
+                        f"{imap_uid.decode()}"
+                    )
+
+                body = get_message_body(
+                    message
+                )
+
+                if not should_analyze_email(
+                    sender,
+                    subject,
+                    body,
+                ):
+                    continue
+
+                sender = sanitize_header_value(
+                    sender
+                )
+
+                subject = sanitize_header_value(
+                    subject
+                )
+
+                message_id = sanitize_header_value(
+                    message_id
+                )
+
+                date_header = sanitize_header_value(
                     date_header
                 )
-            except (
-                TypeError,
-                ValueError,
-            ):
-                date = datetime.now(
-                    timezone.utc
-                )
 
-            if date.tzinfo is None:
-                date = date.replace(
-                    tzinfo=timezone.utc
-                )
-
-            # SINCE travaille à la journée.
-            # On affine ici avec l'heure exacte.
-            if (
-                date.astimezone(timezone.utc)
-                < since.astimezone(timezone.utc)
-            ):
-                continue
-
-            message_id = str(
-                message.get(
-                    "Message-ID",
-                    "",
-                )
-            ).strip()
-
-            if not message_id:
-                message_id = (
-                    f"imap:{account.key}:"
-                    f"{imap_uid.decode()}"
-                )
-
-            body = get_message_body(
-                message
-            )
-
-            if not should_analyze_email(
-                sender,
-                subject,
-                body,
-            ):
-                continue
-
-            normalized_message = (
-                build_email_message(
+                normalized_message = build_email_message(
                     sender=sender,
                     subject=subject,
                     message_id=message_id,
                     body=body,
                     date=date_header,
                 )
-            )
 
-            (
-                score,
-                reasons,
-                normalized_body,
-            ) = score_message(
-                normalized_message
-            )
-
-            if score < 5:
-                continue
-
-            status_value = detect_status(
-                subject,
-                normalized_body,
-            )
-
-            detected.append(
-                DetectedEmail(
-                    mailbox=(
-                        f"IMAP {account.label}"
-                    ),
-                    date=date,
-                    sender=sender,
-                    subject=subject,
-                    message_id=message_id,
-                    score=score,
-                    status=status_value,
-                    reasons=reasons,
-                    body=normalized_body,
+                (
+                    score,
+                    reasons,
+                    normalized_body,
+                ) = score_message(
+                    normalized_message
                 )
-            )
 
-        print(
-            f"  Parcourus : {total_seen}"
-        )
+                if score < 5:
+                    continue
+
+                status_value = detect_status(
+                    subject,
+                    normalized_body,
+                )
+
+                detected.append(
+                    DetectedEmail(
+                        mailbox=f"IMAP {account.label}",
+                        date=date,
+                        sender=sender,
+                        subject=subject,
+                        message_id=message_id,
+                        score=score,
+                        status=status_value,
+                        reasons=reasons,
+                        body=normalized_body,
+                    )
+                )
+
+            except Exception as error:
+                print(
+                    f"  ⚠ UID {imap_uid.decode()} ignoré "
+                    f"({type(error).__name__}: {error})"
+                )
+                continue
+                print(
+                    f"  Parcourus : {total_seen}"
+                )
 
         print(
             f"  Détectés  : {len(detected)}"
         )
-
+        print(
+            f"  Parcourus : {total_seen}"
+        )
     finally:
         try:
             connection.logout()

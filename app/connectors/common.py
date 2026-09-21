@@ -47,3 +47,13 @@ def build_email_message(
             message[name] = value
     message.set_content(body)
     return message
+
+def sanitize_header_value(
+    value: str,
+) -> str:
+    return " ".join(
+        value
+        .replace("\r", " ")
+        .replace("\n", " ")
+        .split()
+    )
