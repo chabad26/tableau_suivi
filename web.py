@@ -48,7 +48,7 @@ app = Flask(__name__)
 
 app.secret_key = SECRET_KEY
 
-# Préparation et compatibilité
+"""Compatibilité : charge les données, puis délègue leur présentation."""
 
 def prepare_applications(
     status_filter: str = "", search: str = ""

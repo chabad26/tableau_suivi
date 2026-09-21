@@ -1,4 +1,4 @@
-"""Accès SQLite et migrations ; API historique conservée."""
+"""Accès SQLite, schéma et opérations de persistance."""
 
 import sqlite3
 from datetime import datetime, timezone
@@ -141,14 +141,14 @@ def init_database() -> None:
 
         ensure_column(connection, "emails", "body", "TEXT")
 
-        # Répare les anciennes références sans supprimer les messages.
+        # Répare les anciennes références orphelines sans supprimer les messages.
         connection.execute("""
             UPDATE emails SET application_id = NULL
             WHERE application_id IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM applications WHERE id = emails.application_id)
         """)
-        # Compatibilité avec les anciennes tables sans contrainte FK :
-        # mêmes garanties sans reconstruire ni perdre des colonnes historiques.
+        # Garantit l'intégrité des références même si la contrainte FK
+        # n'est pas présente dans une base existante.
         connection.execute("""
             CREATE TRIGGER IF NOT EXISTS detach_application_emails
             BEFORE DELETE ON applications BEGIN

@@ -1,22 +1,42 @@
-🧭 Roadmap — Job Tracker
+# 🧭 Roadmap — Job Tracker
 
-Vision
+## Vision
 
-Job Tracker a pour objectif d'évoluer d'un outil personnel de suivi des candidatures vers une plateforme générique, sécurisée et multi-source, capable de centraliser automatiquement les candidatures issues des emails et des saisies utilisateur.
+Job Tracker doit évoluer d’un outil personnel de suivi de candidatures vers une application générique, sécurisée et multi-source.
 
-L'objectif à terme est de proposer une solution utilisable sur Linux, Windows et Android, avec des connecteurs modernes vers Gmail, Outlook / Microsoft 365 et d'autres services.
+L’objectif est de centraliser automatiquement les candidatures détectées dans les emails, tout en conservant la possibilité de corriger et enrichir les informations manuellement.
 
-✅ MVP actuel
+> **Cette roadmap reflète l’état du projet en septembre 2026.**
+>
+> Le projet évolue rapidement. Les priorités peuvent changer selon les retours d’usage et les besoins identifiés pendant le développement.
 
-Envoyée
-Reçue
-Entretien
-Refus
-Sans réponse
-À analyser
+---
 
-distinguer plusieurs états :
+## ✅ État actuel du prototype
 
+Le socle fonctionnel comprend déjà :
+
+- un dashboard Web Flask ;
+- une base SQLite locale ;
+- la création automatique et manuelle de candidatures ;
+- la modification et la suppression ;
+- la fusion de doublons ;
+- la recherche et les filtres ;
+- l’historique des emails ;
+- les exports CSV et Excel ;
+- la réanalyse des emails déjà enregistrés ;
+- une file de travaux persistante ;
+- un worker séparé du serveur Web ;
+- Gmail via API Google ;
+- Microsoft via Graph ;
+- IMAP générique multi-compte ;
+- la détection de plusieurs fournisseurs IMAP ;
+- le suivi de l’état des comptes IMAP ;
+- la conservation des corrections manuelles.
+
+### Statuts actuels
+
+```text
 Envoyée
    ↓
 Reçue
@@ -25,278 +45,288 @@ Entretien
    ↓
 Refus / Sans réponse
 
-À analyser ;
+À analyser
+```
 
-corriger manuellement les informations détectées ;
+Le statut **Sans réponse** est appliqué automatiquement après une durée configurable sans nouvelle activité.
 
-créer et supprimer une candidature ;
+---
 
-fusionner des candidatures ;
+## ✅ Refactorisation du socle
 
-consulter l'historique des emails associés ;
+Plusieurs travaux initialement prévus dans la roadmap sont désormais réalisés :
 
-afficher le contenu complet d'un email dans une section dépliable ;
+- séparation du moteur de classification ;
+- centralisation de la configuration ;
+- architecture de connecteurs commune ;
+- suppression de la dépendance à un client mail local ;
+- connecteurs Gmail, Microsoft et IMAP ;
+- réanalyse à partir des données SQLite ;
+- travaux exécutés hors des requêtes HTTP ;
+- persistance des travaux ;
+- intégrité renforcée des relations SQLite ;
+- stockage séparé des secrets IMAP ;
+- simplification des statuts ;
+- nettoyage du code historique ;
+- tests hors ligne des composants principaux.
 
-rechercher et filtrer les candidatures ;
+---
 
-réanalyser les emails déjà détectés ;
+## 🔧 Prochaine étape — Fiabilisation du moteur
 
-exporter les données en CSV et Excel ;
-
-conserver les données dans une base SQLite locale.
-
-🔧 V0.9 — Fiabilisation du moteur d'extraction
-
-Objectif
+### Objectif
 
 Améliorer la qualité des informations détectées automatiquement.
 
-Évolutions prévues
+### Travaux envisagés
 
-extraction plus fine des intitulés de poste ;
+- améliorer l’extraction des intitulés de poste ;
+- améliorer l’identification de l’entreprise ;
+- normaliser davantage les noms d’entreprises ;
+- améliorer la détection de la source ;
+- enrichir les règles françaises et anglaises ;
+- réduire les faux positifs ;
+- améliorer la détection des doublons ;
+- introduire éventuellement un score de confiance ;
+- mieux signaler les cas incertains à l’utilisateur.
 
-analyse plus robuste du sujet et du corps des emails ;
+### Pipeline cible
 
-meilleure gestion des formulations inclusives ;
-
-prise en charge plus large des emails en français et en anglais ;
-
-meilleure identification de l'entreprise ;
-
-normalisation des entreprises et des sources ;
-
-amélioration de la détection des doublons ;
-
-score de confiance sur les informations extraites ;
-
-validation humaine lorsqu'une extraction est incertaine.
-
-Pipeline cible
-
-Sujet du mail
-      ↓
+```text
+Sujet
+  ↓
 Corps texte
-      ↓
-Structure HTML
-      ↓
-Métadonnées disponibles
-      ↓
-Score de confiance
-      ↓
-Validation utilisateur si nécessaire
+  ↓
+Métadonnées
+  ↓
+Classification
+  ↓
+Extraction entreprise / poste / source
+  ↓
+Score de confiance éventuel
+  ↓
+Validation humaine si nécessaire
+```
 
-## ✅ Connecteurs email
+---
 
-Connecteurs actuellement disponibles :
+## 📧 Connecteurs email
+
+### État actuel
+
+Connecteurs disponibles :
 
 - Gmail via API Google et OAuth ;
 - Outlook / Microsoft 365 via Microsoft Graph ;
-- IMAP générique pour les fournisseurs compatibles.
+- IMAP générique.
 
-L’architecture des connecteurs est mutualisée afin de permettre l’ajout de nouvelles sources sans modifier le moteur principal.
+### Améliorations prévues
 
-🔐 V1.1 — Sécurité et confidentialité
+- état de connexion OAuth plus précis ;
+- distinction entre jeton présent, expiré ou réellement valide ;
+- meilleur retour utilisateur lors d’un échec ;
+- simplification de la reconnexion ;
+- tests de renouvellement OAuth ;
+- prise en charge de fournisseurs IMAP supplémentaires ;
+- amélioration du diagnostic des erreurs IMAP ;
+- désactivation / réactivation simplifiée des comptes.
 
-Objectif
+---
 
-Préparer l'utilisation du projet dans un environnement réel.
+## 📊 Statistiques et pilotage
 
-Évolutions prévues
+### Objectif
 
-secrets déplacés dans des variables d'environnement ;
+Transformer le tracker en véritable outil de suivi.
 
-stockage sécurisé des jetons OAuth ;
+### Indicateurs envisagés
 
-gestion des permissions ;
+- nombre total de candidatures ;
+- répartition par statut ;
+- répartition par source ;
+- taux de réponse ;
+- taux d’entretien ;
+- taux de refus ;
+- délai moyen avant réponse ;
+- candidatures sans réponse ;
+- évolution du nombre de candidatures dans le temps ;
+- complétude des fiches ;
+- efficacité des différentes sources.
 
-journalisation des actions importantes ;
+Les indicateurs devront rester compatibles avec le modèle de statuts simplifié actuellement utilisé.
 
-politique de conservation des emails ;
+---
 
-export des données utilisateur ;
+## 🔐 Sécurité et confidentialité
 
-suppression des données utilisateur ;
+### Objectif
 
-sauvegardes ;
+Préparer une utilisation plus large du projet sans dégrader la confidentialité des emails.
 
-migrations de base de données ;
+### Travaux envisagés
 
-validation et nettoyage des entrées ;
+- validation plus stricte des entrées ;
+- meilleure gestion des erreurs sensibles ;
+- journalisation technique adaptée ;
+- sauvegardes de la base ;
+- stratégie de restauration ;
+- politique de conservation des emails ;
+- suppression complète des données utilisateur ;
+- audit des permissions OAuth ;
+- gestion des migrations de base ;
+- documentation de la gestion des secrets ;
+- préparation à un éventuel déploiement distant.
 
-audit des connecteurs externes.
+---
 
-📊 V1.2 — Statistiques et accompagnement
+## 🧱 Architecture et qualité
 
-Objectif
+### Prochaines améliorations
 
-Transformer le tracker en outil de pilotage.
+- introduire une factory Flask `create_app()` ;
+- découper progressivement les routes en Blueprints ;
+- réduire le couplage entre Web, base et logique métier ;
+- ajouter un accès direct par identifiant pour certaines entités ;
+- renforcer le typage ;
+- compléter les annotations des réponses API ;
+- poursuivre le nettoyage des fonctions historiques ;
+- uniformiser le style des modules ;
+- compléter les tests de régression.
 
-Indicateurs envisagés
+### CI envisagée
 
-nombre total de candidatures ;
+Automatiser :
 
-répartition par statut ;
+```text
+Tests
+  ↓
+Ruff
+  ↓
+Format
+  ↓
+Pyright
+  ↓
+Validation du build
+```
 
-répartition par source ;
+---
 
-taux de réponse ;
+## 🖥️ V2 — Application Desktop
 
-taux d'entretien ;
+### Objectif
 
-taux de refus ;
+Simplifier l’installation et l’utilisation sur ordinateur.
 
-taux d'offre ;
+### Plateformes visées
 
-délai moyen de réponse ;
+- Linux ;
+- Windows.
 
-candidatures sans réponse ;
+### Fonctions envisagées
 
-évolution dans le temps ;
+- installation simplifiée ;
+- assistant de configuration ;
+- démarrage automatique du serveur et du worker ;
+- ajout guidé des comptes email ;
+- journal de diagnostic ;
+- sauvegarde et restauration ;
+- mise à jour simplifiée.
 
-complétude des candidatures ;
+---
 
-efficacité des différentes sources.
+## 📱 V2.5 — Mobile
 
-Funnel envisagé
+### Objectif
 
-Proposée
-   ↓
-Envoyée
-   ↓
-Reçue
-   ↓
-Entretien
-   ↓
-Test
-   ↓
-Offre
+Permettre la consultation et la mise à jour du suivi depuis un téléphone.
 
-Les refus peuvent intervenir à plusieurs étapes du parcours.
+### Première version envisagée
 
-🖥️ V2.0 — Application Desktop
+- consultation des candidatures ;
+- recherche ;
+- modification du statut ;
+- ajout de notes ;
+- création manuelle ;
+- consultation de l’historique ;
+- notifications ;
+- synchronisation avec le moteur principal.
 
-Objectif
+Le mobile serait dans un premier temps un client de consultation et de suivi, tandis que les connecteurs email resteraient gérés par le backend principal.
 
-Simplifier le déploiement et l'utilisation sur ordinateur.
+---
 
-Plateformes
+## 👥 V3 — Multi-utilisateur / établissement
 
-Linux ;
+### Objectif
 
-Windows.
+Faire évoluer Job Tracker vers une solution utilisable par plusieurs apprenants ou utilisateurs.
 
-Fonctions prévues
+### Évolutions envisagées
 
-installation simplifiée ;
+- authentification ;
+- comptes utilisateurs ;
+- séparation stricte des données ;
+- rôles ;
+- gestion de promotions ou groupes ;
+- tableau de bord pédagogique ;
+- statistiques agrégées ;
+- hébergement maîtrisé ;
+- conformité RGPD ;
+- politique de conservation des données ;
+- gestion centralisée ou individuelle des connecteurs.
 
-assistant de configuration ;
+Cette phase nécessiterait une évolution importante de l’architecture actuellement locale.
 
-ajout guidé des comptes email ;
+---
 
-lancement automatique en arrière-plan ;
+## 🧠 Pistes futures
 
-interface locale ;
+Selon les besoins réels :
 
-mises à jour ;
+- suggestions de relance ;
+- rappels ;
+- meilleure détection des candidatures sans réponse ;
+- analyse sémantique optionnelle ;
+- extraction assistée par IA en option ;
+- API publique ;
+- plugins ou intégrations supplémentaires ;
+- rapprochement entre candidatures et offres conservées par l’utilisateur.
 
-sauvegardes ;
+---
 
-journal de diagnostic.
+## 🚫 Hors périmètre actuel
 
-📱 V2.5 — Android
+Les éléments suivants ne font pas partie du périmètre actuel :
 
-Objectif
+- bot Discord ;
+- scraping direct de sites d’emploi ;
+- agrégation automatique d’annonces sans API ou connecteur officiel ;
+- automatisation de candidatures sur des plateformes tierces.
 
-Permettre le suivi des candidatures depuis un téléphone.
+Le projet reste centré sur le suivi des candidatures de l’utilisateur à partir de ses emails, de ses saisies manuelles et de connecteurs autorisés.
 
-Première version envisagée
+---
 
-consultation des candidatures ;
+## 🎯 Direction générale
 
-modification du statut ;
+L’objectif à court terme est de consolider le prototype actuel avant d’élargir son périmètre.
 
-ajout de notes ;
+La priorité est donc :
 
-création manuelle ;
+```text
+Fiabilité du moteur
+        ↓
+Connecteurs robustes
+        ↓
+Qualité / sécurité
+        ↓
+Statistiques
+        ↓
+Industrialisation
+        ↓
+Desktop / Mobile
+        ↓
+Multi-utilisateur
+```
 
-consultation de l'historique ;
-
-notifications ;
-
-synchronisation avec le moteur principal.
-
-Dans un premier temps, Android serait principalement un client de consultation et de suivi, les connecteurs Gmail et Microsoft restant gérés par le backend ou le moteur principal.
-
-👥 V3.0 — Version établissement / multi-utilisateur
-
-Objectif
-
-Faire évoluer Job Tracker vers une solution utilisable par plusieurs apprenants.
-
-Évolutions prévues
-
-authentification ;
-
-comptes utilisateurs ;
-
-séparation stricte des données ;
-
-rôles :
-
-apprenant ;
-
-pédagogue ;
-
-administrateur ;
-
-gestion des promotions ;
-
-tableau de bord pédagogique ;
-
-statistiques anonymisées ou agrégées ;
-
-hébergement maîtrisé ;
-
-gestion centralisée des connecteurs ;
-
-conformité RGPD ;
-
-politique de conservation des données.
-
-🧠 Évolutions futures
-
-Selon les besoins et les retours utilisateurs :
-
-analyse sémantique plus avancée ;
-
-détection automatique de nouvelles plateformes de recrutement ;
-
-suggestions de relance ;
-
-rappels ;
-
-détection des candidatures sans réponse ;
-
-rapprochement entre offres et candidatures ;
-
-extraction assistée par IA en option ;
-
-API publique ;
-
-plugins ou intégrations supplémentaires.
-
-🚫 Hors périmètre actuel
-
-Les éléments suivants ne font plus partie de la roadmap :
-
-bot Discord ;
-
-récupération automatique ou scraping d'annonces publiées sur des sites d'emploi ;
-
-agrégation directe d'offres depuis des plateformes externes sans connecteur officiel.
-
-Le projet reste centré sur le suivi des candidatures de l'utilisateur, à partir de ses emails, de ses saisies manuelles et de connecteurs autorisés.
-
-🎯 Objectif final
-
-Passer d'un tracker personnel capable d'analyser Thunderbird à une plateforme indépendante du client mail, connectée à Gmail et Microsoft, disponible sous Linux, Windows et Android, avec une architecture sécurisée, générique et adaptée à un usage multi-utilisateur.
+Cette progression reste volontairement adaptable afin de pouvoir présenter régulièrement l’évolution réelle du projet sans figer trop tôt les choix techniques.

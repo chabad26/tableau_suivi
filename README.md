@@ -1,103 +1,162 @@
-## Évolutions : configuration et scans en arrière-plan
+# 📬 Job Tracker
 
-Les scans nécessitent désormais un worker dans un second terminal : `.venv/bin/python worker.py`. Le serveur se lance toujours avec `.venv/bin/python web.py`.
+Job Tracker est une application locale de suivi de candidatures qui centralise les informations détectées dans les emails et les saisies manuelles.
 
-Voir [configuration, lancement et fonctionnement](EVOLUTIONS.md) et [.env.example](.env.example). Les travaux se suivent depuis **Travaux en cours** dans l'interface.
+Le projet est actuellement en phase de prototype fonctionnel. Son architecture évolue rapidement afin de devenir plus générique, plus robuste et indépendante d’un client mail particulier.
 
-📬 Job Tracker
+> **État présenté : septembre 2026**
+>
+> Le projet est en cours d’évolution. Certaines fonctionnalités et choix d’architecture peuvent encore changer à court terme.
 
-## État du code au 16 septembre 2026
+## 🎯 Objectif
 
-Le code comporte maintenant des connecteurs IMAP, Gmail et Microsoft. La disponibilité réelle des API dépend de leur configuration et de l'authentification. Les sections historiques ci-dessous sont conservées.
+L’objectif est de réduire le suivi manuel des candidatures en automatisant une partie du travail :
 
-Voir [le bilan de refactorisation](REFACTORING.md) pour les changements effectués, les commandes de vérification et les améliorations encore possibles.
+- détecter les emails liés au recrutement ;
+- identifier l’entreprise, le poste et la source ;
+- suivre l’avancement d’une candidature ;
+- centraliser l’historique des emails associés ;
+- permettre des corrections manuelles lorsque l’analyse automatique est imparfaite ;
+- conserver les données localement dans SQLite.
 
-Job Tracker est une application de suivi de candidatures capable d'analyser automatiquement des emails afin d'identifier les entreprises, les postes, les sources et l'avancement des candidatures.
+## ✨ Fonctionnalités actuelles
 
-Le projet est actuellement développé comme un prototype local fonctionnel, avec pour objectif d'évoluer vers une solution générique et multi-source utilisable sur Linux, Windows et Android.
+### Suivi des candidatures
 
-✨ Fonctionnalités actuelles
+- création automatique à partir des emails détectés ;
+- création manuelle ;
+- modification des informations ;
+- notes personnelles ;
+- suppression ;
+- fusion de candidatures ;
+- recherche et filtrage ;
+- historique des emails associés ;
+- affichage du contenu des messages ;
+- indicateur de complétude ;
+- export CSV ;
+- export Excel.
 
-détection des emails liés à une candidature ;
+### Statuts
 
-extraction automatique de :
+Les statuts actuellement utilisés sont :
 
-l'entreprise ;
+- **Envoyée** ;
+- **Reçue** ;
+- **Entretien** ;
+- **Refus** ;
+- **Sans réponse** ;
+- **À analyser**.
 
-l'intitulé du poste ;
+Le statut **Sans réponse** peut être appliqué automatiquement après une période configurable sans nouvelle activité.
 
-la source ;
+### Analyse automatique
 
-l'état de la candidature ;
+Le moteur analyse notamment :
 
-statuts automatiques :
+- le sujet du message ;
+- le corps du message ;
+- l’adresse de l’expéditeur ;
+- le nom affiché de l’expéditeur ;
+- des formulations typiques des plateformes de recrutement.
 
-Envoyée ;
+L’analyse repose actuellement sur des règles déterministes afin de rester explicable et facile à corriger.
 
-Reçue ;
+Les règles prennent déjà en compte :
 
-Entretien ;
+- le français ;
+- l’anglais ;
+- plusieurs formulations de refus, réception et entretien ;
+- plusieurs ATS et plateformes d’emploi.
 
-Test technique ;
+## 📧 Connecteurs email
 
-Refus ;
+Trois familles de connecteurs sont actuellement disponibles.
 
-À analyser ;
+### Gmail
 
-correction manuelle des informations ;
+Connexion via :
 
-notes personnelles ;
+- Gmail API ;
+- OAuth Google.
 
-création manuelle d'une candidature ;
+### Microsoft
 
-suppression ;
+Connexion via :
 
-fusion de candidatures ;
+- Microsoft Graph ;
+- OAuth Microsoft.
 
-recherche et filtres ;
+### IMAP générique
 
-historique des emails ;
+Connexion directe aux fournisseurs compatibles IMAP.
 
-affichage dépliable du contenu complet des emails ;
+Le projet sait notamment détecter automatiquement plusieurs configurations courantes :
 
-indicateur de complétude ;
+- SFR ;
+- Orange ;
+- Free ;
+- La Poste ;
+- Infomaniak ;
+- OVHcloud.
 
-réanalyse des emails déjà détectés ;
+Plusieurs comptes IMAP peuvent être configurés en parallèle.
 
-export CSV ;
+Les mots de passe IMAP sont stockés séparément de la base principale via le gestionnaire de secrets système.
 
-export Excel ;
+## 🧱 Architecture actuelle
 
-stockage local SQLite.
+```text
+Gmail API ───────────┐
+                     │
+Microsoft Graph ─────┼──→ Connecteurs
+                     │
+IMAP générique ──────┘
+          ↓
+    Classification
+          ↓
+      Extraction
+          ↓
+        SQLite
+          ↓
+   File de travaux
+          ↓
+        Worker
+          ↓
+        Flask
+          ↓
+    Dashboard Web
+```
 
-🧱 Architecture actuelle
+Le serveur Web ne réalise pas directement les scans longs.
 
-Envoyée
-   ↓
-Reçue
-   ↓
-Entretien
-   ↓
-Refus / Sans réponse
+Les opérations de scan, réanalyse, test de connecteur et reconnexion sont placées dans une file persistante puis exécutées par un worker séparé.
 
-Le projet est organisé autour de plusieurs modules indépendants afin de faciliter l'ajout de nouveaux connecteurs à l'avenir.
+## 🗂️ Structure du projet
 
+```text
 tableau_suivi/
 ├── app/
 │   ├── connectors/
+│   │   ├── base.py
+│   │   ├── common.py
 │   │   ├── gmail.py
-│   │   ├── microsoft.py
 │   │   ├── imap.py
+│   │   ├── microsoft.py
 │   │   ├── registry.py
 │   │   └── status.py
 │   ├── classifier.py
 │   ├── database.py
+│   ├── exports.py
 │   ├── extractor.py
 │   ├── importer.py
 │   ├── jobs.py
+│   ├── mail_filters.py
+│   ├── mail_providers.py
 │   ├── maintenance.py
+│   ├── models.py
 │   ├── presentation.py
 │   ├── reclassifier.py
+│   ├── secrets.py
 │   ├── settings.py
 │   └── statuses.py
 ├── static/
@@ -106,221 +165,202 @@ tableau_suivi/
 ├── web.py
 ├── worker.py
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
+```
 
-🛠️ Technologies
+## 🛠️ Technologies
 
-Python ;
+- Python ;
+- Flask ;
+- SQLite ;
+- Gmail API ;
+- Microsoft Graph ;
+- IMAP ;
+- OAuth 2.0 ;
+- keyring ;
+- OpenPyXL ;
+- HTML ;
+- CSS ;
+- JavaScript.
 
-Flask ;
+## 🚀 Installation
 
-SQLite ;
+### 1. Cloner le dépôt
 
-HTML ;
-
-CSS ;
-
-JavaScript ;
-
-🚀 Installation
-
-1. Cloner le projet
-
-git clone <URL_DU_DEPOT>
+```bash
+git clone https://github.com/chabad26/tableau_suivi.git
 cd tableau_suivi
+```
 
-2. Créer un environnement virtuel
+### 2. Créer l’environnement virtuel
 
 Sous Linux :
 
+```bash
 python -m venv .venv
 source .venv/bin/activate
+```
 
 Sous Windows :
 
+```powershell
 python -m venv .venv
 .venv\Scripts\activate
+```
 
-3. Installer les dépendances
+### 3. Installer les dépendances
 
+```bash
 pip install -r requirements.txt
+```
 
-▶️ Utilisation
+Pour les outils de développement :
 
-Lancer l'interface Web
+```bash
+pip install -r requirements-dev.txt
+```
 
-python web.py
+### 4. Configurer l’environnement
+
+Copier les variables nécessaires depuis `.env.example` vers un fichier `.env`.
+
+Les principales variables sont :
+
+- `MICROSOFT_CLIENT_ID` ;
+- `MICROSOFT_AUTHORITY` ;
+- `MICROSOFT_TOKEN_CACHE_FILE` ;
+- `GMAIL_CREDENTIALS_FILE` ;
+- `GMAIL_TOKEN_FILE` ;
+- `DATABASE_PATH` ;
+- `SCAN_START_DATE` ;
+- `FLASK_SECRET_KEY` ;
+- `APPLICATION_EXPIRY_DAYS`.
+
+## ▶️ Lancement
+
+Deux processus sont utilisés.
+
+### Terminal 1 : serveur Web
+
+```bash
+.venv/bin/python web.py
+```
+
+### Terminal 2 : worker
+
+```bash
+.venv/bin/python worker.py
+```
 
 Puis ouvrir :
 
+```text
 http://127.0.0.1:5000
+```
 
-📊 Interface Web
+## 📊 Interface Web
 
-Le tableau de bord permet de :
+Le tableau de bord permet actuellement de :
 
-consulter toutes les candidatures ;
+- consulter toutes les candidatures ;
+- filtrer par statut ;
+- rechercher une entreprise, un poste ou une source ;
+- lancer un scan ;
+- réanalyser les emails déjà enregistrés ;
+- créer une candidature manuelle ;
+- corriger une candidature ;
+- ajouter une note ;
+- consulter l’historique des emails ;
+- exporter les données ;
+- gérer les connecteurs ;
+- suivre l’état des travaux en arrière-plan.
 
-filtrer par statut ;
+## 🔄 Réanalyse
 
-rechercher une entreprise ou un poste ;
+Les emails détectés sont archivés dans SQLite avec leur sujet, expéditeur et corps.
 
-scanner les nouveaux emails ;
+La réanalyse peut donc fonctionner sans relire les boîtes mail.
 
-réanalyser les emails existants ;
+Elle permet notamment de profiter des améliorations du moteur de classification sur les messages déjà enregistrés.
 
-modifier une candidature ;
+Les corrections manuelles restent prioritaires et sont conservées.
 
-ajouter une note ;
+## 🔐 Confidentialité
 
-créer une candidature manuellement ;
+Dans l’état actuel du projet :
 
-consulter les emails associés ;
+- la base SQLite reste locale ;
+- l’analyse des emails est effectuée localement ;
+- les jetons OAuth sont stockés localement ;
+- les mots de passe IMAP ne sont pas enregistrés dans SQLite ;
+- les connecteurs utilisent des permissions limitées à la lecture lorsque cela est possible.
 
-afficher le contenu complet d'un email ;
+Le projet n’est pas encore conçu pour un déploiement multi-utilisateur exposé sur Internet.
 
-exporter les données en CSV ou Excel.
+## 🧪 Qualité et tests
 
-🧠 Détection automatique
+La suite de tests fonctionne sans accès aux vraies boîtes mail.
 
-Le moteur analyse actuellement principalement :
+Commandes principales :
 
-le sujet du message ;
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+npx --yes pyright
+```
 
-le corps du message ;
+Les tests couvrent notamment :
 
-l'adresse de l'expéditeur ;
+- SQLite ;
+- les migrations ;
+- la déduplication ;
+- les connecteurs simulés ;
+- les exports ;
+- les routes Flask ;
+- la file de travaux ;
+- les interruptions du worker ;
+- la réanalyse ;
+- la conservation des modifications manuelles.
 
-le nom affiché de l'expéditeur ;
+## 📈 Évolution récente
 
-certaines formulations typiques des plateformes de recrutement.
+Le projet a récemment évolué d’un scanner fortement lié à une boîte locale vers une architecture multi-connecteur.
 
-L'extraction est volontairement basée sur des règles déterministes afin de garder un comportement explicable.
+Les principaux changements récents sont :
 
-Les règles sont progressivement enrichies afin de prendre en charge :
+- séparation du moteur de classification ;
+- connecteurs Gmail, Microsoft et IMAP ;
+- suppression de la dépendance à un client mail local ;
+- gestion de plusieurs comptes IMAP ;
+- file de travaux persistante ;
+- worker séparé ;
+- réanalyse basée sur SQLite ;
+- amélioration de l’intégrité de la base ;
+- simplification des statuts ;
+- nettoyage progressif du code historique.
 
-le français ;
+## 🗺️ Roadmap
 
-l'anglais ;
+La feuille de route détaillée est disponible dans [ROADMAP.md](ROADMAP.md).
 
-les variations de formulation ;
+Les prochains axes concernent notamment :
 
-les écritures inclusives ;
+- la qualité de l’extraction ;
+- l’état réel des connexions OAuth ;
+- les statistiques ;
+- la sécurité ;
+- l’industrialisation du projet ;
+- les versions Desktop et mobile ;
+- une éventuelle architecture multi-utilisateur.
 
-plusieurs plateformes ATS et sites d'emploi.
+## ⚠️ État du projet
 
-📧 Sources actuellement reconnues
+Job Tracker reste un prototype actif.
 
-Parmi les sources détectées :
+Le dépôt évolue rapidement et certaines parties de l’interface, du modèle de données ou de l’architecture peuvent encore être modifiées.
 
-HelloWork ;
-
-LinkedIn ;
-
-Indeed ;
-
-Malt ;
-
-Free-Work ;
-
-Teamtailor ;
-
-Beetween ;
-
-Recruitee ;
-
-iCIMS ;
-
-DigitalRecruiters ;
-
-candidatures directes.
-
-Cette liste est appelée à évoluer.
-
-🔐 Confidentialité
-
-Dans sa version actuelle :
-
-les données restent stockées localement ;
-
-aucune donnée n'est envoyée à un service externe par défaut ;
-
-les emails sont analysés localement ;
-
-SQLite est utilisé pour le stockage.
-
-Les futures intégrations Gmail et Microsoft devront utiliser des mécanismes d'authentification sécurisés, des permissions minimales et une gestion rigoureuse des secrets.
-
-📧 Connecteurs futurs
-
-L'architecture cible prévoit plusieurs sources :
-
-Gmail API ──────────┐
-                    │
-Microsoft Graph ────┼──→ Connecteurs → Moteur commun → Job Tracker
-                    │
-IMAP ───────────────┘
-
-🖥️ Plateformes visées
-
-Linux
-
-Plateforme principale actuelle de développement.
-
-Windows
-
-Une version Desktop est prévue avec installation et configuration simplifiées.
-
-Android
-
-Une application mobile est envisagée pour :
-
-consulter les candidatures ;
-
-modifier les statuts ;
-
-ajouter des notes ;
-
-recevoir des notifications ;
-
-consulter l'historique.
-
-🗺️ Roadmap
-
-La feuille de route détaillée est disponible dans :
-
-ROADMAP.md
-
-Les principaux axes sont :
-
-fiabilisation de l'extraction ;
-
-intégration Gmail et Microsoft ;
-
-sécurité ;
-
-statistiques ;
-
-versions Linux et Windows ;
-
-application Android ;
-
-architecture multi-utilisateur.
-
-⚠️ État du projet
-
-Le projet est actuellement en phase de prototype fonctionnel.
-
-Certaines fonctionnalités, notamment les connecteurs Gmail / Microsoft, le multi-utilisateur et Android, font partie de la roadmap et ne sont pas encore disponibles.
-
-🤝 Contributions
-
-Le projet a vocation à être suffisamment générique pour pouvoir évoluer vers un usage plus large.
-
-Les contributions, propositions d'amélioration et retours sur les règles d'extraction seront les bienvenus lorsque le dépôt sera ouvert publiquement.
-
-📄 Licence
+## 📄 Licence
 
 Licence à définir.
-
-Une licence open source telle que MIT pourra être retenue pour la publication du projet.
