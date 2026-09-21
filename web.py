@@ -1,8 +1,6 @@
 import csv
 import json
-from datetime import datetime
 from io import BytesIO, StringIO
-from zoneinfo import ZoneInfo
 from flask import (
     Flask,
     abort,
@@ -16,8 +14,6 @@ from flask import (
 from openpyxl import Workbook
 from openpyxl.styles import Font
 
-from app.connectors.gmail import TOKEN_FILE, scan_gmail
-from app.connectors.microsoft import TOKEN_CACHE_FILE, scan_microsoft
 from app.connectors.status import get_connector_statuses
 from app.database import (
     create_imap_account,
@@ -32,14 +28,10 @@ from app.database import (
     set_manual_status,
     update_application_details,
 )
-from app.mail_providers import (
-    MAIL_PROVIDERS,
-    detect_provider,
-    get_provider,
-    detect_provider_smart,
-
+from app.mail_providers import detect_provider_smart
+from app.maintenance import (
+    expire_stale_applications,
 )
-
 from app.secrets import set_imap_password
 from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
 from app.importer import import_emails
@@ -50,8 +42,6 @@ from app.presentation import (
     prepare_application_rows,
 )
 from app.presentation import format_datetime as _format_datetime
-from app.reclassifier import reclassify_emails
-from app.scanner import scan_all_mailboxes
 from app.settings import API_START_DATE, SECRET_KEY
 from app.statuses import STATUS_LABELS, STATUS_ORDER
 
@@ -492,7 +482,7 @@ def update_imap_account_web(
 def ensure_storage():
     init_database()
     init_jobs()
-
+    expire_stale_applications()
 
 def submit_job(kind: str):
     enqueue(kind)

@@ -1067,3 +1067,7 @@ tbody tr:last-child td {
 .imap-account-row .connector-actions {
     margin-top: 0.4rem;
 }
+.badge-expired {
+  background: #3a3430;
+  color: #d6c5b5;
+}

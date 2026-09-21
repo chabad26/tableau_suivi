@@ -98,3 +98,10 @@ IMAP_FOLDER = os.getenv(
     "IMAP_FOLDER",
     "INBOX",
 ).strip()
+
+APPLICATION_EXPIRY_DAYS = int(
+    os.getenv(
+        "APPLICATION_EXPIRY_DAYS",
+        "30",
+    )
+)

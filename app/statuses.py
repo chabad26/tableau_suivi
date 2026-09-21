@@ -6,6 +6,7 @@ STATUS_LABELS = {
     "TEST": "Test technique",
     "OFFER": "Offre",
     "REJECTED": "Refus",
+    "EXPIRED": "Sans réponse",
     "OTHER": "À analyser",
 }
 
@@ -18,6 +19,7 @@ STATUS_ORDER = [
     "TEST",
     "OFFER",
     "REJECTED",
+    "EXPIRED",
     "OTHER",
 ]
 
