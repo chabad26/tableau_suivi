@@ -72,18 +72,52 @@ def prepare_application_rows(
         )
     return prepared
 
+def application_statistics(
+    applications: Sequence[sqlite3.Row],
+) -> dict[str, int]:
 
-def application_statistics(applications: Sequence[sqlite3.Row]) -> dict[str, int]:
     """Conserve les clés historiques en majuscules et en minuscules."""
-    stats = dict.fromkeys(STATUS_ORDER, 0)
-    legacy_statuses = {"SENT", "RECEIVED", "INTERVIEW", "REJECTED", "OFFER"}
-    stats.update(
-        dict.fromkeys([*(status.lower() for status in legacy_statuses), "other"], 0)
+
+    stats = dict.fromkeys(
+        STATUS_ORDER,
+        0,
     )
+
+    legacy_statuses = {
+        "SENT",
+        "RECEIVED",
+        "INTERVIEW",
+        "REJECTED",
+        "OFFER",
+    }
+
+    stats.update(
+        dict.fromkeys(
+            [
+                *(
+                    status.lower()
+                    for status in legacy_statuses
+                ),
+                "other",
+            ],
+            0,
+        )
+    )
+
     stats["total"] = len(applications)
+
     for application in applications:
         status = effective_status(application)
-        if status in STATUS_LABELS:
+
+        if status in stats:
             stats[status] += 1
-        stats[status.lower() if status in legacy_statuses else "other"] += 1
+
+        legacy_key = (
+            status.lower()
+            if status in legacy_statuses
+            else "other"
+        )
+
+        stats[legacy_key] += 1
+
     return stats

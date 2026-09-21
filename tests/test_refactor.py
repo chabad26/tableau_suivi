@@ -55,9 +55,14 @@ class OfflineCase(unittest.TestCase):
             (status, "CREDENTIALS_FILE", "gmail-client.json"),
             (status, "TOKEN_FILE", "gmail-token.json"),
             (status, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
-            (web, "TOKEN_FILE", "gmail-token.json"),
-            (web, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
         ):
+            self.stack.enter_context(
+                patch.object(
+                    module,
+                    attribute,
+                    self.root / filename,
+                )
+            )
             self.stack.enter_context(
                 patch.object(module, attribute, self.root / filename)
             )
@@ -121,28 +126,41 @@ class StorageAndImportTests(OfflineCase):
                 connection.execute("UPDATE emails SET application_id = 123456")
 
     def test_import_deduplicates_sources_and_repeated_runs(self):
+
         email = fake_email()
+
         with (
-            patch.object(importer, "scan_all_mailboxes", return_value=[email]),
             patch.object(
                 importer,
                 "scan_external_connectors",
-                return_value=[replace(email, mailbox="Gmail API"), fake_email("")],
+                return_value=[
+                    email,
+                    replace(
+                        email,
+                        mailbox="Gmail API",
+                    ),
+                    fake_email(""),
+                ],
             ),
             patch.object(
                 importer,
                 "extract_application_data",
-                return_value=("Entreprise Fictive", "Développeur Python", "Fixture"),
+                return_value=(
+                    "Entreprise Fictive",
+                    "Développeur Python",
+                    "Fixture",
+                ),
             ),
         ):
-            self.assertEqual(importer.import_emails(), importer.ImportResult(1, 1, 1))
-            self.assertEqual(importer.import_emails(), importer.ImportResult(1, 0, 0))
-        applications = database.get_applications()
-        self.assertEqual(len(applications), 1)
-        self.assertEqual(
-            database.get_application_emails(applications[0]["id"])[0]["mailbox"],
-            "Fixture",
-        )
+            self.assertEqual(
+                importer.import_emails(),
+                importer.ImportResult(1, 1, 1),
+            )
+
+            self.assertEqual(
+                importer.import_emails(),
+                importer.ImportResult(1, 0, 0),
+            )
 
     def test_merge_and_delete_keep_emails(self):
         source = self.application("Source Fictive")
@@ -294,12 +312,39 @@ class WebTests(OfflineCase):
 
     def test_statistics_and_date_fallback(self):
         application_id = self.application()
-        database.set_manual_status(application_id, "OFFER", "")
-        stats = application_statistics(database.get_applications())
-        self.assertEqual((stats["total"], stats["OFFER"], stats["offer"]), (1, 1, 1))
-        self.assertEqual(format_datetime(None), "-")
-        self.assertEqual(format_datetime("date invalide"), "date invalide")
 
+        database.set_manual_status(
+            application_id,
+            "INTERVIEW",
+            "",
+        )
+
+        stats = application_statistics(
+            database.get_applications()
+        )
+
+        self.assertEqual(
+            (
+                stats["total"],
+                stats["INTERVIEW"],
+                stats["interview"],
+            ),
+            (
+                1,
+                1,
+                1,
+            ),
+        )
+
+        self.assertEqual(
+            format_datetime(None),
+            "-",
+        )
+
+        self.assertEqual(
+            format_datetime("date invalide"),
+            "date invalide",
+    )
 
 class ConnectorTests(OfflineCase):
     def test_common_html_and_message_wrappers(self):

@@ -34,8 +34,8 @@ def deduplicate_emails(emails: list[DetectedEmail]) -> list[DetectedEmail]:
         # Premier connecteur gagnant.
         #
         # Ça évite qu'un même mail vu par
-        # Thunderbird et Gmail soit traité
-        # deux fois pendant la même passe.
+        # plusieurs connecteurs soit traité
+        # plusieurs fois pendant la même passe.
         #
         if key not in unique:
             unique[key] = email
