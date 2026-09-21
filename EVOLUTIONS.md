@@ -10,7 +10,7 @@ Le fichier `.env` à la racine du projet est chargé au démarrage, même quand 
 - `MICROSOFT_AUTHORITY` : autorité Microsoft, `common` par défaut.
 - `GMAIL_CREDENTIALS_FILE`, `GMAIL_TOKEN_FILE`, `MICROSOFT_TOKEN_CACHE_FILE` : chemins OAuth.
 - `DATABASE_PATH` : base SQLite, `data/job_tracker.db` par défaut.
-- `SCAN_START_DATE` : date ISO de début des scans, `2026-08-01` par défaut. Une date sans fuseau est interprétée en Europe/Paris ; un offset explicite est accepté. Thunderbird et les API partagent désormais le même instant de départ.
+- `SCAN_START_DATE` : date ISO de début des scans, `2026-08-01` par défaut. Une date sans fuseau est interprétée en Europe/Paris ; un offset explicite est accepté. Tous les connecteurs utilisent le même instant de départ pour les scans.
 - `FLASK_SECRET_KEY` : clé privée de session. Sans valeur, une clé aléatoire est créée à chaque démarrage ; les sessions précédentes deviennent alors invalides.
 
 Les chemins relatifs partent de la racine du projet. Les répertoires parents des caches OAuth sont créés au besoin. Le `.env` personnel n'a pas été modifié par cette évolution.
@@ -37,13 +37,20 @@ Un verrou de fichier Linux empêche deux workers d'utiliser simultanément la m�
 
 Les erreurs affichées ne contiennent pas le texte brut des exceptions OAuth. Un scan ayant échoué sur une source indique un **résultat partiel** et les sources indisponibles. Une reconnexion supprime le cache concerné seulement lorsque son travail est exécuté.
 
-## Réanalyse de toutes les sources
+## Réanalyse des emails enregistrés
 
-La réanalyse s'appuie sur le sujet, l'expéditeur et le corps archivés dans SQLite pour Thunderbird, Gmail et Microsoft. Elle fonctionne sans connexion aux API et porte sur tous les emails enregistrés, indépendamment de la date de départ des nouveaux scans.
+La réanalyse s'appuie exclusivement sur les données archivées dans SQLite :
 
-Pour les anciens emails sans corps, une recherche dans les mbox locales peut récupérer le contenu. Il est alors enregistré même si le statut n'a pas changé. Un corps qui ne peut pas être retrouvé est compté comme manquant ; le statut existant n'est pas remplacé à partir de données incomplètes.
+- sujet ;
+- expéditeur ;
+- corps du message ;
+- statut détecté.
 
-Les corrections manuelles et notes sont conservées. La fonction historique de réanalyse mbox reste disponible sous `reclassify_mailboxes()`.
+Elle fonctionne sans connexion aux services externes et porte sur tous les emails enregistrés, indépendamment de la date de départ des nouveaux scans.
+
+Les emails sans corps enregistré sont comptés comme manquants et ne sont pas reclassifiés à partir de données incomplètes.
+
+Les corrections manuelles et les notes sont conservées.
 
 ## Suppression et intégrité SQLite
 

@@ -8,7 +8,7 @@ Voir [configuration, lancement et fonctionnement](EVOLUTIONS.md) et [.env.exampl
 
 ## État du code au 16 septembre 2026
 
-Le code comporte maintenant des connecteurs Thunderbird, Gmail et Microsoft. La disponibilité réelle des API dépend de leur configuration et de l'authentification. Les sections historiques ci-dessous sont conservées.
+Le code comporte maintenant des connecteurs IMAP, Gmail et Microsoft. La disponibilité réelle des API dépend de leur configuration et de l'authentification. Les sections historiques ci-dessous sont conservées.
 
 Voir [le bilan de refactorisation](REFACTORING.md) pour les changements effectués, les commandes de vérification et les améliorations encore possibles.
 
@@ -17,8 +17,6 @@ Job Tracker est une application de suivi de candidatures capable d'analyser auto
 Le projet est actuellement développé comme un prototype local fonctionnel, avec pour objectif d'évoluer vers une solution générique et multi-source utilisable sur Linux, Windows et Android.
 
 ✨ Fonctionnalités actuelles
-
-scan automatique des boîtes mail Thunderbird ;
 
 détection des emails liés à une candidature ;
 
@@ -34,8 +32,6 @@ l'état de la candidature ;
 
 statuts automatiques :
 
-Proposée ;
-
 Envoyée ;
 
 Reçue ;
@@ -43,8 +39,6 @@ Reçue ;
 Entretien ;
 
 Test technique ;
-
-Offre ;
 
 Refus ;
 
@@ -78,44 +72,39 @@ stockage local SQLite.
 
 🧱 Architecture actuelle
 
-Thunderbird
-    ↓
-Scanner
-    ↓
-Classification
-    ↓
-Extraction
-    ↓
-SQLite
-    ↓
-Flask
-    ↓
-Dashboard Web
+Envoyée
+   ↓
+Reçue
+   ↓
+Entretien
+   ↓
+Refus / Sans réponse
 
 Le projet est organisé autour de plusieurs modules indépendants afin de faciliter l'ajout de nouveaux connecteurs à l'avenir.
 
 tableau_suivi/
 ├── app/
+│   ├── connectors/
+│   │   ├── gmail.py
+│   │   ├── microsoft.py
+│   │   ├── imap.py
+│   │   ├── registry.py
+│   │   └── status.py
 │   ├── classifier.py
 │   ├── database.py
 │   ├── extractor.py
 │   ├── importer.py
-│   ├── models.py
+│   ├── jobs.py
+│   ├── maintenance.py
+│   ├── presentation.py
 │   ├── reclassifier.py
-│   ├── scanner.py
+│   ├── settings.py
 │   └── statuses.py
-├── data/
-│   └── job_tracker.db
 ├── static/
-│   └── style.css
 ├── templates/
-│   ├── application.html
-│   ├── index.html
-│   └── new_application.html
-├── main.py
-├── show.py
-├── edit.py
+├── tests/
 ├── web.py
+├── worker.py
 ├── requirements.txt
 └── README.md
 
@@ -132,10 +121,6 @@ HTML ;
 CSS ;
 
 JavaScript ;
-
-OpenPyXL ;
-
-Thunderbird / mbox.
 
 🚀 Installation
 
@@ -161,18 +146,6 @@ python -m venv .venv
 pip install -r requirements.txt
 
 ▶️ Utilisation
-
-Scanner les emails depuis le terminal
-
-python main.py
-
-Réanalyser les emails déjà connus
-
-python main.py --reclassify
-
-Afficher les candidatures dans le terminal
-
-python show.py
 
 Lancer l'interface Web
 
@@ -286,9 +259,7 @@ Gmail API ──────────┐
                     │
 Microsoft Graph ────┼──→ Connecteurs → Moteur commun → Job Tracker
                     │
-Thunderbird ────────┘
-
-L'objectif est que Thunderbird devienne un connecteur parmi d'autres et non une dépendance obligatoire.
+IMAP ───────────────┘
 
 🖥️ Plateformes visées
 

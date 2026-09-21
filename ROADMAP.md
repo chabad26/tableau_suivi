@@ -8,29 +8,22 @@ L'objectif à terme est de proposer une solution utilisable sur Linux, Windows e
 
 ✅ MVP actuel
 
-Le prototype actuel permet déjà de :
-
-scanner les boîtes mail locales Thunderbird ;
-
-détecter les emails liés à des candidatures ;
-
-identifier automatiquement l'entreprise, le poste, la source et le statut ;
+Envoyée
+Reçue
+Entretien
+Refus
+Sans réponse
+À analyser
 
 distinguer plusieurs états :
 
-Proposée ;
-
-Envoyée ;
-
-Reçue ;
-
-Entretien ;
-
-Test technique ;
-
-Offre ;
-
-Refus ;
+Envoyée
+   ↓
+Reçue
+   ↓
+Entretien
+   ↓
+Refus / Sans réponse
 
 À analyser ;
 
@@ -92,43 +85,15 @@ Score de confiance
       ↓
 Validation utilisateur si nécessaire
 
-📧 V1.0 — Connecteurs email
+## ✅ Connecteurs email
 
-Objectif
+Connecteurs actuellement disponibles :
 
-Ne plus dépendre exclusivement des fichiers locaux de Thunderbird.
+- Gmail via API Google et OAuth ;
+- Outlook / Microsoft 365 via Microsoft Graph ;
+- IMAP générique pour les fournisseurs compatibles.
 
-Connecteurs prévus
-
-Gmail via API Google et OAuth ;
-
-Outlook / Microsoft 365 via Microsoft Graph ;
-
-Thunderbird comme connecteur local ;
-
-possibilité d'ajouter d'autres fournisseurs ultérieurement.
-
-Architecture cible
-
-Gmail API ──────────┐
-                    │
-Microsoft Graph ────┼──→ Connecteurs → Moteur d'analyse → Job Tracker
-                    │
-Thunderbird ────────┘
-
-Points importants
-
-authentification OAuth ;
-
-permissions minimales ;
-
-synchronisation incrémentale ;
-
-plusieurs comptes possibles ;
-
-pas de stockage du mot de passe de messagerie ;
-
-révocation simple des accès.
+L’architecture des connecteurs est mutualisée afin de permettre l’ajout de nouvelles sources sans modifier le moteur principal.
 
 🔐 V1.1 — Sécurité et confidentialité
 

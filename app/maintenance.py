@@ -5,7 +5,6 @@ from app.settings import APPLICATION_EXPIRY_DAYS
 
 
 EXPIRABLE_STATUSES = {
-    "PROPOSED",
     "SENT",
     "RECEIVED",
     "OTHER",

@@ -34,7 +34,6 @@ from app.maintenance import (
 )
 from app.secrets import set_imap_password
 from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
-from app.importer import import_emails
 from app.jobs import enqueue, init_jobs, list_jobs
 from app.presentation import (
     PreparedApplication,
@@ -42,14 +41,12 @@ from app.presentation import (
     prepare_application_rows,
 )
 from app.presentation import format_datetime as _format_datetime
-from app.settings import API_START_DATE, SECRET_KEY
+from app.settings import SECRET_KEY
 from app.statuses import STATUS_LABELS, STATUS_ORDER
 
 app = Flask(__name__)
 
 app.secret_key = SECRET_KEY
-
-CONNECTOR_TEST_START_DATE = API_START_DATE
 
 # Préparation et compatibilité
 
@@ -594,7 +591,6 @@ def test_connector(connector_key: str):
     if connector_key not in {
         "gmail",
         "microsoft",
-        "imap",
     }:
         abort(404)
 

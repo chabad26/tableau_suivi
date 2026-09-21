@@ -235,6 +235,17 @@ def detect_status(subject: str, body: str) -> str:
         "entretien rh",
         "convocation entretien",
         "rendez-vous entretien",
+        "test technique",
+        "coding test",
+        "technical test",
+        "technical assessment",
+        "exercice technique",
+        "cas pratique",
+        "offre d'embauche",
+        "proposition d'embauche",
+        "promesse d'embauche",
+        "proposition salariale",
+        "nous souhaitons vous faire une offre",
         # English
         "interview invitation",
         "invitation to interview",
@@ -245,23 +256,6 @@ def detect_status(subject: str, body: str) -> str:
         "video interview",
         "interview scheduled",
         "interview confirmation",
-    ]
-
-    if contains_any(subject_text, interview_subject):
-        return "INTERVIEW"
-
-    # ------------------------------------------------------------------
-    # TEST TECHNIQUE
-    # ------------------------------------------------------------------
-
-    test_subject = [
-        "test technique",
-        "coding test",
-        "technical test",
-        "technical assessment",
-        "exercice technique",
-        "cas pratique",
-        # English
         "coding challenge",
         "coding assessment",
         "technical challenge",
@@ -269,23 +263,6 @@ def detect_status(subject: str, body: str) -> str:
         "take home test",
         "online assessment",
         "skills assessment",
-    ]
-
-    if contains_any(subject_text, test_subject):
-        return "TEST"
-
-    # ------------------------------------------------------------------
-    # OFFRE
-    # ------------------------------------------------------------------
-
-    # Attention : on évite volontairement "offre d'emploi".
-    offer_subject = [
-        "offre d'embauche",
-        "proposition d'embauche",
-        "promesse d'embauche",
-        "proposition salariale",
-        "nous souhaitons vous faire une offre",
-        # English
         "job offer",
         "employment offer",
         "offer of employment",
@@ -294,8 +271,8 @@ def detect_status(subject: str, body: str) -> str:
         "salary offer",
     ]
 
-    if contains_any(subject_text, offer_subject):
-        return "OFFER"
+    if contains_any(subject_text, interview_subject):
+        return "INTERVIEW"
 
     # ------------------------------------------------------------------
     # CANDIDATURE ENVOYÉE
@@ -410,6 +387,20 @@ def detect_status(subject: str, body: str) -> str:
         "nous vous invitons a un entretien",
         "nous souhaitons échanger avec vous",
         "nous souhaitons echanger avec vous",
+        "nous vous invitons à réaliser un test technique",
+        "nous vous invitons a realiser un test technique",
+        "nous vous proposons un test technique",
+        "nous vous proposons un exercice technique"
+        "nous souhaitons vous proposer un contrat",
+        "nous souhaitons vous faire une proposition d'embauche",
+        "nous sommes heureux de vous proposer le poste",
+        "nous avons le plaisir de vous proposer le poste",
+        "we are pleased to offer you the position",
+        "we are happy to offer you the position",
+        "we would like to offer you the position",
+        "we would like to offer you the role",
+        "we are pleased to offer you employment",
+        "we would like to make you an offer",
         # English
         "we would like to invite you to an interview",
         "we would like to schedule an interview",
@@ -419,17 +410,6 @@ def detect_status(subject: str, body: str) -> str:
         "we would like to meet with you",
         "we would like to schedule a call",
         "we would like to arrange a call",
-    ]
-
-    if contains_any(body_text, interview_body):
-        return "INTERVIEW"
-
-    test_body = [
-        "nous vous invitons à réaliser un test technique",
-        "nous vous invitons a realiser un test technique",
-        "nous vous proposons un test technique",
-        "nous vous proposons un exercice technique",
-        # English
         "we would like you to complete a technical test",
         "we would like you to complete a coding test",
         "we would like you to complete a coding challenge",
@@ -438,25 +418,9 @@ def detect_status(subject: str, body: str) -> str:
         "please complete the coding challenge",
     ]
 
-    if contains_any(body_text, test_body):
-        return "TEST"
+    if contains_any(body_text, interview_body):
+        return "INTERVIEW"
 
-    offer_body = [
-        "nous souhaitons vous proposer un contrat",
-        "nous souhaitons vous faire une proposition d'embauche",
-        "nous sommes heureux de vous proposer le poste",
-        "nous avons le plaisir de vous proposer le poste",
-        # English
-        "we are pleased to offer you the position",
-        "we are happy to offer you the position",
-        "we would like to offer you the position",
-        "we would like to offer you the role",
-        "we are pleased to offer you employment",
-        "we would like to make you an offer",
-    ]
-
-    if contains_any(body_text, offer_body):
-        return "OFFER"
     # Cas du genre :
     # "Votre candidature : Développeur Full Stack..."
     if subject_text.startswith("votre candidature"):

@@ -19,6 +19,7 @@ from app.connectors.common import html_to_text
 from app.exports import EXPORT_HEADERS
 from app.models import DetectedEmail
 from app.presentation import application_statistics, format_datetime
+from app import settings
 
 NOW = datetime(2026, 9, 16, 12, tzinfo=timezone.utc)
 
@@ -281,7 +282,7 @@ class WebTests(OfflineCase):
             self.assertIn("En attente", response.get_data(as_text=True))
             scan.assert_not_called()
             self.assertTrue(jobs.run_next())
-            scan.assert_called_once_with(web.CONNECTOR_TEST_START_DATE)
+            scan.assert_called_once_with (settings.API_START_DATE)
         microsoft.TOKEN_CACHE_FILE.write_text("{}")
         with patch.object(microsoft, "scan_microsoft", return_value=[]):
             self.assertEqual(
@@ -327,10 +328,8 @@ class WebTests(OfflineCase):
             (
                 stats["total"],
                 stats["INTERVIEW"],
-                stats["interview"],
             ),
             (
-                1,
                 1,
                 1,
             ),
@@ -474,7 +473,7 @@ if __name__ == "__main__":
 
 
 class EvolutionTests(OfflineCase):
-    def test_foreign_keys_and_legacy_orphans(self):
+    def test_foreign_keys_and_orphan_repair(self):
         import sqlite3
 
         app_id = self.application()
@@ -506,7 +505,7 @@ class EvolutionTests(OfflineCase):
 
     def test_reanalysis_all_sources_preserves_manual_status(self):
         app_id = self.application()
-        database.set_manual_status(app_id, "OFFER", "Note privée fictive")
+        database.set_manual_status(app_id, "INTERVIEW", "Note privée fictive")
         for index, source in enumerate(["Gmail API", "Microsoft Graph", "IMAP"]):
             database.save_email(
                 fake_email(f"<{index}@example.invalid>", mailbox=source), app_id
@@ -518,7 +517,7 @@ class EvolutionTests(OfflineCase):
         self.assertEqual((result.found, result.changed, result.missing), (3, 3, 0))
         row = database.get_application(app_id)
         assert row is not None
-        self.assertEqual(row["manual_status"], "OFFER")
+        self.assertEqual(row["manual_status"], "INTERVIEW")
         self.assertEqual(row["manual_note"], "Note privée fictive")
         self.assertEqual(row["current_status"], "REJECTED")
 

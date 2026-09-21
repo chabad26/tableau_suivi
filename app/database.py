@@ -433,47 +433,7 @@ def create_manual_application(
 
         return int(cursor.lastrowid)
 
-
-def create_discord_proposal(company: str, job_title: str, note: str = "") -> int:
-    now = datetime.now(timezone.utc)
-
-    with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO applications (
-                company,
-                job_title,
-                source,
-                first_seen,
-                last_update,
-                current_status,
-                manual_status,
-                manual_note,
-                manual_override
-            )
-            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 0)
-            """,
-            (
-                company,
-                job_title,
-                "Discord / Centre de formation",
-                now.isoformat(),
-                now.isoformat(),
-                "PROPOSED",
-                note,
-            ),
-        )
-
-        connection.commit()
-
-        if cursor.lastrowid is None:
-            raise RuntimeError("Impossible de créer la proposition Discord.")
-
-        return int(cursor.lastrowid)
-
-
 # Candidatures : mises à jour
-
 
 def update_application(
     application_id: int, status: str, date: datetime, job_title: str = ""

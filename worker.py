@@ -1,8 +1,6 @@
 """Lancer avec .venv/bin/python worker.py, dans un terminal dédié à OAuth."""
-
 import fcntl
 import time
-
 from app.database import DATABASE_PATH, get_connection, init_database
 from app.jobs import init_jobs, recover_interrupted, run_next
 
