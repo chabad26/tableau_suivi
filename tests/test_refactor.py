@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 from openpyxl import load_workbook
 
 import web
-from app import database, importer, jobs, reclassifier, scanner
+from app import database, importer, jobs, reclassifier
 from app.connectors import gmail, microsoft, registry, status
 from app.connectors.common import html_to_text
 from app.exports import EXPORT_HEADERS
@@ -163,25 +163,6 @@ class StorageAndImportTests(OfflineCase):
         self.assertEqual(row["current_status"], "REJECTED")
         self.assertEqual(row["manual_status"], "INTERVIEW")
         self.assertTrue(row["manual_override"])
-
-    def test_local_scanner_reads_only_temporary_mbox(self):
-        path = self.root / "fixture.mbox"
-        message = EmailMessage()
-        message["From"] = "rh@example.invalid"
-        message["Subject"] = "Votre candidature"
-        message["Date"] = "Wed, 16 Sep 2026 12:00:00 +0000"
-        message["Message-ID"] = "<local@example.invalid>"
-        message.set_content(
-            "Nous avons bien reçu votre candidature au poste de Développeur Python."
-        )
-        mbox = mailbox.mbox(path)
-        mbox.add(message)
-        mbox.close()
-        with patch.object(scanner, "MAILBOXES", {"Fixture": path}):
-            emails = scanner.scan_all_mailboxes()
-        self.assertEqual(len(emails), 1)
-        self.assertEqual(emails[0].message_id, "<local@example.invalid>")
-
 
 class WebTests(OfflineCase):
     def test_dashboard_displays_each_application_once(self):
@@ -370,7 +351,7 @@ class ConnectorTests(OfflineCase):
         responses = []
         for identifier in ["first", "second"]:
             response = MagicMock()
-            data = {
+            data: dict[str, object] = {
                 "value": [
                     {
                         "id": identifier,
@@ -475,12 +456,11 @@ class EvolutionTests(OfflineCase):
     def test_reanalysis_all_sources_preserves_manual_status(self):
         app_id = self.application()
         database.set_manual_status(app_id, "OFFER", "Note privée fictive")
-        for index, source in enumerate(["Gmail API", "Microsoft Graph", "Thunderbird"]):
+        for index, source in enumerate(["Gmail API", "Microsoft Graph", "IMAP"]):
             database.save_email(
                 fake_email(f"<{index}@example.invalid>", mailbox=source), app_id
             )
         with (
-            patch.object(reclassifier, "MAILBOXES", {}),
             patch.object(reclassifier, "detect_status", return_value="REJECTED"),
         ):
             result = reclassifier.reclassify_emails()
@@ -490,27 +470,39 @@ class EvolutionTests(OfflineCase):
         self.assertEqual(row["manual_note"], "Note privée fictive")
         self.assertEqual(row["current_status"], "REJECTED")
 
-    def test_missing_body_and_historical_fallback(self):
+    def test_missing_body_is_counted_as_missing(self):
         app_id = self.application()
-        database.save_email(fake_email("<missing@fixture>", body=""), app_id)
-        database.save_email(fake_email("<recovered@fixture>", body=""), app_id)
-        path = self.root / "fixture.mbox"
-        message = EmailMessage()
-        message["Message-ID"] = "<recovered@fixture>"
-        message["Subject"] = "Votre candidature"
-        message["From"] = "rh@example.invalid"
-        message.set_content("Nous avons reçu votre candidature.")
-        with contextlib.closing(mailbox.mbox(path)) as box:
-            box.add(message)
-        with patch.object(reclassifier, "MAILBOXES", {"Fixture": path}):
-            result = reclassifier.reclassify_emails()
-        self.assertEqual((result.scanned, result.found, result.missing), (2, 1, 1))
-        with database.get_connection() as connection:
-            self.assertTrue(
-                connection.execute(
-                    "SELECT body FROM emails WHERE message_id = '<recovered@fixture>'"
-                ).fetchone()[0]
-            )
+
+        database.save_email(
+            fake_email(
+                "<missing@fixture>",
+                body="",
+            ),
+            app_id,
+        )
+
+        database.save_email(
+            fake_email(
+                "<available@fixture>",
+                body="Nous avons bien reçu votre candidature.",
+            ),
+            app_id,
+        )
+
+        result = reclassifier.reclassify_emails()
+
+        self.assertEqual(
+            (
+                result.scanned,
+                result.found,
+                result.missing,
+            ),
+            (
+                2,
+                1,
+                1,
+            ),
+        )
 
     def test_queue_failure_and_serialization(self):
         jobs.init_jobs()

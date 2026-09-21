@@ -51,9 +51,6 @@ def get_connector_statuses() -> list[ConnectorStatus]:
     microsoft_client_id = bool(MICROSOFT_CLIENT_ID)
 
     microsoft_token = TOKEN_CACHE_FILE.exists()
-    imap_accounts = (
-        get_enabled_imap_accounts()
-    )
     return [
         ConnectorStatus(
             key="gmail",

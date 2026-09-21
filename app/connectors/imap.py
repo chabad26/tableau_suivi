@@ -21,14 +21,7 @@ from app.mail_filters import (
     should_analyze_email,
 )
 from app.models import DetectedEmail
-from app.settings import (
-    IMAP_ENABLED,
-    IMAP_FOLDER,
-    IMAP_HOST,
-    IMAP_PASSWORD,
-    IMAP_PORT,
-    IMAP_USERNAME,
-)
+
 from app.connectors.common import (
     build_email_message,
     decode_mime_header,
@@ -81,31 +74,6 @@ def get_imap_accounts() -> list[ImapAccount]:
                     row["folder"]
                     or "INBOX"
                 ),
-            )
-        )
-
-    # Compatibilité avec l'ancien compte .env.
-    #
-    # Dès qu'on aura migré tous les comptes vers SQLite/keyring,
-    # on pourra supprimer cette partie.
-    if (
-        not accounts
-        and IMAP_ENABLED
-        and IMAP_HOST
-        and IMAP_USERNAME
-        and IMAP_PASSWORD
-    ):
-        accounts.append(
-            ImapAccount(
-                account_id=None,
-                key="legacy-env",
-                label=IMAP_USERNAME,
-                host=IMAP_HOST,
-                port=IMAP_PORT,
-                use_ssl=True,
-                username=IMAP_USERNAME,
-                password=IMAP_PASSWORD,
-                folder=IMAP_FOLDER,
             )
         )
 

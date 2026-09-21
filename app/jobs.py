@@ -11,7 +11,6 @@ KINDS = {
     "reclassify",
     "test:gmail",
     "test:microsoft",
-    "test:imap",
     "reconnect:gmail",
     "reconnect:microsoft",
 }
@@ -114,8 +113,6 @@ def execute(kind: str) -> dict:
             )
     elif connector == "gmail":
         emails = scan_gmail(API_START_DATE)
-    elif connector == "imap":
-        emails = scan_imap(API_START_DATE)
     elif connector == "microsoft":
         emails = scan_microsoft(API_START_DATE)
     else:

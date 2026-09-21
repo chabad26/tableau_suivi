@@ -11,7 +11,7 @@
     <a class="secondary-button" href="{{ url_for('connectors_page') }}">⚙ Connecteurs</a>
 </div>
 {% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}
-{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:thunderbird': 'Test Thunderbird', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
+{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
 {% for job in jobs %}
 <section class="card">
 <h2>{{ kinds.get(job.kind, job.kind) }} — {{ states[job.state] }}</h2>

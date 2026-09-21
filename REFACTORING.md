@@ -2,7 +2,8 @@
 
 ## Changements effectués
 
-Les fichiers existants, les points d'entrée et les fonctions publiques sont conservés. Les modifications déjà présentes dans le dossier ont été prises en compte. Les règles de classification historiques restent dans `mailrecever.py`, exposées par `app/classifier.py`.
+Les règles de classification ont été migrées dans `app/classifier.py`.
+Le scanner Thunderbird et l'ancien fichier `mailrecever.py` ont été supprimés.
 
 | Zone | Modification |
 | --- | --- |
