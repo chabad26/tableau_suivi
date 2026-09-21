@@ -138,45 +138,61 @@ Connecteurs - Job Tracker
 
                                 <div class="imap-account-row">
 
-                                    <div>
-                                        <strong>
-                                            {{ account["email"] }}
-                                        </strong>
+                                    <div class="imap-account-header">
 
-                                        <span>
-                                            {{ account["provider"] or "IMAP" }}
-                                        </span>
+                                        <div class="imap-account-identity">
 
-                                        <span>
-                                            {{ account["host"] }}:{{ account["port"] }}
-                                        </span>
+                                            <strong>
+                                                {{ account["email"] }}
+                                            </strong>
+
+                                            <span class="imap-provider">
+                                                {{ account["provider"] or "IMAP" }}
+                                            </span>
+
+                                            <span class="imap-server">
+                                                {{ account["host"] }}:{{ account["port"] }}
+                                            </span>
+
+                                        </div>
+
+                                        <div class="imap-account-health">
+
+                                            {% if account["last_status"] == "connected" %}
+
+                                                <span class="imap-status imap-status-ok">
+                                                    ● Connecté
+                                                </span>
+
+                                            {% elif account["last_status"] == "auth_error" %}
+
+                                                <span class="imap-status imap-status-error">
+                                                    ● Identifiants refusés
+                                                </span>
+
+                                            {% elif account["last_status"] == "error" %}
+
+                                                <span class="imap-status imap-status-error">
+                                                    ● Connexion impossible
+                                                </span>
+
+                                            {% else %}
+
+                                                <span class="imap-status imap-status-unknown">
+                                                    ○ Non testé
+                                                </span>
+
+                                            {% endif %}
+
+                                            <span class="imap-last-check">
+                                                Dernier test :
+                                                {{ account["last_checked_display"] }}
+                                            </span>
+
+                                        </div>
+
                                     </div>
 
-                                    {% if account["last_status"] == "connected" %}
-
-                                        <span class="imap-status imap-status-ok">
-                                            ● Connecté
-                                        </span>
-
-                                    {% elif account["last_status"] == "auth_error" %}
-
-                                        <span class="imap-status imap-status-error">
-                                            ● Identifiants refusés
-                                        </span>
-
-                                    {% elif account["last_status"] == "error" %}
-
-                                        <span class="imap-status imap-status-error">
-                                            ● Connexion impossible
-                                        </span>
-
-                                    {% else %}
-
-                                        <span class="imap-status imap-status-unknown">
-                                            ○ Non testé
-                                        </span>
-
-                                    {% endif %}
 
                                     <div class="connector-actions">
 
@@ -191,7 +207,7 @@ Connecteurs - Job Tracker
                                                 type="submit"
                                                 class="secondary-button connector-button"
                                             >
-                                                Tester
+                                                ↻ Tester
                                             </button>
                                         </form>
 
@@ -204,7 +220,7 @@ Connecteurs - Job Tracker
                                                 ) }}"
                                                 class="primary-button connector-button"
                                             >
-                                                🔑 Corriger les identifiants
+                                                🔑 Corriger
                                             </a>
 
                                         {% else %}

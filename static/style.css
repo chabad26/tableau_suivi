@@ -1103,13 +1103,14 @@ tbody tr:last-child td {
 .imap-account-row {
   display: flex;
   flex-direction: column;
+  gap: 0.8rem;
 
-  gap: 0.4rem;
+  padding: 0.9rem;
 
-  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
 
   border: 1px solid var(--border);
-  border-radius: 0.6rem;
+  border-radius: 10px;
 }
 
 .imap-account-row > div:not(.connector-actions) {
@@ -1125,11 +1126,36 @@ tbody tr:last-child td {
   margin-top: 0.4rem;
 }
 
+.imap-account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+
+.imap-account-identity,
+.imap-account-health {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.imap-account-health {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.imap-provider,
+.imap-server,
+.imap-last-check {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .imap-status {
   display: inline-flex;
-
   align-items: center;
-
   gap: 0.35rem;
 
   font-size: 0.9rem;
@@ -1137,17 +1163,35 @@ tbody tr:last-child td {
 }
 
 .imap-status-ok {
-  color: #2e8b57;
+  color: #86e6c0;
 }
 
 .imap-status-error {
-  color: #c94b4b;
+  color: #ff9ba5;
 }
 
 .imap-status-unknown {
-  opacity: 0.65;
+  color: var(--muted);
 }
 
+
+.imap-account-row .connector-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 700px) {
+  .imap-account-header {
+    flex-direction: column;
+  }
+
+  .imap-account-health {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
 
 /* =========================
    RESPONSIVE

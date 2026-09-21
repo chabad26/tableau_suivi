@@ -564,12 +564,24 @@ def export_xlsx():
 
 # Connecteurs
 
-
 @app.get("/connectors")
 def connectors_page():
     connectors = get_connector_statuses()
 
-    imap_accounts = get_imap_accounts()
+    imap_accounts = []
+
+    for row in get_imap_accounts():
+        account = dict(row)
+
+        account["last_checked_display"] = (
+            format_datetime(
+                row["last_checked_at"]
+            )
+            if row["last_checked_at"]
+            else "Jamais"
+        )
+
+        imap_accounts.append(account)
 
     return render_template(
         "connectors.html",
