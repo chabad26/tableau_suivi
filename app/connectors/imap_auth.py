@@ -1,4 +1,3 @@
-import base64
 import imaplib
 
 from app.connectors.gmail import get_credentials
@@ -9,15 +8,11 @@ def xoauth2_string(
     username: str,
     access_token: str,
 ) -> bytes:
-    value = (
+    return (
         f"user={username}"
         f"\x01auth=Bearer {access_token}"
         f"\x01\x01"
-    )
-
-    return base64.b64encode(
-        value.encode("utf-8")
-    )
+    ).encode("utf-8")
 
 
 def authenticate_imap(
@@ -37,14 +32,12 @@ def authenticate_imap(
                 "Jeton Gmail indisponible."
             )
 
-        auth = xoauth2_string(
-            username,
-            token,
-        )
-
         connection.authenticate(
             "XOAUTH2",
-            lambda _: auth,
+            lambda _: xoauth2_string(
+                username,
+                token,
+            ),
         )
 
         return
@@ -52,14 +45,12 @@ def authenticate_imap(
     if provider == "microsoft":
         token = get_access_token()
 
-        auth = xoauth2_string(
-            username,
-            token,
-        )
-
         connection.authenticate(
             "XOAUTH2",
-            lambda _: auth,
+            lambda _: xoauth2_string(
+                username,
+                token,
+            ),
         )
 
         return

@@ -314,7 +314,9 @@ def scan_imap_account(
         try:
             authenticate_imap(
                 connection,
-                account,
+                account.provider,
+                account.username,
+                account.password,
             )
 
         except imaplib.IMAP4.error as error:
@@ -371,7 +373,7 @@ def scan_imap_account(
             "%d-%b-%Y"
         )
 
-        message_ids: list[bytes] = []
+        message_ids: list[str] = []
 
         # Scan incrémental si la boîte n'a pas changé
         # et qu'un UID précédent est connu.
@@ -401,9 +403,15 @@ def scan_imap_account(
             raise RuntimeError(
                 "Recherche IMAP impossible."
             )
-
+        
         if data and data[0]:
-            message_ids = data[0].split()
+            raw_ids = data[0]
+
+            if isinstance(raw_ids, bytes):
+                message_ids = raw_ids.decode(
+                    "ascii",
+                    errors="ignore",
+                ).split()
 
         print()
         print(
@@ -502,7 +510,7 @@ def scan_imap_account(
                 if not message_id:
                     message_id = (
                         f"imap:{account.key}:"
-                        f"{imap_uid.decode()}"
+                        f"{imap_uid}"
                     )
 
                 body = get_message_body(
@@ -572,7 +580,7 @@ def scan_imap_account(
 
             except Exception as error:
                 print(
-                    f"  ⚠ UID {imap_uid.decode()} ignoré "
+                    f"  ⚠ UID {imap_uid} ignoré "
                     f"({type(error).__name__}: {error})"
                 )
                 continue
@@ -607,29 +615,6 @@ def scan_imap_account(
             pass
 
     return detected
-
-def update_imap_sync_state(
-    account_id: int,
-    last_uid: int,
-    uid_validity: int | None,
-) -> None:
-    with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE imap_accounts
-            SET
-                last_uid = ?,
-                uid_validity = ?
-            WHERE id = ?
-            """,
-            (
-                last_uid,
-                uid_validity,
-                account_id,
-            ),
-        )
-
-        connection.commit()
 
 def get_imap_account_config(
     account_id: int,

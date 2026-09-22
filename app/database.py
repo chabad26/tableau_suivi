@@ -918,6 +918,7 @@ def create_imap_account(
     folder: str = "INBOX",
     auth_method: str = "password"
 ) -> int:
+    
     with get_connection() as connection:
         cursor = connection.execute(
             """
@@ -928,9 +929,10 @@ def create_imap_account(
                 port,
                 use_ssl,
                 username,
-                folder
+                folder,
+                auth_method
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 email.strip(),
@@ -940,6 +942,7 @@ def create_imap_account(
                 1 if use_ssl else 0,
                 username.strip(),
                 folder.strip() or "INBOX",
+                auth_method.strip() or "password",
             ),
         )
 
@@ -956,7 +959,6 @@ def update_imap_account_health(
     account_id: int,
     status: str,
     error: str | None = None,
-    auth_method: str = "password"
 ) -> None:
     with get_connection() as connection:
         connection.execute(
@@ -971,6 +973,29 @@ def update_imap_account_health(
             (
                 status,
                 error,
+                account_id,
+            ),
+        )
+
+        connection.commit()
+
+def update_imap_sync_state(
+    account_id: int,
+    last_uid: int,
+    uid_validity: int | None,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE imap_accounts
+            SET
+                last_uid = ?,
+                uid_validity = ?
+            WHERE id = ?
+            """,
+            (
+                last_uid,
+                uid_validity,
                 account_id,
             ),
         )
