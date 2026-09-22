@@ -40,12 +40,16 @@ class ImapAccount:
     port: int
     use_ssl: bool
     username: str
-    password: str
+    auth_method: str
+    password: str | None
     folder: str
+    last_uid: int
+    uid_validity: int | None
+    provider: str
 
 def get_imap_accounts() -> list[ImapAccount]:
     accounts: list[ImapAccount] = []
-
+    
     for row in get_enabled_imap_accounts():
         account_id = int(row["id"])
 
@@ -278,10 +282,11 @@ def scan_imap_account(
     connection = connect_imap(
         account
     )
-
+    
     try:
         try:
             connection.login(
+                account.provider,
                 account.username,
                 account.password,
             )
@@ -295,10 +300,27 @@ def scan_imap_account(
             account.folder,
             readonly=True,
         )
+        status, uid_validity_data = connection.response(
+            "UIDVALIDITY"
+        )
 
         if status != "OK":
             raise RuntimeError(
                 "Dossier IMAP inaccessible."
+            )
+        
+        if (
+            account.uid_validity == current_uid_validity
+            and account.last_uid > 0
+        ):
+            search_criteria = (
+                "UID",
+                f"{account.last_uid + 1}:*",
+            )
+        else:
+            search_criteria = (
+                "SINCE",
+                since.strftime("%d-%b-%Y"),
             )
 
         imap_date = since.strftime(
@@ -309,6 +331,7 @@ def scan_imap_account(
             "search",
             None,  # type: ignore[arg-type]
             "SINCE",
+            *search_criteria,
             imap_date,
         )
 
@@ -316,6 +339,20 @@ def scan_imap_account(
             raise RuntimeError(
                 "Recherche IMAP impossible."
             )
+
+        max_uid = max(
+            (
+                int(uid)
+                for uid in message_ids
+            ),
+            default=account.last_uid,
+        )
+
+        update_imap_sync_state(
+            account.account_id,
+            max_uid,
+            current_uid_validity,
+        )
 
         message_ids = (
             data[0].split()
@@ -509,6 +546,29 @@ def scan_imap_account(
 
     return detected
 
+def update_imap_sync_state(
+    account_id: int,
+    last_uid: int,
+    uid_validity: int | None,
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE imap_accounts
+            SET
+                last_uid = ?,
+                uid_validity = ?
+            WHERE id = ?
+            """,
+            (
+                last_uid,
+                uid_validity,
+                account_id,
+            ),
+        )
+
+        connection.commit()
+        
 def get_imap_account_config(
     account_id: int,
 ) -> ImapAccount | None:

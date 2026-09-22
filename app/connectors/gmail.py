@@ -23,8 +23,9 @@ from app.mail_filters import should_analyze_email
 from app.models import DetectedEmail
 from app.settings import GMAIL_CREDENTIALS_FILE, GMAIL_TOKEN_FILE
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-
+SCOPES = [
+    "https://mail.google.com/"
+]
 
 CREDENTIALS_FILE = GMAIL_CREDENTIALS_FILE
 

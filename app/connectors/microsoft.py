@@ -22,7 +22,9 @@ from app.settings import (
 )
 
 AUTHORITY = MICROSOFT_AUTHORITY
-SCOPES = ["Mail.Read"]
+SCOPES = [
+    "https://outlook.office.com/IMAP.AccessAsUser.All",
+]
 TOKEN_CACHE_FILE = MICROSOFT_TOKEN_CACHE_FILE
 
 

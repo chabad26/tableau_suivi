@@ -81,6 +81,7 @@ def init_database() -> None:
                     ON DELETE SET NULL
             )
         """)
+
         connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_emails_message_id
             ON emails(message_id)
@@ -111,6 +112,7 @@ def init_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_applications_company
             ON applications(company)
         """)
+
         ensure_column(
             connection,
             "imap_accounts",
@@ -131,6 +133,28 @@ def init_database() -> None:
             "last_checked_at",
             "TEXT",
         )
+
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "auth_method",
+            "TEXT NOT NULL DEFAULT 'password'",
+        )
+
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "last_uid",
+            "INTEGER NOT NULL DEFAULT 0",
+        )
+
+        ensure_column(
+            connection,
+            "imap_accounts",
+            "uid_validity",
+            "INTEGER",
+        )
+
         ensure_column(connection, "applications", "manual_status", "TEXT")
 
         ensure_column(connection, "applications", "manual_note", "TEXT")
@@ -807,7 +831,10 @@ def get_imap_accounts() -> list[sqlite3.Row]:
                 created_at,
                 last_status,
                 last_error,
-                last_checked_at
+                last_checked_at,
+                auth_method,
+                last_uid,
+                uid_validity
             FROM imap_accounts
             ORDER BY email
             """
@@ -831,7 +858,10 @@ def get_enabled_imap_accounts() -> list[sqlite3.Row]:
                 enabled,
                 last_status,
                 last_error,
-                last_checked_at
+                last_checked_at,
+                auth_method,
+                last_uid,
+                uid_validity
             FROM imap_accounts
             WHERE enabled = 1
             ORDER BY email
@@ -886,6 +916,7 @@ def create_imap_account(
     use_ssl: bool,
     username: str,
     folder: str = "INBOX",
+    auth_method: str = "password"
 ) -> int:
     with get_connection() as connection:
         cursor = connection.execute(
@@ -925,6 +956,7 @@ def update_imap_account_health(
     account_id: int,
     status: str,
     error: str | None = None,
+    auth_method: str = "password"
 ) -> None:
     with get_connection() as connection:
         connection.execute(

@@ -14,7 +14,7 @@ class MailProvider:
     use_ssl: bool = True
     username_is_email: bool = True
     mx_suffixes: tuple[str, ...] = ()
-
+    auth_method: str = "password"
 
 MAIL_PROVIDERS: tuple[MailProvider, ...] = (
     MailProvider(
@@ -69,7 +69,31 @@ MAIL_PROVIDERS: tuple[MailProvider, ...] = (
             "ovh.net",
         ),
     ),
+    MailProvider(
+        key="gmail",
+        name="Gmail",
+        domains=(
+            "gmail.com",
+            "googlemail.com",
+        ),
+        imap_host="imap.gmail.com",
+        auth_method="oauth2",
+    ),
+
+    MailProvider(
+        key="microsoft",
+        name="Microsoft",
+        domains=(
+            "outlook.com",
+            "hotmail.com",
+            "live.com",
+            "msn.com",
+        ),
+        imap_host="outlook.office365.com",
+        auth_method="oauth2",
+    ),
 )
+
 
 def extract_domain(email_address: str) -> str:
     value = email_address.strip().casefold()
