@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from app.connectors.imap_auth import authenticate_imap
 import email
 import imaplib
 import ssl
@@ -11,6 +11,7 @@ from email.utils import parsedate_to_datetime
 from app.database import (
     get_enabled_imap_accounts,
     update_imap_account_health,
+    update_imap_sync_state,
 )
 from app.secrets import get_imap_password
 from app.classifier import (
@@ -36,6 +37,7 @@ class ImapAccount:
     account_id: int | None
     key: str
     label: str
+    provider: str
     host: str
     port: int
     use_ssl: bool
@@ -45,39 +47,66 @@ class ImapAccount:
     folder: str
     last_uid: int
     uid_validity: int | None
-    provider: str
 
 def get_imap_accounts() -> list[ImapAccount]:
     accounts: list[ImapAccount] = []
-    
+
     for row in get_enabled_imap_accounts():
         account_id = int(row["id"])
 
-        password = get_imap_password(
-            account_id
-        )
+        auth_method = str(
+            row["auth_method"]
+            or "password"
+        ).casefold()
 
-        if not password:
-            print(
-                f"⚠ Mot de passe IMAP absent : "
-                f"{row['email']}"
+        password: str | None = None
+
+        if auth_method == "password":
+            password = get_imap_password(
+                account_id
             )
-            continue
+
+            if not password:
+                print(
+                    f"⚠ Mot de passe IMAP absent : "
+                    f"{row['email']}"
+                )
+                continue
+
+        uid_validity = (
+            int(row["uid_validity"])
+            if row["uid_validity"] is not None
+            else None
+        )
 
         accounts.append(
             ImapAccount(
                 account_id=account_id,
                 key=f"db:{account_id}",
                 label=str(row["email"]),
+                provider=str(
+                    row["provider"]
+                    or "imap"
+                ),
                 host=str(row["host"]),
                 port=int(row["port"]),
-                use_ssl=bool(row["use_ssl"]),
-                username=str(row["username"]),
+                use_ssl=bool(
+                    row["use_ssl"]
+                ),
+                username=str(
+                    row["username"]
+                ),
+                auth_method=auth_method,
                 password=password,
                 folder=str(
                     row["folder"]
                     or "INBOX"
                 ),
+                last_uid=int(
+                    row["last_uid"]
+                    or 0
+                ),
+                uid_validity=uid_validity,
             )
         )
 
@@ -279,18 +308,15 @@ def scan_imap_account(
 ) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
 
-    connection = connect_imap(
-        account
-    )
-    
+    connection = connect_imap(account)
+
     try:
         try:
-            connection.login(
-                account.provider,
-                account.username,
-                account.password,
+            authenticate_imap(
+                connection,
+                account,
             )
-        
+
         except imaplib.IMAP4.error as error:
             raise ImapAuthenticationError(
                 "Authentification IMAP refusée."
@@ -300,65 +326,84 @@ def scan_imap_account(
             account.folder,
             readonly=True,
         )
-        status, uid_validity_data = connection.response(
-            "UIDVALIDITY"
-        )
 
         if status != "OK":
             raise RuntimeError(
                 "Dossier IMAP inaccessible."
             )
-        
+
+        # UIDVALIDITY permet de vérifier que les UID mémorisés
+        # appartiennent toujours à la même boîte.
+        _, uid_validity_data = connection.response(
+            "UIDVALIDITY"
+        )
+
+        current_uid_validity: int | None = None
+
         if (
-            account.uid_validity == current_uid_validity
-            and account.last_uid > 0
+            uid_validity_data
+            and uid_validity_data[0]
         ):
-            search_criteria = (
-                "UID",
-                f"{account.last_uid + 1}:*",
-            )
-        else:
-            search_criteria = (
-                "SINCE",
-                since.strftime("%d-%b-%Y"),
-            )
+            raw_uid_validity = uid_validity_data[0]
+
+            try:
+                if isinstance(
+                    raw_uid_validity,
+                    bytes,
+                ):
+                    current_uid_validity = int(
+                        raw_uid_validity.decode(
+                            "ascii"
+                        )
+                    )
+                else:
+                    current_uid_validity = int(
+                        raw_uid_validity
+                    )
+
+            except (
+                ValueError,
+                TypeError,
+            ):
+                current_uid_validity = None
 
         imap_date = since.strftime(
             "%d-%b-%Y"
         )
 
-        status, data = connection.uid(
-            "search",
-            None,  # type: ignore[arg-type]
-            "SINCE",
-            *search_criteria,
-            imap_date,
-        )
+        message_ids: list[bytes] = []
+
+        # Scan incrémental si la boîte n'a pas changé
+        # et qu'un UID précédent est connu.
+        if (
+            current_uid_validity is not None
+            and account.uid_validity
+            == current_uid_validity
+            and account.last_uid > 0
+        ):
+            status, data = connection.uid(
+                "search",
+                None,  # type: ignore[arg-type]
+                "UID",
+                f"{account.last_uid + 1}:*",
+            )
+
+        else:
+            # Premier scan ou changement de UIDVALIDITY.
+            status, data = connection.uid(
+                "search",
+                None,  # type: ignore[arg-type]
+                "SINCE",
+                imap_date,
+            )
 
         if status != "OK":
             raise RuntimeError(
                 "Recherche IMAP impossible."
             )
 
-        max_uid = max(
-            (
-                int(uid)
-                for uid in message_ids
-            ),
-            default=account.last_uid,
-        )
-
-        update_imap_sync_state(
-            account.account_id,
-            max_uid,
-            current_uid_validity,
-        )
-
-        message_ids = (
-            data[0].split()
-            if data and data[0]
-            else []
-        )
+        if data and data[0]:
+            message_ids = data[0].split()
 
         print()
         print(
@@ -380,7 +425,7 @@ def scan_imap_account(
                 if status != "OK":
                     continue
 
-                raw_message = None
+                raw_message: bytes | None = None
 
                 for item in raw_data:
                     if (
@@ -427,6 +472,7 @@ def scan_imap_account(
                     date = parsedate_to_datetime(
                         date_header
                     )
+
                 except (
                     TypeError,
                     ValueError,
@@ -531,13 +577,29 @@ def scan_imap_account(
                 )
                 continue
 
+        max_uid = max(
+            (
+                int(imap_uid)
+                for imap_uid in message_ids
+            ),
+            default=account.last_uid,
+        )
+
+        if account.account_id is not None:
+            update_imap_sync_state(
+                account.account_id,
+                max_uid,
+                current_uid_validity,
+            )
+
         print(
             f"  Détectés  : {len(detected)}"
         )
+
         print(
             f"  Parcourus : {total_seen}"
         )
-    
+
     finally:
         try:
             connection.logout()
@@ -568,7 +630,7 @@ def update_imap_sync_state(
         )
 
         connection.commit()
-        
+
 def get_imap_account_config(
     account_id: int,
 ) -> ImapAccount | None:
