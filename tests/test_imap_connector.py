@@ -1,31 +1,30 @@
-from app.connectors.imap import (
-    scan_imap,
-)
-from app.settings import (
-    API_START_DATE,
-)
+import unittest
+from unittest.mock import patch
+
+from app import database
+from app.connectors.imap import scan_imap
+from app.settings import API_START_DATE
 
 
-emails = scan_imap(
-    API_START_DATE
-)
+class ImapConnectorTests(unittest.TestCase):
 
-print()
-print(
-    f"{len(emails)} mail(s) pertinent(s)"
-)
+    def setUp(self):
+        database.init_database()
 
-for mail in emails:
-    print()
-    print(mail.date)
-    print(mail.sender)
-    print(mail.subject)
-    print(mail.status)
+    def test_scan_without_accounts_returns_empty_list(self):
+        with patch(
+            "app.connectors.imap.get_enabled_imap_accounts",
+            return_value=[],
+        ):
+            emails = scan_imap(
+                API_START_DATE
+            )
 
-    print("Raisons :", mail.reasons)
+        self.assertEqual(
+            emails,
+            [],
+        )
 
-    print(
-        "Corps :",
-        mail.body[:1000]
-        .replace("\n", " ")
-    )
+
+if __name__ == "__main__":
+    unittest.main()
