@@ -9,10 +9,6 @@ from app.database import get_connection
 KINDS = {
     "scan",
     "reclassify",
-    "test:gmail",
-    "test:microsoft",
-    "reconnect:gmail",
-    "reconnect:microsoft",
 }
 
 
@@ -65,21 +61,24 @@ def list_jobs():
 
 
 def execute(kind: str) -> dict:
-    # Imports différés : le serveur ne lance jamais une authentification.
-    from app.connectors.gmail import TOKEN_FILE, scan_gmail
-    from app.connectors.microsoft import TOKEN_CACHE_FILE, scan_microsoft
     from app.importer import import_emails
     from app.reclassifier import reclassify_emails
     from app.settings import API_START_DATE
-    from app.connectors.imap import (
-        scan_imap,
-        test_imap_account,
-    )
+    from app.connectors.imap import test_imap_account
+
     if kind == "scan":
-        return asdict(import_emails())
+        return asdict(
+            import_emails()
+        )
+
     if kind == "reclassify":
-        return asdict(reclassify_emails())
-    if kind.startswith("test:imap:"):
+        return asdict(
+            reclassify_emails()
+        )
+
+    if kind.startswith(
+        "test:imap:"
+    ):
         account_id = int(
             kind.removeprefix(
                 "test:imap:"
@@ -95,31 +94,10 @@ def execute(kind: str) -> dict:
             "detected": len(emails),
             "imap_account_id": account_id,
         }
-    action, connector = kind.split(":")
-    if action == "reconnect":
-        if connector == "gmail":
-            TOKEN_FILE.unlink(
-                missing_ok=True
-            )
 
-        elif connector == "microsoft":
-            TOKEN_CACHE_FILE.unlink(
-                missing_ok=True
-            )
-
-        else:
-            raise ValueError(
-                f"Reconnecteur inconnu : {connector}"
-            )
-    elif connector == "gmail":
-        emails = scan_gmail(API_START_DATE)
-    elif connector == "microsoft":
-        emails = scan_microsoft(API_START_DATE)
-    else:
-        raise ValueError(
-            f"Connecteur inconnu : {connector}"
-        )
-    return {"detected": len(emails)}
+    raise ValueError(
+        f"Travail inconnu : {kind}"
+    )
 
 
 def run_next() -> bool:
@@ -140,9 +118,16 @@ def run_next() -> bool:
         result = json.dumps(execute(job["kind"]), ensure_ascii=False)
         state, error = "succeeded", None
     except Exception as exception:
-        # Ne pas exposer URL OAuth, jeton ou contenu de message via une exception.
+        print(
+            f"❌ Job {job['kind']} : "
+            f"{type(exception).__name__}: {exception}"
+        )
+
         state, result = "failed", None
-        error = f"Échec ({type(exception).__name__}). Vérifier la configuration et la connexion, puis relancer."
+        error = (
+            f"Échec ({type(exception).__name__}). "
+            "Vérifier la configuration et la connexion, puis relancer."
+        )
     with get_connection() as connection:
         connection.execute(
             "UPDATE jobs SET state = ?, result = ?, error = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?",

@@ -1,4 +1,4 @@
-"""Conversion des messages partagée par Gmail et Microsoft Graph."""
+"""Conversion des messages partagée par les connecteurs mail."""
 
 import html
 import re

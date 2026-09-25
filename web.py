@@ -118,20 +118,15 @@ def detect_imap_account():
 
 @app.post("/connectors/imap/add")
 def save_imap_account():
-    print("FORM:", request.form)
     email_address = request.form.get(
         "email",
         "",
     ).strip()
 
-    print("email_address =", repr(email_address))
-
     provider_key = request.form.get(
         "provider",
         "",
     ).strip()
-
-    print("provider_key  =", repr(provider_key))
 
     auth_method = (
         request.form.get(
@@ -142,28 +137,20 @@ def save_imap_account():
         .casefold()
     )
 
-    print("auth_method   =", repr(auth_method))
-
     host = request.form.get(
         "host",
         "",
     ).strip()
-
-    print("host          =", repr(host))
 
     username = request.form.get(
         "username",
         "",
     ).strip()
 
-    print("username      =", repr(username))
-
     password = request.form.get(
         "password",
         "",
     )
-
-    print("password      =", repr(password))
 
     folder = (
         request.form.get(
@@ -172,8 +159,6 @@ def save_imap_account():
         ).strip()
         or "INBOX"
     )
-
-    print("folder        =", repr(folder))
 
     try:
         port = int(
@@ -185,16 +170,12 @@ def save_imap_account():
     except ValueError:
         abort(400)
 
-    print("port          =", repr(port))
-
     use_ssl = (
         request.form.get(
             "use_ssl"
         )
         == "on"
     )
-
-    print("use_ssl       =", repr(use_ssl))
 
     if not email_address:
         abort(400)
@@ -640,26 +621,6 @@ def connectors_page():
         connectors=connectors,
         imap_accounts=imap_accounts,
     )
-
-@app.post("/connectors/<connector_key>/test")
-def test_connector(connector_key: str):
-    if connector_key not in {
-        "gmail",
-        "microsoft",
-    }:
-        abort(404)
-
-    return submit_job(
-        f"test:{connector_key}"
-    )
-
-
-@app.post("/connectors/<connector_key>/reconnect")
-def reconnect_connector(connector_key: str):
-    if connector_key not in {"gmail", "microsoft"}:
-        abort(404)
-    return submit_job(f"reconnect:{connector_key}")
-
 
 if __name__ == "__main__":
     init_database()

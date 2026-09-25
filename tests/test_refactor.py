@@ -51,11 +51,6 @@ class OfflineCase(unittest.TestCase):
             (gmail, "TOKEN_FILE", "gmail-token.json"),
             (gmail, "CREDENTIALS_FILE", "gmail-client.json"),
             (microsoft, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
-            (registry, "CREDENTIALS_FILE", "gmail-client.json"),
-            (registry, "TOKEN_FILE", "gmail-token.json"),
-            (status, "CREDENTIALS_FILE", "gmail-client.json"),
-            (status, "TOKEN_FILE", "gmail-token.json"),
-            (status, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
         ):
             self.stack.enter_context(
                 patch.object(
@@ -63,9 +58,6 @@ class OfflineCase(unittest.TestCase):
                     attribute,
                     self.root / filename,
                 )
-            )
-            self.stack.enter_context(
-                patch.object(module, attribute, self.root / filename)
             )
         self.stack.enter_context(
             patch(
@@ -138,7 +130,7 @@ class StorageAndImportTests(OfflineCase):
                     email,
                     replace(
                         email,
-                        mailbox="Gmail API",
+                        mailbox="IMAP fixture",
                     ),
                     fake_email(""),
                 ],
@@ -275,22 +267,39 @@ class WebTests(OfflineCase):
         self.assertEqual(self.client.get("/application/9999").status_code, 404)
         self.assertEqual(self.client.get("/application/new").status_code, 200)
 
-    def test_connector_routes_keep_feedback_and_actions(self):
-        with patch.object(gmail, "scan_gmail", return_value=[fake_email()]) as scan:
-            response = self.client.post("/connectors/gmail/test", follow_redirects=True)
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("En attente", response.get_data(as_text=True))
-            scan.assert_not_called()
-            self.assertTrue(jobs.run_next())
-            scan.assert_called_once_with (settings.API_START_DATE)
-        microsoft.TOKEN_CACHE_FILE.write_text("{}")
-        with patch.object(microsoft, "scan_microsoft", return_value=[]):
-            self.assertEqual(
-                self.client.post("/connectors/microsoft/reconnect").status_code, 303
-            )
-            self.assertTrue(microsoft.TOKEN_CACHE_FILE.exists())
-            jobs.run_next()
-        self.assertFalse(microsoft.TOKEN_CACHE_FILE.exists())
+    def test_imap_test_route_enqueues_job(self):
+        account_id = database.create_imap_account(
+            email="test@example.invalid",
+            provider="imap",
+            host="imap.example.invalid",
+            port=993,
+            use_ssl=True,
+            username="test@example.invalid",
+            folder="INBOX",
+            auth_method="password",
+        )
+
+        response = self.client.post(
+            f"/connectors/imap/{account_id}/test",
+            follow_redirects=True,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        jobs_list = jobs.list_jobs()
+
+        self.assertEqual(
+            len(jobs_list),
+            1,
+        )
+
+        self.assertEqual(
+            jobs_list[0]["kind"],
+            f"test:imap:{account_id}",
+        )
 
     def test_scan_and_reclassify_routes(self):
         with patch.object(
@@ -346,114 +355,6 @@ class WebTests(OfflineCase):
     )
 
 class ConnectorTests(OfflineCase):
-    def test_common_html_and_message_wrappers(self):
-        html = "<style>hidden</style><p>Candidature &amp; entretien</p><script>hidden</script><br>Merci"
-        expected = "Candidature & entretien\n\nMerci"
-        self.assertEqual(html_to_text(html), expected)
-        self.assertEqual(gmail.html_to_text(html), expected)
-        self.assertEqual(microsoft.html_to_text(html), expected)
-        message = gmail.build_email_message(
-            "rh@example.invalid",
-            "Sujet",
-            "Wed, 16 Sep 2026 12:00:00 +0000",
-            "<fixture@example.invalid>",
-            "Corps",
-        )
-        self.assertIsNotNone(message["Date"])
-        message = microsoft.build_email_message(
-            "rh@example.invalid", "Sujet", "<fixture@example.invalid>", "Corps"
-        )
-        self.assertIsNone(message["Date"])
-        self.assertEqual(message.get_content().strip(), "Corps")
-
-    def test_gmail_pagination_and_fallback_message_id(self):
-        service = MagicMock()
-        messages = service.users.return_value.messages.return_value
-        messages.list.return_value.execute.side_effect = [
-            {"messages": [{"id": "first"}], "nextPageToken": "next"},
-            {"messages": [{"id": "second"}, {}]},
-        ]
-        encoded = base64.urlsafe_b64encode(b"Votre candidature").decode()
-        messages.get.return_value.execute.return_value = {
-            "payload": {
-                "mimeType": "text/plain",
-                "body": {"data": encoded},
-                "headers": [
-                    {"name": "Subject", "value": "Votre candidature"},
-                    {"name": "Date", "value": "Wed, 16 Sep 2026 12:00:00 +0000"},
-                ],
-            }
-        }
-        with (
-            patch.object(gmail, "get_credentials", return_value=object()),
-            patch.object(gmail, "build", return_value=service),
-            patch.object(
-                gmail, "score_message", return_value=(10, [], "Votre candidature")
-            ),
-        ):
-            emails = gmail.scan_gmail(NOW)
-        self.assertEqual(
-            [email.message_id for email in emails], ["gmail:first", "gmail:second"]
-        )
-        self.assertEqual(messages.list.call_args_list[1].kwargs["pageToken"], "next")
-
-    def test_microsoft_pagination_preserves_next_link(self):
-        responses = []
-        for identifier in ["first", "second"]:
-            response = MagicMock()
-            data: dict[str, object] = {
-                "value": [
-                    {
-                        "id": identifier,
-                        "subject": "Votre candidature",
-                        "receivedDateTime": "2026-09-16T12:00:00Z",
-                        "body": {
-                            "contentType": "html",
-                            "content": "<p>Votre candidature</p>",
-                        },
-                    }
-                ]
-            }
-            if identifier == "first":
-                data["@odata.nextLink"] = (
-                    "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=fixture"
-                )
-            response.json.return_value = data
-            responses.append(response)
-        with (
-            patch.object(
-                microsoft, "get_access_token", return_value="fictitious-token"
-            ),
-            patch.object(microsoft.requests, "get", side_effect=responses) as get,
-            patch.object(
-                microsoft, "score_message", return_value=(10, [], "Votre candidature")
-            ),
-        ):
-            emails = microsoft.scan_microsoft(NOW)
-        self.assertEqual(
-            [email.message_id for email in emails],
-            ["microsoft:first", "microsoft:second"],
-        )
-        self.assertIsNone(get.call_args_list[1].kwargs["params"])
-
-    def test_registry_isolates_failures(self):
-        registry.CREDENTIALS_FILE.write_text("{}")
-        with (
-            patch.object(registry, "MICROSOFT_CLIENT_ID", "fixture"),
-            patch.object(registry, "scan_gmail", side_effect=RuntimeError("fixture")),
-            patch.object(registry, "scan_microsoft", return_value=[fake_email()]),
-        ):
-            self.assertEqual(registry.scan_external_connectors(NOW), [fake_email()])
-
-    def test_registry_skips_unconfigured_sources(self):
-        with (
-            patch.object(registry, "MICROSOFT_CLIENT_ID", ""),
-            patch.object(registry, "scan_gmail") as gmail_scan,
-            patch.object(registry, "scan_microsoft") as microsoft_scan,
-        ):
-            self.assertEqual(registry.scan_external_connectors(NOW), [])
-            gmail_scan.assert_not_called()
-            microsoft_scan.assert_not_called()
 
     def test_token_cache_round_trip_uses_temporary_file(self):
         microsoft.TOKEN_CACHE_FILE.write_text(
@@ -506,7 +407,7 @@ class EvolutionTests(OfflineCase):
     def test_reanalysis_all_sources_preserves_manual_status(self):
         app_id = self.application()
         database.set_manual_status(app_id, "INTERVIEW", "Note privée fictive")
-        for index, source in enumerate(["Gmail API", "Microsoft Graph", "IMAP"]):
+        for index, source in enumerate(["IMAP Gmail", "IMAP Microsoft", "IMAP générique"]):
             database.save_email(
                 fake_email(f"<{index}@example.invalid>", mailbox=source), app_id
             )

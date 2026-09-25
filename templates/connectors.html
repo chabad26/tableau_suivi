@@ -254,48 +254,6 @@ Connecteurs - Job Tracker
 
                             {# Actions déjà affichées dans chaque compte #}
 
-                        {% else %}
-
-                            {% if connector.configured %}
-
-                                <form
-                                    method="post"
-                                    action="{{ url_for(
-                                        'test_connector',
-                                        connector_key=connector.key
-                                    ) }}"
-                                >
-                                    <button
-                                        type="submit"
-                                        class="secondary-button connector-button"
-                                    >
-                                        Tester
-                                    </button>
-                                </form>
-
-                                <form
-                                    method="post"
-                                    action="{{ url_for(
-                                        'reconnect_connector',
-                                        connector_key=connector.key
-                                    ) }}"
-                                >
-                                    <button
-                                        type="submit"
-                                        class="secondary-button connector-button"
-                                    >
-                                        {% if connector.connected %}
-                                            Reconnecter
-                                        {% else %}
-                                            Connecter
-                                        {% endif %}
-                                    </button>
-                                </form>
-
-                            {% endif %}
-
-                        {% endif %}
-
                     </div>
 
                 </div>
