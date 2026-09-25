@@ -188,7 +188,7 @@ def save_imap_account():
 
     if (
         auth_method == "password"
-        and password
+        and not password
     ):
         abort(400)
 
@@ -211,7 +211,7 @@ def save_imap_account():
 
     if (
         auth_method == "password"
-        and not password
+        and password
     ):
         set_imap_password(
             account_id,

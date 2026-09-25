@@ -911,7 +911,7 @@ def update_imap_account(
             ),
         )
 
-    connection.commit()
+        connection.commit()
 
 def create_imap_account(
     email: str,
