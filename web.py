@@ -211,7 +211,7 @@ def save_imap_account():
 
     if (
         auth_method == "password"
-        and password
+        and not password
     ):
         set_imap_password(
             account_id,
@@ -490,7 +490,10 @@ def update_imap_account_web(
     )
 
     # Vide = on conserve l'ancien mot de passe.
-    if password:
+    if (
+        auth_method == "password"
+        and password
+    ):
         set_imap_password(
             account_id,
             password,
