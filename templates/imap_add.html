@@ -99,6 +99,12 @@ Ajouter une boîte mail - Job Tracker
                         value="{{ detected.auth_method }}"
                     >
 
+                    <input
+                        type="hidden"
+                        name="email"
+                        value="{{ email_address }}"
+                    >
+
                     {% if detected.auth_method == "password" %}
 
                         <div class="form-group">
@@ -168,15 +174,7 @@ Ajouter une boîte mail - Job Tracker
                     </div>
 
                     <div class="form-group">
-                        <label>
-                            Mot de passe
-                        </label>
 
-                        <input
-                            type="password"
-                            name="password"
-                            required
-                        >
                     </div>
 
                     <div class="form-group">
