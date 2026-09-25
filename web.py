@@ -128,6 +128,15 @@ def save_imap_account():
         "",
     ).strip()
 
+    auth_method = (
+        request.form.get(
+            "auth_method",
+            "password",
+        )
+        .strip()
+        .casefold()
+    )
+
     host = request.form.get(
         "host",
         "",
@@ -177,7 +186,16 @@ def save_imap_account():
     if not username:
         abort(400)
 
-    if not password:
+    if (
+        auth_method == "password"
+        and password
+    ):
+        abort(400)
+
+    if auth_method not in {
+        "password",
+        "oauth2",
+    }:
         abort(400)
 
     account_id = create_imap_account(
@@ -188,12 +206,17 @@ def save_imap_account():
         use_ssl=use_ssl,
         username=username,
         folder=folder,
+        auth_method=auth_method,
     )
 
-    set_imap_password(
-        account_id,
-        password,
-    )
+    if (
+        auth_method == "password"
+        and password
+    ):
+        set_imap_password(
+            account_id,
+            password,
+        )
 
     flash(
         "Boîte IMAP ajoutée.",
@@ -413,6 +436,15 @@ def update_imap_account_web(
         "",
     )
 
+    auth_method = (
+        request.form.get(
+            "auth_method",
+            "password",
+        )
+        .strip()
+        .casefold()
+    )
+
     folder = (
         request.form.get(
             "folder",
@@ -454,6 +486,7 @@ def update_imap_account_web(
         use_ssl=use_ssl,
         username=username,
         folder=folder,
+        auth_method=auth_method,
     )
 
     # Vide = on conserve l'ancien mot de passe.

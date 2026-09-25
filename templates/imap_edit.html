@@ -111,15 +111,49 @@ Modifier une boîte mail - Job Tracker
                 >
             </div>
 
+            {% if account["auth_method"] == "password" %}
+
+                <div class="form-group">
+                    <label>
+                        Nouveau mot de passe
+                    </label>
+
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="Laisser vide pour conserver l'actuel"
+                    >
+                </div>
+
+            {% else %}
+
+                <div class="form-group">
+                    <p>
+                        🔐 Authentification OAuth2.
+                    </p>
+
+                    <p>
+                        Aucun mot de passe n'est stocké pour ce compte.
+                    </p>
+                </div>
+
+            {% endif %}
+
             <div class="form-group">
                 <label>
-                    Nouveau mot de passe
+                    Authentification
                 </label>
 
                 <input
-                    type="password"
-                    name="password"
-                    placeholder="Laisser vide pour conserver l'actuel"
+                    type="text"
+                    value="{% if account['auth_method'] == 'oauth2' %}OAuth2{% else %}Mot de passe{% endif %}"
+                    disabled
+                >
+
+                <input
+                    type="hidden"
+                    name="auth_method"
+                    value="{{ account['auth_method'] }}"
                 >
             </div>
 

@@ -879,6 +879,7 @@ def update_imap_account(
     use_ssl: bool,
     username: str,
     folder: str,
+    auth_method: str,
 ) -> None:
     with get_connection() as connection:
         connection.execute(
@@ -891,7 +892,10 @@ def update_imap_account(
                 port = ?,
                 use_ssl = ?,
                 username = ?,
-                folder = ?
+                folder = ?,
+                auth_method = ?,
+                last_uid = 0,
+                uid_validity = NULL
             WHERE id = ?
             """,
             (
@@ -902,11 +906,12 @@ def update_imap_account(
                 1 if use_ssl else 0,
                 username.strip(),
                 folder.strip() or "INBOX",
+                auth_method.strip() or "password",
                 account_id,
             ),
         )
 
-        connection.commit()
+    connection.commit()
 
 def create_imap_account(
     email: str,

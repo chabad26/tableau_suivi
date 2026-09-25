@@ -93,19 +93,40 @@ Ajouter une boîte mail - Job Tracker
                         name="provider"
                         value="{{ detected.key }}"
                     >
+                    <input
+                        type="hidden"
+                        name="auth_method"
+                        value="{{ detected.auth_method }}"
+                    >
 
-                    <div class="form-group">
-                        <label>
-                            Adresse email
-                        </label>
+                    {% if detected.auth_method == "password" %}
 
-                        <input
-                            type="email"
-                            name="email"
-                            value="{{ email_address }}"
-                            required
-                        >
-                    </div>
+                        <div class="form-group">
+                            <label>
+                                Mot de passe
+                            </label>
+
+                            <input
+                                type="password"
+                                name="password"
+                                required
+                            >
+                        </div>
+
+                    {% else %}
+
+                        <div class="form-group">
+                            <p>
+                                🔐 Ce fournisseur utilise OAuth2.
+                            </p>
+
+                            <p>
+                                L'authentification sera demandée lors du premier test
+                                de connexion.
+                            </p>
+                        </div>
+
+                    {% endif %}
 
                     <div class="form-group">
                         <label>
