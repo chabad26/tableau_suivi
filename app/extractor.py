@@ -1,6 +1,6 @@
 import re
 from email.utils import parseaddr
-
+from app.connectors.common import html_to_text
 from app.classifier import normalize
 
 COMPANY_PREFIX_PATTERNS = [
@@ -26,6 +26,18 @@ COMPANY_SUFFIX_PATTERNS = [
     r"\s+!$",
 ]
 
+def normalize_email_body(body: str) -> str:
+    if not body:
+        return ""
+
+    if re.search(
+        r"<!doctype|<html|<body|<table|<div|<p\b",
+        body,
+        flags=re.IGNORECASE,
+    ):
+        body = html_to_text(body)
+
+    return clean_text(body)
 
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
@@ -328,7 +340,7 @@ def job_title_score(title: str) -> int:
 def extract_job_title(subject: str, body: str = "") -> str:
     subject = clean_text(subject)
 
-    body = clean_text(body)
+    body = normalize_email_body(body)
 
     subject_patterns = [
         r"votre candidature\s*:\s*(.+)$",
@@ -370,6 +382,14 @@ def extract_job_title(subject: str, body: str = "") -> str:
         (
             r"candidature au poste de\s+(.{3,120}?)"
             r"(?:\.|,|référence|reference|$)"
+        ),
+        (
+            r"merci d['’]avoir postulé pour le poste\s+"
+            r"(.{3,120}?)\s+chez\s+"
+        ),
+        (
+            r"merci d'avoir postule pour le poste\s+"
+            r"(.{3,120}?)\s+chez\s+"
         ),
         (
             r"vous avez postulé(?:e)? "
