@@ -566,7 +566,7 @@ def scan_imap_account(
 
                 detected.append(
                     DetectedEmail(
-                        mailbox=f"IMAP {account.label}",
+                        mailbox=account.label,
                         date=date,
                         sender=sender,
                         subject=subject,

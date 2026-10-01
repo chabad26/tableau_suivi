@@ -159,6 +159,7 @@ def extract_company(subject: str, sender: str) -> str:
         r"candidature a ete envoyee a (.+)$",
         r"merci pour votre candidature chez (.+)$",
         r"merci d'avoir envoyé votre candidature chez (.+)$",
+        r"des nouvelles de votre candidature pour (.+)$",
     ]
 
     for pattern in patterns:

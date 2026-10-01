@@ -13,6 +13,7 @@ class PreparedApplication(TypedDict):
     company: str
     job_title: str
     source: str
+    mailbox: str
     status: str
     status_label: str
     manual_override: bool
@@ -41,7 +42,7 @@ def effective_status(application: sqlite3.Row) -> str:
 
 
 def prepare_application_rows(
-    applications: Sequence[sqlite3.Row], status_filter: str = "", search: str = ""
+    applications: Sequence[sqlite3.Row], status_filter: str = "", search: str = "", mailbox_filter: str = "",
 ) -> list[PreparedApplication]:
     prepared: list[PreparedApplication] = []
     search_lower = search.strip().casefold()
@@ -51,7 +52,10 @@ def prepare_application_rows(
         job_title = application["job_title"] or ""
         source = application["source"] or ""
         note = application["manual_note"] or ""
+        mailbox = application["mailbox"] or ""
         if status_filter and status != status_filter:
+            continue
+        if mailbox_filter and mailbox != mailbox_filter:
             continue
         haystack = " ".join([company, job_title, source, note]).casefold()
         if search_lower and search_lower not in haystack:
@@ -63,6 +67,7 @@ def prepare_application_rows(
                 job_title=job_title,
                 source=source,
                 status=status,
+                mailbox=mailbox,
                 status_label=STATUS_LABELS.get(status, status),
                 manual_override=bool(application["manual_override"]),
                 note=note,

@@ -288,18 +288,27 @@ def get_applications() -> list[sqlite3.Row]:
         rows = connection.execute(
             """
             SELECT
-                id,
-                company,
-                job_title,
-                source,
-                first_seen,
-                last_update,
-                current_status,
-                manual_status,
-                manual_note,
-                manual_override
-            FROM applications
-            ORDER BY last_update DESC
+                a.id,
+                a.company,
+                a.job_title,
+                a.source,
+                a.first_seen,
+                a.last_update,
+                a.current_status,
+                a.manual_status,
+                a.manual_note,
+                a.manual_override,
+
+                (
+                    SELECT e.mailbox
+                    FROM emails e
+                    WHERE e.application_id = a.id
+                    ORDER BY e.received_at DESC
+                    LIMIT 1
+                ) AS mailbox
+
+            FROM applications a
+            ORDER BY a.last_update DESC
             """
         ).fetchall()
 

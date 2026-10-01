@@ -232,17 +232,41 @@ def save_imap_account():
 @app.route("/")
 def index() -> str:
     applications = get_applications()
-    status_filter = request.args.get("status", "").strip()
-    search = request.args.get("q", "").strip()
-    prepared = prepare_application_rows(applications, status_filter, search)
-    stats = application_statistics(applications)
+
+    status_filter = request.args.get(
+        "status",
+        "",
+    ).strip()
+
+    search = request.args.get(
+        "q",
+        "",
+    ).strip()
+
+    mailbox_filter = request.args.get(
+        "mailbox",
+        "",
+    ).strip()
+
+    prepared = prepare_application_rows(
+        applications,
+        status_filter,
+        search,
+        mailbox_filter,
+    )
+
+    stats = application_statistics(
+        applications
+    )
+
     return render_template(
         "index.html",
         applications=prepared,
         stats=stats,
         total=stats["total"],
         status_filter=status_filter,
-        search=request.args.get("q", ""),
+        mailbox_filter=mailbox_filter,
+        search=search,
         status_labels=STATUS_LABELS,
         status_order=STATUS_ORDER,
     )
