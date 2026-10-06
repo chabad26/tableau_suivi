@@ -19,17 +19,138 @@ def decode_mime_header(value: str) -> str:
     except (LookupError, UnicodeError):
         return value.strip()
 
+def extract_html_preheader(
+    value: str,
+) -> str:
+    """
+    Extrait le texte d'un préheader HTML masqué.
+    Les plateformes de recrutement y placent souvent
+    un résumé très exploitable.
+    """
+
+    patterns = [
+        r"""
+        <(?:div|span)
+        [^>]*?
+        style=["'][^"']*
+        (?:display\s*:\s*none|max-height\s*:\s*0|visibility\s*:\s*hidden)
+        [^"']*["']
+        [^>]*>
+        (.*?)
+        </(?:div|span)>
+        """,
+        r"""
+        <(?:div|span)
+        [^>]*?
+        aria-hidden=["']true["']
+        [^>]*>
+        (.*?)
+        </(?:div|span)>
+        """,
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            value,
+            flags=re.IGNORECASE
+            | re.DOTALL
+            | re.VERBOSE,
+        )
+
+        if not match:
+            continue
+
+        preheader = re.sub(
+            r"<[^>]+>",
+            " ",
+            match.group(1),
+        )
+
+        preheader = html.unescape(
+            preheader
+        )
+
+        preheader = re.sub(
+            r"\s+",
+            " ",
+            preheader,
+        ).strip()
+
+        if preheader:
+            return preheader
+
+    return ""
+
 def html_to_text(value: str) -> str:
-    """Conserve les règles de nettoyage historiques des deux API."""
-    value = re.sub(r"<style.*?>.*?</style>", " ", value, flags=re.I | re.S)
-    value = re.sub(r"<script.*?>.*?</script>", " ", value, flags=re.I | re.S)
-    value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
-    value = re.sub(r"</p>", "\n", value, flags=re.I)
-    value = re.sub(r"<[^>]+>", " ", value)
-    value = html.unescape(value)
-    value = re.sub(r"[ \t]+", " ", value)
-    value = re.sub(r"\n\s*\n+", "\n\n", value)
-    return value.strip()
+    preheader = extract_html_preheader(
+        value
+    )
+
+    value = re.sub(
+        r"<style.*?>.*?</style>",
+        " ",
+        value,
+        flags=re.I | re.S,
+    )
+
+    value = re.sub(
+        r"<script.*?>.*?</script>",
+        " ",
+        value,
+        flags=re.I | re.S,
+    )
+
+    value = re.sub(
+        r"<br\s*/?>",
+        "\n",
+        value,
+        flags=re.I,
+    )
+
+    value = re.sub(
+        r"</p>",
+        "\n",
+        value,
+        flags=re.I,
+    )
+
+    value = re.sub(
+        r"<[^>]+>",
+        " ",
+        value,
+    )
+
+    value = html.unescape(
+        value
+    )
+
+    value = re.sub(
+        r"[ \t]+",
+        " ",
+        value,
+    )
+
+    value = re.sub(
+        r"\n\s*\n+",
+        "\n\n",
+        value,
+    )
+
+    value = value.strip()
+
+    if (
+        preheader
+        and preheader.casefold()
+        not in value.casefold()
+    ):
+        return (
+            preheader
+            + "\n\n"
+            + value
+        )
+
+    return value
 
 
 def build_email_message(
