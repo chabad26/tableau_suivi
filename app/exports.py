@@ -6,6 +6,7 @@ EXPORT_HEADERS = (
     "Entreprise",
     "Poste",
     "Source",
+    "Boîte mail",
     "Statut",
     "Note",
     "Première détection",
@@ -17,22 +18,30 @@ EXPORT_COLUMN_WIDTHS = {
     "A": 28,
     "B": 50,
     "C": 25,
-    "D": 20,
-    "E": 45,
-    "F": 22,
+    "D": 32,
+    "E": 20,
+    "F": 45,
     "G": 22,
     "H": 22,
+    "I": 22,
 }
 
 
-def application_export_row(application: PreparedApplication) -> list[str]:
+def application_export_row(
+    application: PreparedApplication,
+) -> list[str]:
     return [
         application["company"],
         application["job_title"],
         application["source"],
+        application["mailbox"],
         application["status_label"],
         application["note"],
         application["first_seen"],
         application["last_update"],
-        "Oui" if application["manual_override"] else "Non",
+        (
+            "Oui"
+            if application["manual_override"]
+            else "Non"
+        ),
     ]

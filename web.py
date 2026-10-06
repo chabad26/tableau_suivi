@@ -51,10 +51,11 @@ app.secret_key = SECRET_KEY
 """Compatibilité : charge les données, puis délègue leur présentation."""
 
 def prepare_applications(
-    status_filter: str = "", search: str = ""
+    status_filter: str = "", search: str = "", mailbox_filter: str = "",
+
 ) -> list[PreparedApplication]:
     """Compatibilité : charge les données, puis délègue leur présentation."""
-    return prepare_application_rows(get_applications(), status_filter, search)
+    return prepare_application_rows(get_applications(), status_filter, search, mailbox_filter)
 
 
 def format_datetime(value: str | None) -> str:
@@ -259,10 +260,19 @@ def index() -> str:
         applications
     )
 
+    mailboxes = sorted(
+        {
+            str(application["mailbox"]).strip()
+            for application in applications
+            if application["mailbox"]
+        }
+    )
+
     return render_template(
         "index.html",
         applications=prepared,
         stats=stats,
+        mailboxes=mailboxes,
         total=stats["total"],
         status_filter=status_filter,
         mailbox_filter=mailbox_filter,
@@ -571,53 +581,115 @@ def reclassify_emails_web():
 @app.route("/export/csv")
 def export_csv():
     applications = prepare_applications(
-        status_filter=request.args.get("status", "").strip(),
-        search=request.args.get("q", "").strip(),
+        status_filter=request.args.get(
+            "status",
+            "",
+        ).strip(),
+        search=request.args.get(
+            "q",
+            "",
+        ).strip(),
+        mailbox_filter=request.args.get(
+            "mailbox",
+            "",
+        ).strip(),
     )
+
     with StringIO() as output:
-        writer = csv.writer(output, delimiter=";")
-        writer.writerow(EXPORT_HEADERS)
-        writer.writerows(
-            application_export_row(application) for application in applications
+        writer = csv.writer(
+            output,
+            delimiter=";",
         )
+
+        writer.writerow(
+            EXPORT_HEADERS
+        )
+
+        writer.writerows(
+            application_export_row(application)
+            for application in applications
+        )
+
         csv_content = output.getvalue()
+
     response = app.response_class(
-        "\ufeff" + csv_content, mimetype="text/csv; charset=utf-8"
+        "\ufeff" + csv_content,
+        mimetype="text/csv; charset=utf-8",
     )
-    response.headers["Content-Disposition"] = "attachment; filename=candidatures.csv"
+
+    response.headers["Content-Disposition"] = (
+        "attachment; filename=candidatures.csv"
+    )
+
     return response
 
 
 @app.route("/export/xlsx")
 def export_xlsx():
     applications = prepare_applications(
-        status_filter=request.args.get("status", "").strip(),
-        search=request.args.get("q", "").strip(),
+        status_filter=request.args.get(
+            "status",
+            "",
+        ).strip(),
+        search=request.args.get(
+            "q",
+            "",
+        ).strip(),
+        mailbox_filter=request.args.get(
+            "mailbox",
+            "",
+        ).strip(),
     )
+
     workbook = Workbook()
+
     sheet = workbook.active
+
     if sheet is None:
         sheet = workbook.create_sheet()
+
     sheet.title = "Candidatures"
-    sheet.append(list(EXPORT_HEADERS))
+
+    sheet.append(
+        list(EXPORT_HEADERS)
+    )
+
     for cell in sheet[1]:
-        cell.font = Font(bold=True)
+        cell.font = Font(
+            bold=True
+        )
+
     for application in applications:
-        sheet.append(application_export_row(application))
+        sheet.append(
+            application_export_row(
+                application
+            )
+        )
+
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
+
     for column, width in EXPORT_COLUMN_WIDTHS.items():
-        sheet.column_dimensions[column].width = width
+        sheet.column_dimensions[
+            column
+        ].width = width
+
     output = BytesIO()
+
     workbook.save(output)
+
     output.seek(0)
+
     return send_file(
         output,
         as_attachment=True,
         download_name="candidatures.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype=(
+            "application/"
+            "vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
     )
-
 
 # Connecteurs
 

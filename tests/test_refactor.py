@@ -205,7 +205,17 @@ class WebTests(OfflineCase):
         try:
             sheet = workbook.active
             assert sheet is not None
-            rows = [list(row) for row in sheet.iter_rows(values_only=True)]
+            rows = [
+                [
+                    ""
+                    if value is None
+                    else value
+                    for value in row
+                ]
+                for row in sheet.iter_rows(
+                    values_only=True
+                )
+            ]
             self.assertEqual(rows, csv_rows)
             self.assertEqual(sheet.freeze_panes, "A2")
             self.assertTrue(sheet["A1"].font.bold)
