@@ -7,7 +7,7 @@
 <p>Les travaux sont exécutés dans l'ordre. Une demande identique déjà en attente n'est pas ajoutée deux fois.</p>
 <p>Si un travail reste en attente, lancer <code>.venv/bin/python worker.py</code> dans un terminal. Pour une première connexion ou une reconnexion, suivre les instructions OAuth dans ce terminal.</p>
 <div class="header-actions">
-    <a class="secondary-button" href="{{ url_for('jobs_page') }}">↻ Actualiser</a>
+    <a class="secondary-button" href="{{ url_for('jobs.jobs_page') }}">↻ Actualiser</a>
     <a class="secondary-button" href="{{ url_for('connectors_page') }}">⚙ Connecteurs</a>
 </div>
 {% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}

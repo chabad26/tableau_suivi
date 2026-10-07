@@ -1,6 +1,3 @@
-import csv
-import json
-from io import BytesIO, StringIO
 from flask import (
     Flask,
     abort,
@@ -8,11 +5,8 @@ from flask import (
     redirect,
     render_template,
     request,
-    send_file,
     url_for,
 )
-from openpyxl import Workbook
-from openpyxl.styles import Font
 
 from app.connectors.status import get_connector_statuses
 from app.database import (
@@ -33,8 +27,7 @@ from app.maintenance import (
     expire_stale_applications,
 )
 from app.secrets import set_imap_password
-from app.exports import EXPORT_COLUMN_WIDTHS, EXPORT_HEADERS, application_export_row
-from app.jobs import enqueue, init_jobs, list_jobs
+from app.jobs import init_jobs
 from app.presentation import (
     PreparedApplication,
     application_statistics,
@@ -43,8 +36,16 @@ from app.presentation import (
 from app.presentation import format_datetime as _format_datetime
 from app.settings import SECRET_KEY
 from app.statuses import STATUS_LABELS, STATUS_ORDER
-
+from app.web import (
+    register_blueprints,
+)
+from app.web.jobs import (
+    submit_job,
+)
 app = Flask(__name__)
+app.secret_key = SECRET_KEY
+
+register_blueprints(app)
 
 app.secret_key = SECRET_KEY
 
@@ -78,23 +79,6 @@ def add_imap_account():
         "imap_add.html",
         detected=None,
         email_address="",
-    )
-
-@app.post(
-    "/connectors/imap/<int:account_id>/test"
-)
-def test_imap_account_web(
-    account_id: int,
-):
-    account = get_imap_account(
-        account_id
-    )
-
-    if account is None:
-        abort(404)
-
-    return submit_job(
-        f"test:imap:{account_id}"
     )
 
 @app.post("/connectors/imap/detect")
@@ -550,146 +534,6 @@ def ensure_storage():
     init_database()
     init_jobs()
     expire_stale_applications()
-
-def submit_job(kind: str):
-    enqueue(kind)
-    flash("Travail enregistré. Son avancement est disponible ci-dessous.", "info")
-    return redirect(url_for("jobs_page"), code=303)
-
-
-@app.get("/jobs")
-def jobs_page():
-    jobs = [dict(row) for row in list_jobs()]
-    for job in jobs:
-        job["result"] = json.loads(job["result"]) if job["result"] else {}
-    return render_template("jobs.html", jobs=jobs)
-
-
-@app.route("/scan", methods=["POST"])
-def scan_emails_web():
-    return submit_job("scan")
-
-
-@app.route("/reclassify", methods=["POST"])
-def reclassify_emails_web():
-    return submit_job("reclassify")
-
-
-# Exports
-
-
-@app.route("/export/csv")
-def export_csv():
-    applications = prepare_applications(
-        status_filter=request.args.get(
-            "status",
-            "",
-        ).strip(),
-        search=request.args.get(
-            "q",
-            "",
-        ).strip(),
-        mailbox_filter=request.args.get(
-            "mailbox",
-            "",
-        ).strip(),
-    )
-
-    with StringIO() as output:
-        writer = csv.writer(
-            output,
-            delimiter=";",
-        )
-
-        writer.writerow(
-            EXPORT_HEADERS
-        )
-
-        writer.writerows(
-            application_export_row(application)
-            for application in applications
-        )
-
-        csv_content = output.getvalue()
-
-    response = app.response_class(
-        "\ufeff" + csv_content,
-        mimetype="text/csv; charset=utf-8",
-    )
-
-    response.headers["Content-Disposition"] = (
-        "attachment; filename=candidatures.csv"
-    )
-
-    return response
-
-
-@app.route("/export/xlsx")
-def export_xlsx():
-    applications = prepare_applications(
-        status_filter=request.args.get(
-            "status",
-            "",
-        ).strip(),
-        search=request.args.get(
-            "q",
-            "",
-        ).strip(),
-        mailbox_filter=request.args.get(
-            "mailbox",
-            "",
-        ).strip(),
-    )
-
-    workbook = Workbook()
-
-    sheet = workbook.active
-
-    if sheet is None:
-        sheet = workbook.create_sheet()
-
-    sheet.title = "Candidatures"
-
-    sheet.append(
-        list(EXPORT_HEADERS)
-    )
-
-    for cell in sheet[1]:
-        cell.font = Font(
-            bold=True
-        )
-
-    for application in applications:
-        sheet.append(
-            application_export_row(
-                application
-            )
-        )
-
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = sheet.dimensions
-
-    for column, width in EXPORT_COLUMN_WIDTHS.items():
-        sheet.column_dimensions[
-            column
-        ].width = width
-
-    output = BytesIO()
-
-    workbook.save(output)
-
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="candidatures.xlsx",
-        mimetype=(
-            "application/"
-            "vnd.openxmlformats-officedocument."
-            "spreadsheetml.sheet"
-        ),
-    )
 
 # Connecteurs
 

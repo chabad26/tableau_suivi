@@ -1,40 +1,39 @@
 # 📬 Job Tracker
 
-Job Tracker est une application locale de suivi de candidatures qui centralise les informations détectées dans les emails et les saisies manuelles.
+Job Tracker est une application locale de suivi de candidatures. Elle détecte les emails liés au recrutement, extrait les informations utiles, consolide l'historique d'une candidature et permet de corriger manuellement les résultats lorsque l'automatisation n'est pas suffisante.
 
-Le projet est actuellement en phase de prototype fonctionnel. Son architecture évolue rapidement afin de devenir plus générique, plus robuste et indépendante d’un client mail particulier.
-
-> **État présenté : septembre 2026**
+> **État présenté : octobre 2026**
 >
-> Le projet est en cours d’évolution. Certaines fonctionnalités et choix d’architecture peuvent encore changer à court terme.
+> Le projet est un prototype fonctionnel en évolution active. L'objectif actuel est de conserver une architecture locale, explicable, testable et indépendante d'un fournisseur de messagerie particulier.
 
 ## 🎯 Objectif
 
-L’objectif est de réduire le suivi manuel des candidatures en automatisant une partie du travail :
+Réduire le suivi manuel des candidatures en automatisant les tâches répétitives :
 
 - détecter les emails liés au recrutement ;
-- identifier l’entreprise, le poste et la source ;
-- suivre l’avancement d’une candidature ;
-- centraliser l’historique des emails associés ;
-- permettre des corrections manuelles lorsque l’analyse automatique est imparfaite ;
-- conserver les données localement dans SQLite.
+- identifier l'entreprise, le poste et la source ;
+- déterminer le statut de la candidature ;
+- regrouper les messages associés ;
+- permettre des corrections et notes manuelles ;
+- conserver les données localement dans SQLite ;
+- réanalyser les anciens emails quand les règles progressent.
 
-## ✨ Fonctionnalités actuelles
+## ✨ Fonctionnalités
 
 ### Suivi des candidatures
 
-- création automatique à partir des emails détectés ;
+- création automatique depuis les emails détectés ;
 - création manuelle ;
 - modification des informations ;
 - notes personnelles ;
-- suppression ;
-- fusion de candidatures ;
-- recherche et filtrage ;
-- historique des emails associés ;
+- suppression et fusion ;
+- historique des emails ;
 - affichage du contenu des messages ;
 - indicateur de complétude ;
-- export CSV ;
-- export Excel.
+- recherche ;
+- filtre par statut ;
+- filtre par boîte mail ;
+- export CSV et Excel avec conservation des filtres actifs.
 
 ### Statuts
 
@@ -49,205 +48,120 @@ Les statuts actuellement utilisés sont :
 
 Le statut **Sans réponse** peut être appliqué automatiquement après une période configurable sans nouvelle activité.
 
-### Analyse automatique
+## 📧 Architecture mail unifiée
 
-Le moteur analyse notamment :
+Les anciens scanners spécifiques Gmail API et Microsoft Graph ont été remplacés par **un scanner IMAP unique**.
 
-- le sujet du message ;
-- le corps du message ;
-- l’adresse de l’expéditeur ;
-- le nom affiché de l’expéditeur ;
-- des formulations typiques des plateformes de recrutement.
+- **Gmail** : IMAP + OAuth2/XOAUTH2 ;
+- **Microsoft / Outlook / MSN** : IMAP + OAuth2/XOAUTH2 ;
+- **Autres fournisseurs IMAP** : authentification adaptée au fournisseur.
 
-L’analyse repose actuellement sur des règles déterministes afin de rester explicable et facile à corriger.
+Les mots de passe IMAP ne sont pas stockés dans SQLite. Ils sont confiés au gestionnaire de secrets du système via `keyring`.
 
-Les règles prennent déjà en compte :
+### Synchronisation incrémentale
 
-- le français ;
-- l’anglais ;
-- plusieurs formulations de refus, réception et entretien ;
-- plusieurs ATS et plateformes d’emploi.
+Chaque compte conserve son dernier UID traité et son `UIDVALIDITY`. Lorsque la boîte n'a pas changé, le scanner reprend uniquement après le dernier UID connu.
 
-## 📧 Connecteurs email
+En cas d'échec sur un message, le curseur n'avance pas au-delà du premier UID en erreur afin que le message puisse être retenté lors du scan suivant.
 
-Trois familles de connecteurs sont actuellement disponibles.
-
-### Gmail
-
-Connexion via :
-
-- Gmail API ;
-- OAuth Google.
-
-### Microsoft
-
-Connexion via :
-
-- Microsoft Graph ;
-- OAuth Microsoft.
-
-### IMAP générique
-
-Connexion directe aux fournisseurs compatibles IMAP.
-
-Le projet sait notamment détecter automatiquement plusieurs configurations courantes :
-
-- SFR ;
-- Orange ;
-- Free ;
-- La Poste ;
-- Infomaniak ;
-- OVHcloud.
-
-Plusieurs comptes IMAP peuvent être configurés en parallèle.
-
-Les mots de passe IMAP sont stockés séparément de la base principale via le gestionnaire de secrets système.
+Les messages sont lus avec `BODY.PEEK[]` pour ne pas modifier leur état de lecture.
 
 ## 🧱 Architecture actuelle
 
 ```text
-Gmail API ───────────┐
-                     │
-Microsoft Graph ─────┼──→ Connecteurs
-                     │
-IMAP générique ──────┘
-          ↓
-    Classification
-          ↓
-      Extraction
-          ↓
-        SQLite
-          ↓
-   File de travaux
-          ↓
-        Worker
-          ↓
-        Flask
-          ↓
-    Dashboard Web
+Comptes email
+    ↓
+Scanner IMAP unique
+    ↓
+Classification + Extraction
+    ↓
+SQLite
+    ↓
+Worker persistant + Flask/Web UI
 ```
 
-Le serveur Web ne réalise pas directement les scans longs.
+Le serveur Flask ne réalise pas directement les opérations longues. Les scans, réanalyses et tests de connecteurs sont placés dans une file persistante puis exécutés par `worker.py`.
 
-Les opérations de scan, réanalyse, test de connecteur et reconnexion sont placées dans une file persistante puis exécutées par un worker séparé.
-
-## 🗂️ Structure du projet
+## 🔄 Flux d'un email
 
 ```text
-tableau_suivi/
-├── app/
-│   ├── connectors/
-│   │   ├── base.py
-│   │   ├── common.py
-│   │   ├── gmail.py
-│   │   ├── imap.py
-│   │   ├── microsoft.py
-│   │   ├── registry.py
-│   │   └── status.py
-│   ├── classifier.py
-│   ├── database.py
-│   ├── exports.py
-│   ├── extractor.py
-│   ├── importer.py
-│   ├── jobs.py
-│   ├── mail_filters.py
-│   ├── mail_providers.py
-│   ├── maintenance.py
-│   ├── models.py
-│   ├── presentation.py
-│   ├── reclassifier.py
-│   ├── secrets.py
-│   ├── settings.py
-│   └── statuses.py
-├── static/
-├── templates/
-├── tests/
-├── web.py
-├── worker.py
-├── requirements.txt
-├── requirements-dev.txt
-└── README.md
+Connexion IMAP
+    ↓
+Recherche UID incrémentale
+    ↓
+Lecture sans marquage "lu"
+    ↓
+Décodage MIME / nettoyage HTML
+    ↓
+Filtrage
+    ↓
+Score + statut
+    ↓
+Extraction entreprise / poste / source
+    ↓
+Déduplication
+    ↓
+Création ou mise à jour de la candidature
+    ↓
+Archivage dans SQLite
 ```
+
+## 🧩 Responsabilités principales
+
+| Module | Rôle |
+| --- | --- |
+| `connectors/imap.py` | Connexion, recherche UID, lecture et conversion des messages |
+| `connectors/imap_auth.py` | Authentification mot de passe ou OAuth2/XOAUTH2 |
+| `connectors/gmail.py` | Gestion des identifiants OAuth Google |
+| `connectors/microsoft.py` | Gestion du token OAuth Microsoft |
+| `classifier.py` | Score et détection du statut |
+| `extractor.py` | Extraction entreprise, poste et source |
+| `importer.py` | Orchestration de l'import et déduplication |
+| `database.py` | Schéma SQLite et persistance |
+| `reclassifier.py` | Réanalyse des emails archivés |
+| `jobs.py` | File persistante des travaux |
+| `presentation.py` | Préparation des données pour l'interface et les filtres |
+| `exports.py` | Structure commune des exports CSV/XLSX |
+| `web.py` | Routes Flask et interface |
+| `worker.py` | Exécution des tâches en arrière-plan |
 
 ## 🛠️ Technologies
 
-- Python ;
+- Python 3.14 ;
 - Flask ;
 - SQLite ;
-- Gmail API ;
-- Microsoft Graph ;
 - IMAP ;
-- OAuth 2.0 ;
+- OAuth 2.0 / XOAUTH2 ;
+- Google OAuth ;
+- MSAL ;
 - keyring ;
 - OpenPyXL ;
-- HTML ;
-- CSS ;
-- JavaScript.
+- HTML / CSS / JavaScript ;
+- Ruff ;
+- Pyright ;
+- unittest.
 
 ## 🚀 Installation
-
-### 1. Cloner le dépôt
 
 ```bash
 git clone https://github.com/chabad26/tableau_suivi.git
 cd tableau_suivi
-```
-
-### 2. Créer l’environnement virtuel
-
-Sous Linux :
-
-```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-Sous Windows :
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-### 3. Installer les dépendances
-
-```bash
 pip install -r requirements.txt
 ```
 
-Pour les outils de développement :
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-### 4. Configurer l’environnement
-
-Copier les variables nécessaires depuis `.env.example` vers un fichier `.env`.
-
-Les principales variables sont :
-
-- `MICROSOFT_CLIENT_ID` ;
-- `MICROSOFT_AUTHORITY` ;
-- `MICROSOFT_TOKEN_CACHE_FILE` ;
-- `GMAIL_CREDENTIALS_FILE` ;
-- `GMAIL_TOKEN_FILE` ;
-- `DATABASE_PATH` ;
-- `SCAN_START_DATE` ;
-- `FLASK_SECRET_KEY` ;
-- `APPLICATION_EXPIRY_DAYS`.
+Copier ensuite les variables nécessaires depuis `.env.example` vers `.env`.
 
 ## ▶️ Lancement
 
-Deux processus sont utilisés.
-
-### Terminal 1 : serveur Web
+Terminal 1 :
 
 ```bash
 .venv/bin/python web.py
 ```
 
-### Terminal 2 : worker
+Terminal 2 :
 
 ```bash
 .venv/bin/python worker.py
@@ -259,107 +173,73 @@ Puis ouvrir :
 http://127.0.0.1:5000
 ```
 
-## 📊 Interface Web
+## 🔐 Confidentialité et sécurité
 
-Le tableau de bord permet actuellement de :
-
-- consulter toutes les candidatures ;
-- filtrer par statut ;
-- rechercher une entreprise, un poste ou une source ;
-- lancer un scan ;
-- réanalyser les emails déjà enregistrés ;
-- créer une candidature manuelle ;
-- corriger une candidature ;
-- ajouter une note ;
-- consulter l’historique des emails ;
-- exporter les données ;
-- gérer les connecteurs ;
-- suivre l’état des travaux en arrière-plan.
-
-## 🔄 Réanalyse
-
-Les emails détectés sont archivés dans SQLite avec leur sujet, expéditeur et corps.
-
-La réanalyse peut donc fonctionner sans relire les boîtes mail.
-
-Elle permet notamment de profiter des améliorations du moteur de classification sur les messages déjà enregistrés.
-
-Les corrections manuelles restent prioritaires et sont conservées.
-
-## 🔐 Confidentialité
-
-Dans l’état actuel du projet :
-
-- la base SQLite reste locale ;
-- l’analyse des emails est effectuée localement ;
+- SQLite reste local ;
+- l'analyse est effectuée localement ;
+- les mots de passe IMAP passent par le gestionnaire de secrets système ;
 - les jetons OAuth sont stockés localement ;
-- les mots de passe IMAP ne sont pas enregistrés dans SQLite ;
-- les connecteurs utilisent des permissions limitées à la lecture lorsque cela est possible.
-
-Le projet n’est pas encore conçu pour un déploiement multi-utilisateur exposé sur Internet.
+- Gmail et Microsoft utilisent OAuth2/XOAUTH2 ;
+- Gmail sait relancer automatiquement l'autorisation lorsque le refresh token n'est plus utilisable ;
+- le projet n'est pas conçu pour être exposé directement comme service multi-utilisateur sur Internet.
 
 ## 🧪 Qualité et tests
 
-La suite de tests fonctionne sans accès aux vraies boîtes mail.
+La suite de tests est organisée par domaine :
+
+```text
+test_extractor.py       extraction et HTML
+test_imap_connector.py  synchronisation IMAP
+test_oauth.py           Gmail / Microsoft OAuth
+test_storage.py         SQLite / import / réanalyse
+test_jobs.py            file et worker
+test_settings.py        configuration
+test_web.py             routes / filtres / exports
+```
 
 Commandes principales :
 
 ```bash
+.venv/bin/python -m compileall app tests
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 npx --yes pyright
 ```
 
-Les tests couvrent notamment :
+## 📈 Évolution de l'architecture
 
-- SQLite ;
-- les migrations ;
-- la déduplication ;
-- les connecteurs simulés ;
-- les exports ;
-- les routes Flask ;
-- la file de travaux ;
-- les interruptions du worker ;
-- la réanalyse ;
-- la conservation des modifications manuelles.
+### Avant
 
-## 📈 Évolution récente
+```text
+Gmail API ───────┐
+Microsoft Graph ─┼─→ pipelines spécifiques
+IMAP ────────────┘
+```
 
-Le projet a récemment évolué d’un scanner fortement lié à une boîte locale vers une architecture multi-connecteur.
+### Maintenant
 
-Les principaux changements récents sont :
+```text
+Gmail ──────── OAuth2 ──┐
+Microsoft ──── OAuth2 ──┼─→ Scanner IMAP commun
+Autres mails ─ Password ┘
+```
 
-- séparation du moteur de classification ;
-- connecteurs Gmail, Microsoft et IMAP ;
-- suppression de la dépendance à un client mail local ;
-- gestion de plusieurs comptes IMAP ;
-- file de travaux persistante ;
-- worker séparé ;
-- réanalyse basée sur SQLite ;
-- amélioration de l’intégrité de la base ;
-- simplification des statuts ;
-- nettoyage progressif du code historique.
+Cette migration a permis de supprimer les scanners API dédiés, réduire les dépendances directes, unifier le traitement des emails et centraliser la synchronisation incrémentale.
 
-## 🗺️ Roadmap
+Sur le test réel réalisé pendant la migration Gmail, le temps de récupération initial est passé d'un peu plus de deux minutes avec l'ancien chemin à environ trente secondes via IMAP OAuth2.
 
-La feuille de route détaillée est disponible dans [ROADMAP.md](ROADMAP.md).
+Les scans suivants utilisent ensuite la synchronisation incrémentale par UID.
 
-Les prochains axes concernent notamment :
+## 🗺️ Documentation complémentaire
 
-- la qualité de l’extraction ;
-- l’état réel des connexions OAuth ;
-- les statistiques ;
-- la sécurité ;
-- l’industrialisation du projet ;
-- les versions Desktop et mobile ;
-- une éventuelle architecture multi-utilisateur.
+- [ROADMAP.md](ROADMAP.md)
+- [EVOLUTIONS.md](EVOLUTIONS.md)
+- [REFACTORING.md](REFACTORING.md)
 
-## ⚠️ État du projet
+## ⚠️ Limites actuelles
 
-Job Tracker reste un prototype actif.
-
-Le dépôt évolue rapidement et certaines parties de l’interface, du modèle de données ou de l’architecture peuvent encore être modifiées.
+Le projet reste une application locale en développement. Les axes encore ouverts concernent notamment l'amélioration des règles d'extraction, les statistiques, le durcissement du typage, l'automatisation CI et l'industrialisation du déploiement.
 
 ## 📄 Licence
 

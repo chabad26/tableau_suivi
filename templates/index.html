@@ -21,7 +21,7 @@
         <div class="header-actions">
             <form
                 method="post"
-                action="{{ url_for('reclassify_emails_web') }}"
+                action="{{ url_for('jobs.reclassify_emails_web') }}"
             >
                 <button
                     type="submit"
@@ -32,7 +32,7 @@
             </form>
             <form
                 method="post"
-                action="{{ url_for('scan_emails_web') }}"
+                action="{{ url_for('jobs.scan_emails_web') }}"
             >
                 <button
                     type="submit"
@@ -170,7 +170,7 @@
         <a
             class="secondary-button"
             href="{{ url_for(
-                'export_csv',
+                'exports.export_csv',
                 status=status_filter,
                 q=search,
                 mailbox=mailbox_filter
@@ -182,7 +182,7 @@
         <a
             class="secondary-button"
             href="{{ url_for(
-                'export_xlsx',
+                'exports.export_xlsx',
                 status=status_filter,
                 q=search,
                 mailbox=mailbox_filter
