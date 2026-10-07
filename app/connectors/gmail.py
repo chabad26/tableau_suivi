@@ -1,6 +1,7 @@
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.exceptions import RefreshError
 
 from app.settings import (
     GMAIL_CREDENTIALS_FILE,
@@ -25,22 +26,40 @@ def get_credentials() -> Credentials:
     credentials: Credentials | None = None
 
     if TOKEN_FILE.exists():
-        credentials = (
-            Credentials
-            .from_authorized_user_file(
-                str(TOKEN_FILE),
-                SCOPES,
+        try:
+            credentials = (
+                Credentials
+                .from_authorized_user_file(
+                    str(TOKEN_FILE),
+                    SCOPES,
+                )
             )
-        )
+
+        except (
+            ValueError,
+            OSError,
+        ):
+            credentials = None
 
     if (
         credentials
         and credentials.expired
         and credentials.refresh_token
     ):
-        credentials.refresh(
-            Request()
-        )
+        try:
+            credentials.refresh(
+                Request()
+            )
+
+        except RefreshError:
+            credentials = None
+
+            try:
+                TOKEN_FILE.unlink(
+                    missing_ok=True
+                )
+            except OSError:
+                pass
 
     if (
         not credentials

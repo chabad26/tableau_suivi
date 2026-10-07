@@ -595,51 +595,51 @@ def scan_imap_account(
                 )
                 continue
 
-            searched_uids = [
-                int(imap_uid)
-                for imap_uid in message_ids
-            ]
+        searched_uids = [
+            int(imap_uid)
+            for imap_uid in message_ids
+        ]
 
-            same_uid_validity = (
-                current_uid_validity is not None
-                and account.uid_validity
-                == current_uid_validity
-            )
+        same_uid_validity = (
+            current_uid_validity is not None
+            and account.uid_validity
+            == current_uid_validity
+        )
 
-            minimum_uid = (
-                account.last_uid
-                if same_uid_validity
-                else 0
-            )
+        minimum_uid = (
+            account.last_uid
+            if same_uid_validity
+            else 0
+        )
 
-            if searched_uids:
-                max_uid = max(
-                    searched_uids
-                )
-            else:
-                max_uid = minimum_uid
-
-            if failed_uids:
-                first_failed_uid = min(
-                    failed_uids
-                )
-
-                max_uid = min(
-                    max_uid,
-                    first_failed_uid - 1,
-                )
-
+        if searched_uids:
             max_uid = max(
-                max_uid,
-                minimum_uid,
+                searched_uids
+            )
+        else:
+            max_uid = minimum_uid
+
+        if failed_uids:
+            first_failed_uid = min(
+                failed_uids
             )
 
-            if account.account_id is not None:
-                update_imap_sync_state(
-                    account.account_id,
-                    max_uid,
-                    current_uid_validity,
-                )
+            max_uid = min(
+                max_uid,
+                first_failed_uid - 1,
+            )
+
+        max_uid = max(
+            max_uid,
+            minimum_uid,
+        )
+
+        if account.account_id is not None:
+            update_imap_sync_state(
+                account.account_id,
+                max_uid,
+                current_uid_validity,
+            )
 
         print(
             f"  Détectés  : {len(detected)}"
