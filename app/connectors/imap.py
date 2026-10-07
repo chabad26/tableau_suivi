@@ -595,16 +595,16 @@ def scan_imap_account(
                 )
                 continue
 
+            searched_uids = [
+                int(imap_uid)
+                for imap_uid in message_ids
+            ]
+
             same_uid_validity = (
                 current_uid_validity is not None
                 and account.uid_validity
                 == current_uid_validity
             )
-
-            searched_uids = [
-                int(imap_uid)
-                for imap_uid in message_ids
-            ]
 
             minimum_uid = (
                 account.last_uid
