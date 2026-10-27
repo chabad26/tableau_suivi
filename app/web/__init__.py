@@ -1,5 +1,8 @@
 from flask import Flask
 
+from app.web.applications import (
+    applications_bp,
+)
 from app.web.connectors import (
     connectors_bp,
 )
@@ -14,6 +17,10 @@ from app.web.jobs import (
 def register_blueprints(
     app: Flask,
 ) -> None:
+    app.register_blueprint(
+        applications_bp
+    )
+
     app.register_blueprint(
         connectors_bp
     )

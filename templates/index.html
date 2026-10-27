@@ -43,7 +43,7 @@
             </form>
 
             <a
-                href="{{ url_for('new_application') }}"
+                href="{{ url_for('applications.new_application') }}"
                 class="primary-button"
             >
                 + Nouvelle candidature
@@ -67,7 +67,7 @@
         <a
             class="stat-card"
             href="{{ url_for(
-                'index',
+                'applications.index',
                 mailbox=mailbox_filter,
                 q=search
             ) }}"
@@ -87,7 +87,7 @@
             <a
                 class="stat-card"
                 href="{{ url_for(
-                    'index',
+                    'applications.index',
                     status=status,
                     mailbox=mailbox_filter,
                     q=search
@@ -156,7 +156,7 @@
         {% if search or status_filter or mailbox_filter %}
             <a
                 class="reset-link"
-                href="{{ url_for('index') }}"
+                href="{{ url_for('applications.index') }}"
             >
                 Réinitialiser
             </a>
@@ -232,7 +232,7 @@
                                 <a
                                     class="company-link"
                                     href="{{ url_for(
-                                        'application_detail',
+                                        'applications.application_detail',
                                         application_id=application.id
                                     ) }}"
                                 >

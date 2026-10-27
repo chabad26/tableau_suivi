@@ -8,7 +8,7 @@
     <div class="detail-topbar">
 
         <a
-            href="{{ url_for('index') }}"
+            href="{{ url_for('applications.index') }}"
             class="back-link"
         >
             ← Retour au tableau
@@ -39,7 +39,7 @@
 
         <form
             method="post"
-            action="{{ url_for('create_application_web') }}"
+            action="{{ url_for('applications.create_application_web') }}"
             class="edit-form"
         >
 
@@ -144,7 +144,7 @@
             <div class="form-actions">
 
                 <a
-                    href="{{ url_for('index') }}"
+                    href="{{ url_for('applications.index') }}"
                     class="reset-link"
                 >
                     Annuler

@@ -8,7 +8,7 @@
 </head>
 <body>
 <nav class="app-navigation" aria-label="Navigation principale">
-    <a class="secondary-button" href="{{ url_for('index') }}">Candidatures</a>
+    <a class="secondary-button" href="{{ url_for('applications.index') }}">Candidatures</a>
     <a class="secondary-button" href="{{ url_for('jobs.jobs_page') }}">Travaux en cours</a>
 </nav>
 {% block content %}{% endblock %}
