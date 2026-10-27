@@ -10,7 +10,7 @@ Ajouter une boîte mail - Job Tracker
 
     <div class="detail-topbar">
         <a
-            href="{{ url_for('connectors_page') }}"
+            href="{{ url_for('connectors.connectors_page') }}"
             class="back-link"
         >
             ← Retour aux connecteurs
@@ -42,7 +42,7 @@ Ajouter une boîte mail - Job Tracker
 
         <form
             method="post"
-            action="{{ url_for('detect_imap_account') }}"
+            action="{{ url_for('connectors.detect_imap_account') }}"
         >
 
             <div class="form-group">

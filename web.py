@@ -261,7 +261,6 @@ def ensure_storage():
     init_jobs()
     expire_stale_applications()
 
-
 if __name__ == "__main__":
     init_database()
     app.run(host="127.0.0.1", port=5000, debug=True)
