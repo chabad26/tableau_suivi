@@ -6,6 +6,7 @@ from app.classifier import detect_status
 from app.database import get_connection, update_application_from_analysis
 from app.extractor import extract_application_data
 
+
 @dataclass
 class ReclassifyResult:
     scanned: int
@@ -214,6 +215,7 @@ def recompute_application_statuses() -> int:
 
     return updated
 
+
 def reclassify_emails() -> ReclassifyResult:
     """
     Réanalyse les emails archivés dans SQLite.
@@ -252,10 +254,7 @@ def reclassify_emails() -> ReclassifyResult:
         found += 1
 
         status_changed, _, _ = reanalyse_email(
-            message_id=message_id,
-            subject=subject,
-            sender=sender,
-            body=body,
+            message_id=message_id, subject=subject, sender=sender, body=body
         )
 
         changed += int(status_changed)

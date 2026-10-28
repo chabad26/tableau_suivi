@@ -1,7 +1,6 @@
 import html
 import re
 import unicodedata
-
 from datetime import datetime, timezone
 from email.header import decode_header, make_header
 from email.message import Message
@@ -69,6 +68,7 @@ NEGATIVE_KEYWORDS = [
 
 BLACKLIST_SENDERS = ["locservice", "locservice.fr"]
 
+
 def decode_text(value: str | None) -> str:
     if not value:
         return ""
@@ -125,6 +125,7 @@ def normalize(text: str | None) -> str:
     text = re.sub(r"\s+", " ", text)
 
     return text.strip().casefold()
+
 
 def parse_date(value: str | None) -> datetime | None:
     if not value:
@@ -479,6 +480,7 @@ def score_message(message: Message) -> tuple[int, list[str], str]:
 
     return score, reasons, body
 
+
 def get_body(message: Message) -> str:
     """
     Extrait le texte d'un email, qu'il soit text/plain,
@@ -549,6 +551,7 @@ def get_body(message: Message) -> str:
 
     return ""
 
+
 def html_to_text(content: str) -> str:
     """
     Conversion HTML légère vers texte brut.
@@ -556,44 +559,19 @@ def html_to_text(content: str) -> str:
     """
 
     content = re.sub(
-        r"<(script|style).*?>.*?</\1>",
-        " ",
-        content,
-        flags=re.IGNORECASE | re.DOTALL,
+        r"<(script|style).*?>.*?</\1>", " ", content, flags=re.IGNORECASE | re.DOTALL
     )
 
-    content = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        content,
-        flags=re.IGNORECASE,
-    )
+    content = re.sub(r"<br\s*/?>", "\n", content, flags=re.IGNORECASE)
 
-    content = re.sub(
-        r"</p\s*>",
-        "\n",
-        content,
-        flags=re.IGNORECASE,
-    )
+    content = re.sub(r"</p\s*>", "\n", content, flags=re.IGNORECASE)
 
-    content = re.sub(
-        r"<[^>]+>",
-        " ",
-        content,
-    )
+    content = re.sub(r"<[^>]+>", " ", content)
 
     content = html.unescape(content)
 
-    content = re.sub(
-        r"[ \t]+",
-        " ",
-        content,
-    )
+    content = re.sub(r"[ \t]+", " ", content)
 
-    content = re.sub(
-        r"\n\s*\n+",
-        "\n",
-        content,
-    )
+    content = re.sub(r"\n\s*\n+", "\n", content)
 
     return content.strip()

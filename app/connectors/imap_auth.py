@@ -4,22 +4,12 @@ from app.connectors.gmail import get_credentials
 from app.connectors.microsoft import get_access_token
 
 
-def xoauth2_string(
-    username: str,
-    access_token: str,
-) -> bytes:
-    return (
-        f"user={username}"
-        f"\x01auth=Bearer {access_token}"
-        f"\x01\x01"
-    ).encode("utf-8")
+def xoauth2_string(username: str, access_token: str) -> bytes:
+    return (f"user={username}\x01auth=Bearer {access_token}\x01\x01").encode("utf-8")
 
 
 def authenticate_imap(
-    connection: imaplib.IMAP4,
-    provider: str,
-    username: str,
-    password: str | None,
+    connection: imaplib.IMAP4, provider: str, username: str, password: str | None
 ) -> None:
 
     if provider == "gmail":
@@ -28,39 +18,20 @@ def authenticate_imap(
         token = credentials.token
 
         if not token:
-            raise RuntimeError(
-                "Jeton Gmail indisponible."
-            )
+            raise RuntimeError("Jeton Gmail indisponible.")
 
-        connection.authenticate(
-            "XOAUTH2",
-            lambda _: xoauth2_string(
-                username,
-                token,
-            ),
-        )
+        connection.authenticate("XOAUTH2", lambda _: xoauth2_string(username, token))
 
         return
 
     if provider == "microsoft":
         token = get_access_token()
 
-        connection.authenticate(
-            "XOAUTH2",
-            lambda _: xoauth2_string(
-                username,
-                token,
-            ),
-        )
+        connection.authenticate("XOAUTH2", lambda _: xoauth2_string(username, token))
 
         return
 
     if not password:
-        raise RuntimeError(
-            "Mot de passe IMAP absent."
-        )
+        raise RuntimeError("Mot de passe IMAP absent.")
 
-    connection.login(
-        username,
-        password,
-    )
+    connection.login(username, password)

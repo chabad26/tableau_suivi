@@ -39,6 +39,6 @@ class MailProviderTests(unittest.TestCase):
 
         self.assertEqual(provider.name, "OVHcloud")
 
+
 if __name__ == "__main__":
-    
     unittest.main()

@@ -27,9 +27,7 @@ EXPORT_COLUMN_WIDTHS = {
 }
 
 
-def application_export_row(
-    application: PreparedApplication,
-) -> list[str]:
+def application_export_row(application: PreparedApplication) -> list[str]:
     return [
         application["company"],
         application["job_title"],
@@ -39,9 +37,5 @@ def application_export_row(
         application["note"],
         application["first_seen"],
         application["last_update"],
-        (
-            "Oui"
-            if application["manual_override"]
-            else "Non"
-        ),
+        ("Oui" if application["manual_override"] else "Non"),
     ]

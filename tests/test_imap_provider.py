@@ -1,6 +1,5 @@
 from app.mail_providers import detect_provider
 
-
 for address in (
     "test@sfr.fr",
     "test@neuf.fr",

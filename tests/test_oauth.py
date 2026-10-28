@@ -1,7 +1,8 @@
-from unittest.mock import MagicMock, patch
-from app.connectors import gmail, microsoft
 import json
 import unittest
+from unittest.mock import MagicMock, patch
+
+from app.connectors import gmail, microsoft
 from tests.helpers import OfflineCase
 
 
@@ -37,7 +38,7 @@ class ConnectorTests(OfflineCase):
         from google.auth.exceptions import RefreshError
 
         expired_credentials.refresh.side_effect = RefreshError(
-                "fixture refresh failure"
+            "fixture refresh failure"
         )
 
         with (
@@ -73,7 +74,7 @@ class ConnectorTests(OfflineCase):
 
         flow = MagicMock()
         flow.run_local_server.return_value = new_credentials
-       
+
         gmail.TOKEN_FILE.write_text("token cassé", encoding="utf-8")
 
         with (
@@ -92,6 +93,6 @@ class ConnectorTests(OfflineCase):
 
         flow.run_local_server.assert_called_once_with(port=0)
 
+
 if __name__ == "__main__":
-    
     unittest.main()

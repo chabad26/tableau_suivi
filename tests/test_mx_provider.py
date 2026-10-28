@@ -1,6 +1,7 @@
 import unittest
 
-from app.mail_providers import (detect_provider_smart, get_mx_hosts)
+from app.mail_providers import detect_provider_smart, get_mx_hosts
+
 
 class MXProviderTests(unittest.TestCase):
     def test_sfr(self):
@@ -28,6 +29,6 @@ class MXProviderTests(unittest.TestCase):
 
         self.assertEqual(provider.key, "ovh")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     unittest.main()

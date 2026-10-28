@@ -16,7 +16,7 @@ class AppFactoryTests(unittest.TestCase):
 
     def test_blueprints_are_registered(self):
         app = create_app()
-        
+
         self.assertEqual(
             set(app.blueprints), {"applications", "connectors", "exports", "jobs"}
         )

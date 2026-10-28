@@ -42,7 +42,10 @@ def effective_status(application: sqlite3.Row) -> str:
 
 
 def prepare_application_rows(
-    applications: Sequence[sqlite3.Row], status_filter: str = "", search: str = "", mailbox_filter: str = "",
+    applications: Sequence[sqlite3.Row],
+    status_filter: str = "",
+    search: str = "",
+    mailbox_filter: str = "",
 ) -> list[PreparedApplication]:
     prepared: list[PreparedApplication] = []
     search_lower = search.strip().casefold()
@@ -77,13 +80,9 @@ def prepare_application_rows(
         )
     return prepared
 
-def application_statistics(
-    applications: Sequence[sqlite3.Row],
-) -> dict[str, int]:
-    stats = {
-        status: 0
-        for status in STATUS_ORDER
-    }
+
+def application_statistics(applications: Sequence[sqlite3.Row]) -> dict[str, int]:
+    stats = {status: 0 for status in STATUS_ORDER}
 
     stats["total"] = len(applications)
 

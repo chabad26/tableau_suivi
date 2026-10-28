@@ -6,10 +6,7 @@ from uuid import uuid4
 
 from app.database import get_connection
 
-KINDS = {
-    "scan",
-    "reclassify",
-}
+KINDS = {"scan", "reclassify"}
 
 
 def init_jobs() -> None:
@@ -23,20 +20,12 @@ def init_jobs() -> None:
 
 def enqueue(kind: str) -> str:
     valid_dynamic_kind = (
-        kind.startswith("test:imap:")
-        and kind.removeprefix(
-            "test:imap:"
-        ).isdigit()
+        kind.startswith("test:imap:") and kind.removeprefix("test:imap:").isdigit()
     )
 
-    if (
-        kind not in KINDS
-        and not valid_dynamic_kind
-    ):
-        raise ValueError(
-            "Travail inconnu"
-        )
-    
+    if kind not in KINDS and not valid_dynamic_kind:
+        raise ValueError("Travail inconnu")
+
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         existing = connection.execute(
@@ -61,43 +50,25 @@ def list_jobs():
 
 
 def execute(kind: str) -> dict:
+    from app.connectors.imap import test_imap_account
     from app.importer import import_emails
     from app.reclassifier import reclassify_emails
     from app.settings import API_START_DATE
-    from app.connectors.imap import test_imap_account
 
     if kind == "scan":
-        return asdict(
-            import_emails()
-        )
+        return asdict(import_emails())
 
     if kind == "reclassify":
-        return asdict(
-            reclassify_emails()
-        )
+        return asdict(reclassify_emails())
 
-    if kind.startswith(
-        "test:imap:"
-    ):
-        account_id = int(
-            kind.removeprefix(
-                "test:imap:"
-            )
-        )
+    if kind.startswith("test:imap:"):
+        account_id = int(kind.removeprefix("test:imap:"))
 
-        emails = test_imap_account(
-            account_id,
-            API_START_DATE,
-        )
+        emails = test_imap_account(account_id, API_START_DATE)
 
-        return {
-            "detected": len(emails),
-            "imap_account_id": account_id,
-        }
+        return {"detected": len(emails), "imap_account_id": account_id}
 
-    raise ValueError(
-        f"Travail inconnu : {kind}"
-    )
+    raise ValueError(f"Travail inconnu : {kind}")
 
 
 def run_next() -> bool:
@@ -118,10 +89,7 @@ def run_next() -> bool:
         result = json.dumps(execute(job["kind"]), ensure_ascii=False)
         state, error = "succeeded", None
     except Exception as exception:
-        print(
-            f"❌ Job {job['kind']} : "
-            f"{type(exception).__name__}: {exception}"
-        )
+        print(f"❌ Job {job['kind']} : {type(exception).__name__}: {exception}")
 
         state, result = "failed", None
         error = (

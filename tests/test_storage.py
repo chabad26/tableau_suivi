@@ -1,5 +1,6 @@
 from dataclasses import replace
 from unittest.mock import patch
+
 from app import database, importer, reclassifier
 from tests.helpers import OfflineCase, fake_email
 
@@ -80,6 +81,7 @@ class StorageAndImportTests(OfflineCase):
         self.assertEqual(row["current_status"], "REJECTED")
         self.assertEqual(row["manual_status"], "INTERVIEW")
         self.assertTrue(row["manual_override"])
+
 
 class EvolutionTests(OfflineCase):
     def test_foreign_keys_and_orphan_repair(self):

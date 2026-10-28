@@ -7,120 +7,64 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from app.web import create_app
 from app import database
 from app.connectors import gmail, microsoft
 from app.models import DetectedEmail
+from app.web import create_app
+
+NOW = datetime(2026, 9, 16, 12, tzinfo=timezone.utc)
 
 
-NOW = datetime(
-    2026,
-    9,
-    16,
-    12,
-    tzinfo=timezone.utc,
-)
-
-
-def fake_email(
-    message_id="<fixture@example.invalid>",
-    **changes,
-):
+def fake_email(message_id="<fixture@example.invalid>", **changes):
     email = DetectedEmail(
         mailbox="Fixture",
         date=NOW,
         sender="Recrutement <rh@example.invalid>",
-        subject=(
-            "Votre candidature au poste "
-            "de Développeur Python"
-        ),
+        subject=("Votre candidature au poste de Développeur Python"),
         message_id=message_id,
         score=10,
         status="RECEIVED",
         reasons=["fixture"],
-        body=(
-            "Nous avons bien reçu "
-            "votre candidature."
-        ),
+        body=("Nous avons bien reçu votre candidature."),
     )
 
-    return replace(
-        email,
-        **changes,
-    )
+    return replace(email, **changes)
 
 
 class OfflineCase(unittest.TestCase):
-
     def setUp(self):
         self.stack = contextlib.ExitStack()
 
-        self.addCleanup(
-            self.stack.close
-        )
+        self.addCleanup(self.stack.close)
 
-        self.root = Path(
-            self.stack.enter_context(
-                tempfile.TemporaryDirectory()
-            )
-        )
+        self.root = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
 
         self.stack.enter_context(
-            patch.object(
-                database,
-                "DATABASE_PATH",
-                self.root / "test.db",
-            )
+            patch.object(database, "DATABASE_PATH", self.root / "test.db")
         )
 
         for module, attribute, filename in (
-            (
-                gmail,
-                "TOKEN_FILE",
-                "gmail-token.json",
-            ),
-            (
-                gmail,
-                "CREDENTIALS_FILE",
-                "gmail-client.json",
-            ),
-            (
-                microsoft,
-                "TOKEN_CACHE_FILE",
-                "microsoft-cache.json",
-            ),
+            (gmail, "TOKEN_FILE", "gmail-token.json"),
+            (gmail, "CREDENTIALS_FILE", "gmail-client.json"),
+            (microsoft, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
         ):
             self.stack.enter_context(
-                patch.object(
-                    module,
-                    attribute,
-                    self.root / filename,
-                )
+                patch.object(module, attribute, self.root / filename)
             )
 
         self.stack.enter_context(
             patch(
                 "socket.socket.connect",
-                side_effect=AssertionError(
-                    "Réseau interdit dans les tests"
-                ),
+                side_effect=AssertionError("Réseau interdit dans les tests"),
             )
         )
 
-        self.stack.enter_context(
-            contextlib.redirect_stdout(
-                io.StringIO()
-            )
-        )
+        self.stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
 
         database.init_database()
         self.app = create_app()
-        self.app.config.update(
-            TESTING=True,
-        )
-        self.client = (
-            self.app.test_client()
-        )
+        self.app.config.update(TESTING=True)
+        self.client = self.app.test_client()
 
     def application(
         self,

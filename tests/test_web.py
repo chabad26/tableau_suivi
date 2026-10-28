@@ -1,17 +1,12 @@
 import csv
 import io
-
+from unittest.mock import patch
 
 from openpyxl import load_workbook
 
-from unittest.mock import patch
-
 from app import database, importer, jobs, reclassifier
-
 from app.exports import EXPORT_HEADERS
-
 from app.presentation import application_statistics, format_datetime
-
 from tests.helpers import OfflineCase
 
 

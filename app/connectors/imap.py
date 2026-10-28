@@ -1,5 +1,5 @@
 from __future__ import annotations
-from app.connectors.imap_auth import authenticate_imap
+
 import email
 import imaplib
 import ssl
@@ -8,30 +8,29 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from app.database import (
-    get_enabled_imap_accounts,
-    update_imap_account_health,
-    update_imap_sync_state,
-)
-from app.secrets import get_imap_password
-from app.classifier import (
-    detect_status,
-    score_message,
-)
-from app.mail_filters import (
-    should_analyze_email,
-)
-from app.models import DetectedEmail
 
+from app.classifier import detect_status, score_message
 from app.connectors.common import (
     build_email_message,
     decode_mime_header,
     html_to_text,
     sanitize_header_value,
 )
+from app.connectors.imap_auth import authenticate_imap
+from app.database import (
+    get_enabled_imap_accounts,
+    update_imap_account_health,
+    update_imap_sync_state,
+)
+from app.mail_filters import should_analyze_email
+from app.models import DetectedEmail
+from app.secrets import get_imap_password
+
 
 class ImapAuthenticationError(Exception):
     pass
+
+
 @dataclass(frozen=True)
 class ImapAccount:
     account_id: int | None
@@ -48,35 +47,26 @@ class ImapAccount:
     last_uid: int
     uid_validity: int | None
 
+
 def get_imap_accounts() -> list[ImapAccount]:
     accounts: list[ImapAccount] = []
 
     for row in get_enabled_imap_accounts():
         account_id = int(row["id"])
 
-        auth_method = str(
-            row["auth_method"]
-            or "password"
-        ).casefold()
+        auth_method = str(row["auth_method"] or "password").casefold()
 
         password: str | None = None
 
         if auth_method == "password":
-            password = get_imap_password(
-                account_id
-            )
+            password = get_imap_password(account_id)
 
             if not password:
-                print(
-                    f"⚠ Mot de passe IMAP absent : "
-                    f"{row['email']}"
-                )
+                print(f"⚠ Mot de passe IMAP absent : {row['email']}")
                 continue
 
         uid_validity = (
-            int(row["uid_validity"])
-            if row["uid_validity"] is not None
-            else None
+            int(row["uid_validity"]) if row["uid_validity"] is not None else None
         )
 
         accounts.append(
@@ -84,77 +74,47 @@ def get_imap_accounts() -> list[ImapAccount]:
                 account_id=account_id,
                 key=f"db:{account_id}",
                 label=str(row["email"]),
-                provider=str(
-                    row["provider"]
-                    or "imap"
-                ),
+                provider=str(row["provider"] or "imap"),
                 host=str(row["host"]),
                 port=int(row["port"]),
-                use_ssl=bool(
-                    row["use_ssl"]
-                ),
-                username=str(
-                    row["username"]
-                ),
+                use_ssl=bool(row["use_ssl"]),
+                username=str(row["username"]),
                 auth_method=auth_method,
                 password=password,
-                folder=str(
-                    row["folder"]
-                    or "INBOX"
-                ),
-                last_uid=int(
-                    row["last_uid"]
-                    or 0
-                ),
+                folder=str(row["folder"] or "INBOX"),
+                last_uid=int(row["last_uid"] or 0),
                 uid_validity=uid_validity,
             )
         )
 
     return accounts
 
-def get_message_body(
-    message: Message,
-) -> str:
+
+def get_message_body(message: Message) -> str:
     if message.is_multipart():
         plain_parts: list[str] = []
         html_parts: list[str] = []
 
         for part in message.walk():
-            disposition = str(
-                part.get(
-                    "Content-Disposition",
-                    "",
-                )
-            ).casefold()
+            disposition = str(part.get("Content-Disposition", "")).casefold()
 
             if "attachment" in disposition:
                 continue
 
             content_type = part.get_content_type()
 
-            if content_type not in {
-                "text/plain",
-                "text/html",
-            }:
+            if content_type not in {"text/plain", "text/html"}:
                 continue
 
-            payload = part.get_payload(
-                decode=True
-            )
+            payload = part.get_payload(decode=True)
 
             # get_payload peut aussi renvoyer un Message : decode exige des octets.
             if not isinstance(payload, bytes) or not payload:
                 continue
 
-            charset = (
-                part.get_content_charset()
-                or "utf-8"
-            )
+            charset = part.get_content_charset() or "utf-8"
 
-            text = payload.decode(
-                charset,
-                errors="replace",
-            )
+            text = payload.decode(charset, errors="replace")
 
             if content_type == "text/plain":
                 plain_parts.append(text)
@@ -162,150 +122,90 @@ def get_message_body(
                 html_parts.append(text)
 
         if plain_parts:
-            return "\n\n".join(
-                plain_parts
-            ).strip()
+            return "\n\n".join(plain_parts).strip()
 
         if html_parts:
-            return html_to_text(
-                "\n\n".join(
-                    html_parts
-                )
-            )
+            return html_to_text("\n\n".join(html_parts))
 
         return ""
 
-    payload = message.get_payload(
-        decode=True
-    )
+    payload = message.get_payload(decode=True)
 
     if not isinstance(payload, bytes) or not payload:
         return ""
 
-    charset = (
-        message.get_content_charset()
-        or "utf-8"
-    )
+    charset = message.get_content_charset() or "utf-8"
 
-    text = payload.decode(
-        charset,
-        errors="replace",
-    )
+    text = payload.decode(charset, errors="replace")
 
-    if (
-        message.get_content_type()
-        == "text/html"
-    ):
+    if message.get_content_type() == "text/html":
         return html_to_text(text)
 
     return text.strip()
 
-def connect_imap(
-    account: ImapAccount,
-) -> imaplib.IMAP4:
+
+def connect_imap(account: ImapAccount) -> imaplib.IMAP4:
     for attempt in range(3):
         try:
             if account.use_ssl:
                 context = ssl.create_default_context()
 
                 return imaplib.IMAP4_SSL(
-                    account.host,
-                    account.port,
-                    ssl_context=context,
-                    timeout=15,
+                    account.host, account.port, ssl_context=context, timeout=15
                 )
 
-            return imaplib.IMAP4(
-                account.host,
-                account.port,
-                timeout=15,
-            )
+            return imaplib.IMAP4(account.host, account.port, timeout=15)
 
         except ssl.SSLCertVerificationError:
-            raise RuntimeError(
-                "Certificat TLS IMAP non valide."
-            ) from None
+            raise RuntimeError("Certificat TLS IMAP non valide.") from None
 
-        except (
-            ConnectionResetError,
-            TimeoutError,
-            ssl.SSLEOFError,
-        ):
+        except ConnectionResetError, TimeoutError, ssl.SSLEOFError:
             if attempt == 2:
                 raise RuntimeError(
-                    "Connexion IMAP interrompue "
-                    "après 3 tentatives."
+                    "Connexion IMAP interrompue après 3 tentatives."
                 ) from None
 
-            time.sleep(
-                attempt + 1
-            )
+            time.sleep(attempt + 1)
 
-    raise RuntimeError(
-        "Connexion IMAP impossible."
-    )
+    raise RuntimeError("Connexion IMAP impossible.")
 
 
-def scan_imap(
-    since: datetime,
-) -> list[DetectedEmail]:
+def scan_imap(since: datetime) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
 
     accounts = get_imap_accounts()
 
     for account in accounts:
         try:
-            emails = scan_imap_account(
-                account,
-                since,
-            )
+            emails = scan_imap_account(account, since)
 
-            detected.extend(
-                emails
-            )
+            detected.extend(emails)
 
             if account.account_id is not None:
-                update_imap_account_health(
-                    account.account_id,
-                    "connected",
-                    None,
-                )
+                update_imap_account_health(account.account_id, "connected", None)
 
         except ImapAuthenticationError:
             if account.account_id is not None:
                 update_imap_account_health(
-                    account.account_id,
-                    "auth_error",
-                    "Identifiants refusés",
+                    account.account_id, "auth_error", "Identifiants refusés"
                 )
 
             print()
-            print(
-                f"⚠ IMAP {account.label} "
-                "authentification refusée"
-            )
+            print(f"⚠ IMAP {account.label} authentification refusée")
 
         except Exception as error:
             if account.account_id is not None:
                 update_imap_account_health(
-                    account.account_id,
-                    "error",
-                    "Connexion ou lecture impossible",
+                    account.account_id, "error", "Connexion ou lecture impossible"
                 )
 
             print()
-            print(
-                f"⚠ IMAP {account.label} "
-                f"indisponible "
-                f"({type(error).__name__})"
-            )
+            print(f"⚠ IMAP {account.label} indisponible ({type(error).__name__})")
 
     return detected
 
-def scan_imap_account(
-    account: ImapAccount,
-    since: datetime,
-) -> list[DetectedEmail]:
+
+def scan_imap_account(account: ImapAccount, since: datetime) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
 
     connection = connect_imap(account)
@@ -313,65 +213,36 @@ def scan_imap_account(
     try:
         try:
             authenticate_imap(
-                connection,
-                account.provider,
-                account.username,
-                account.password,
+                connection, account.provider, account.username, account.password
             )
 
         except imaplib.IMAP4.error as error:
-            raise ImapAuthenticationError(
-                "Authentification IMAP refusée."
-            ) from error
+            raise ImapAuthenticationError("Authentification IMAP refusée.") from error
 
-        status, _ = connection.select(
-            account.folder,
-            readonly=True,
-        )
+        status, _ = connection.select(account.folder, readonly=True)
 
         if status != "OK":
-            raise RuntimeError(
-                "Dossier IMAP inaccessible."
-            )
+            raise RuntimeError("Dossier IMAP inaccessible.")
 
         # UIDVALIDITY permet de vérifier que les UID mémorisés
         # appartiennent toujours à la même boîte.
-        _, uid_validity_data = connection.response(
-            "UIDVALIDITY"
-        )
+        _, uid_validity_data = connection.response("UIDVALIDITY")
 
         current_uid_validity: int | None = None
 
-        if (
-            uid_validity_data
-            and uid_validity_data[0]
-        ):
+        if uid_validity_data and uid_validity_data[0]:
             raw_uid_validity = uid_validity_data[0]
 
             try:
-                if isinstance(
-                    raw_uid_validity,
-                    bytes,
-                ):
-                    current_uid_validity = int(
-                        raw_uid_validity.decode(
-                            "ascii"
-                        )
-                    )
+                if isinstance(raw_uid_validity, bytes):
+                    current_uid_validity = int(raw_uid_validity.decode("ascii"))
                 else:
-                    current_uid_validity = int(
-                        raw_uid_validity
-                    )
+                    current_uid_validity = int(raw_uid_validity)
 
-            except (
-                ValueError,
-                TypeError,
-            ):
+            except ValueError, TypeError:
                 current_uid_validity = None
 
-        imap_date = since.strftime(
-            "%d-%b-%Y"
-        )
+        imap_date = since.strftime("%d-%b-%Y")
 
         message_ids: list[str] = []
 
@@ -379,8 +250,7 @@ def scan_imap_account(
         # et qu'un UID précédent est connu.
         if (
             current_uid_validity is not None
-            and account.uid_validity
-            == current_uid_validity
+            and account.uid_validity == current_uid_validity
             and account.last_uid > 0
         ):
             status, data = connection.uid(
@@ -400,23 +270,16 @@ def scan_imap_account(
             )
 
         if status != "OK":
-            raise RuntimeError(
-                "Recherche IMAP impossible."
-            )
-        
+            raise RuntimeError("Recherche IMAP impossible.")
+
         if data and data[0]:
             raw_ids = data[0]
 
             if isinstance(raw_ids, bytes):
-                message_ids = raw_ids.decode(
-                    "ascii",
-                    errors="ignore",
-                ).split()
+                message_ids = raw_ids.decode("ascii", errors="ignore").split()
 
         print()
-        print(
-            f"📨 IMAP — {account.label}"
-        )
+        print(f"📨 IMAP — {account.label}")
 
         total_seen = 0
         failed_uids: list[int] = []
@@ -425,16 +288,10 @@ def scan_imap_account(
             total_seen += 1
 
             try:
-                status, raw_data = connection.uid(
-                    "fetch",
-                    imap_uid,
-                    "(BODY.PEEK[])",
-                )
+                status, raw_data = connection.uid("fetch", imap_uid, "(BODY.PEEK[])")
 
                 if status != "OK":
-                    failed_uids.append(
-                        int(imap_uid)
-                    )
+                    failed_uids.append(int(imap_uid))
                     continue
 
                 raw_message: bytes | None = None
@@ -449,103 +306,46 @@ def scan_imap_account(
                         break
 
                 if not raw_message:
-                    failed_uids.append(
-                        int(imap_uid)
-                    )
+                    failed_uids.append(int(imap_uid))
                     continue
 
-                message = email.message_from_bytes(
-                    raw_message
-                )
+                message = email.message_from_bytes(raw_message)
 
-                sender = decode_mime_header(
-                    str(
-                        message.get(
-                            "From",
-                            "",
-                        )
-                    )
-                )
+                sender = decode_mime_header(str(message.get("From", "")))
 
-                subject = decode_mime_header(
-                    str(
-                        message.get(
-                            "Subject",
-                            "",
-                        )
-                    )
-                )
+                subject = decode_mime_header(str(message.get("Subject", "")))
 
-                date_header = str(
-                    message.get(
-                        "Date",
-                        "",
-                    )
-                )
+                date_header = str(message.get("Date", ""))
 
                 try:
-                    date = parsedate_to_datetime(
-                        date_header
-                    )
+                    date = parsedate_to_datetime(date_header)
 
-                except (
-                    TypeError,
-                    ValueError,
-                ):
-                    date = datetime.now(
-                        timezone.utc
-                    )
+                except TypeError, ValueError:
+                    date = datetime.now(timezone.utc)
 
                 if date.tzinfo is None:
-                    date = date.replace(
-                        tzinfo=timezone.utc
-                    )
+                    date = date.replace(tzinfo=timezone.utc)
 
-                if (
-                    date.astimezone(timezone.utc)
-                    < since.astimezone(timezone.utc)
-                ):
+                if date.astimezone(timezone.utc) < since.astimezone(timezone.utc):
                     continue
 
-                message_id = str(
-                    message.get(
-                        "Message-ID",
-                        "",
-                    )
-                ).strip()
+                message_id = str(message.get("Message-ID", "")).strip()
 
                 if not message_id:
-                    message_id = (
-                        f"imap:{account.key}:"
-                        f"{imap_uid}"
-                    )
+                    message_id = f"imap:{account.key}:{imap_uid}"
 
-                body = get_message_body(
-                    message
-                )
+                body = get_message_body(message)
 
-                if not should_analyze_email(
-                    sender,
-                    subject,
-                    body,
-                ):
+                if not should_analyze_email(sender, subject, body):
                     continue
 
-                sender = sanitize_header_value(
-                    sender
-                )
+                sender = sanitize_header_value(sender)
 
-                subject = sanitize_header_value(
-                    subject
-                )
+                subject = sanitize_header_value(subject)
 
-                message_id = sanitize_header_value(
-                    message_id
-                )
+                message_id = sanitize_header_value(message_id)
 
-                date_header = sanitize_header_value(
-                    date_header
-                )
+                date_header = sanitize_header_value(date_header)
 
                 normalized_message = build_email_message(
                     sender=sender,
@@ -555,21 +355,12 @@ def scan_imap_account(
                     date=date_header,
                 )
 
-                (
-                    score,
-                    reasons,
-                    normalized_body,
-                ) = score_message(
-                    normalized_message
-                )
+                (score, reasons, normalized_body) = score_message(normalized_message)
 
                 if score < 5:
                     continue
 
-                status_value = detect_status(
-                    subject,
-                    normalized_body,
-                )
+                status_value = detect_status(subject, normalized_body)
 
                 detected.append(
                     DetectedEmail(
@@ -586,68 +377,37 @@ def scan_imap_account(
                 )
 
             except Exception as error:
-                failed_uids.append(
-                    int(imap_uid)
-                )
-                print(
-                    f"  ⚠ UID {imap_uid} ignoré "
-                    f"({type(error).__name__}: {error})"
-                )
+                failed_uids.append(int(imap_uid))
+                print(f"  ⚠ UID {imap_uid} ignoré ({type(error).__name__}: {error})")
                 continue
 
-        searched_uids = [
-            int(imap_uid)
-            for imap_uid in message_ids
-        ]
+        searched_uids = [int(imap_uid) for imap_uid in message_ids]
 
         same_uid_validity = (
             current_uid_validity is not None
-            and account.uid_validity
-            == current_uid_validity
+            and account.uid_validity == current_uid_validity
         )
 
-        minimum_uid = (
-            account.last_uid
-            if same_uid_validity
-            else 0
-        )
+        minimum_uid = account.last_uid if same_uid_validity else 0
 
         if searched_uids:
-            max_uid = max(
-                searched_uids
-            )
+            max_uid = max(searched_uids)
         else:
             max_uid = minimum_uid
 
         if failed_uids:
-            first_failed_uid = min(
-                failed_uids
-            )
+            first_failed_uid = min(failed_uids)
 
-            max_uid = min(
-                max_uid,
-                first_failed_uid - 1,
-            )
+            max_uid = min(max_uid, first_failed_uid - 1)
 
-        max_uid = max(
-            max_uid,
-            minimum_uid,
-        )
+        max_uid = max(max_uid, minimum_uid)
 
         if account.account_id is not None:
-            update_imap_sync_state(
-                account.account_id,
-                max_uid,
-                current_uid_validity,
-            )
+            update_imap_sync_state(account.account_id, max_uid, current_uid_validity)
 
-        print(
-            f"  Détectés  : {len(detected)}"
-        )
+        print(f"  Détectés  : {len(detected)}")
 
-        print(
-            f"  Parcourus : {total_seen}"
-        )
+        print(f"  Parcourus : {total_seen}")
 
     finally:
         try:
@@ -657,56 +417,36 @@ def scan_imap_account(
 
     return detected
 
-def get_imap_account_config(
-    account_id: int,
-) -> ImapAccount | None:
+
+def get_imap_account_config(account_id: int) -> ImapAccount | None:
     for account in get_imap_accounts():
         if account.account_id == account_id:
             return account
 
     return None
 
-def test_imap_account(
-    account_id: int,
-    since: datetime,
-) -> list[DetectedEmail]:
-    account = get_imap_account_config(
-        account_id
-    )
+
+def test_imap_account(account_id: int, since: datetime) -> list[DetectedEmail]:
+    account = get_imap_account_config(account_id)
 
     if account is None:
-        raise ValueError(
-            "Compte IMAP introuvable."
-        )
+        raise ValueError("Compte IMAP introuvable.")
 
     try:
-        emails = scan_imap_account(
-            account,
-            since,
-        )
+        emails = scan_imap_account(account, since)
 
     except ImapAuthenticationError:
-        update_imap_account_health(
-            account_id,
-            "auth_error",
-            "Identifiants refusés",
-        )
+        update_imap_account_health(account_id, "auth_error", "Identifiants refusés")
 
         raise
 
     except Exception:
         update_imap_account_health(
-            account_id,
-            "error",
-            "Connexion ou lecture impossible",
+            account_id, "error", "Connexion ou lecture impossible"
         )
 
         raise
 
-    update_imap_account_health(
-        account_id,
-        "connected",
-        None,
-    )
+    update_imap_account_health(account_id, "connected", None)
 
     return emails

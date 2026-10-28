@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
+
 from app import database
 from app.connectors.imap import ImapAccount, scan_imap, scan_imap_account
 from app.settings import API_START_DATE
@@ -22,6 +23,7 @@ def fake_account(*, last_uid: int = 100, uid_validity: int | None = 777) -> Imap
         last_uid=last_uid,
         uid_validity=uid_validity,
     )
+
 
 class ImapConnectorTests(unittest.TestCase):
     def setUp(self):
@@ -121,6 +123,7 @@ class ImapConnectorTests(unittest.TestCase):
         connection.uid.assert_called_once_with("search", None, "SINCE", "01-Oct-2026")
 
         update_sync.assert_called_once_with(1, 0, 999)
-        
+
+
 if __name__ == "__main__":
     unittest.main()

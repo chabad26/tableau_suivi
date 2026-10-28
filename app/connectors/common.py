@@ -2,8 +2,8 @@
 
 import html
 import re
-from email.message import EmailMessage
 from email.header import decode_header, make_header
+from email.message import EmailMessage
 
 
 def decode_mime_header(value: str) -> str:
@@ -11,17 +11,12 @@ def decode_mime_header(value: str) -> str:
         return ""
 
     try:
-        return str(
-            make_header(
-                decode_header(value)
-            )
-        ).strip()
-    except (LookupError, UnicodeError):
+        return str(make_header(decode_header(value))).strip()
+    except LookupError, UnicodeError:
         return value.strip()
 
-def extract_html_preheader(
-    value: str,
-) -> str:
+
+def extract_html_preheader(value: str) -> str:
     """
     Extrait le texte d'un préheader HTML masqué.
     Les plateformes de recrutement y placent souvent
@@ -50,105 +45,46 @@ def extract_html_preheader(
     ]
 
     for pattern in patterns:
-        match = re.search(
-            pattern,
-            value,
-            flags=re.IGNORECASE
-            | re.DOTALL
-            | re.VERBOSE,
-        )
+        match = re.search(pattern, value, flags=re.IGNORECASE | re.DOTALL | re.VERBOSE)
 
         if not match:
             continue
 
-        preheader = re.sub(
-            r"<[^>]+>",
-            " ",
-            match.group(1),
-        )
+        preheader = re.sub(r"<[^>]+>", " ", match.group(1))
 
-        preheader = html.unescape(
-            preheader
-        )
+        preheader = html.unescape(preheader)
 
-        preheader = re.sub(
-            r"\s+",
-            " ",
-            preheader,
-        ).strip()
+        preheader = re.sub(r"\s+", " ", preheader).strip()
 
         if preheader:
             return preheader
 
     return ""
 
+
 def html_to_text(value: str) -> str:
-    preheader = extract_html_preheader(
-        value
-    )
+    preheader = extract_html_preheader(value)
 
-    value = re.sub(
-        r"<style.*?>.*?</style>",
-        " ",
-        value,
-        flags=re.I | re.S,
-    )
+    value = re.sub(r"<style.*?>.*?</style>", " ", value, flags=re.I | re.S)
 
-    value = re.sub(
-        r"<script.*?>.*?</script>",
-        " ",
-        value,
-        flags=re.I | re.S,
-    )
+    value = re.sub(r"<script.*?>.*?</script>", " ", value, flags=re.I | re.S)
 
-    value = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        value,
-        flags=re.I,
-    )
+    value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
 
-    value = re.sub(
-        r"</p>",
-        "\n",
-        value,
-        flags=re.I,
-    )
+    value = re.sub(r"</p>", "\n", value, flags=re.I)
 
-    value = re.sub(
-        r"<[^>]+>",
-        " ",
-        value,
-    )
+    value = re.sub(r"<[^>]+>", " ", value)
 
-    value = html.unescape(
-        value
-    )
+    value = html.unescape(value)
 
-    value = re.sub(
-        r"[ \t]+",
-        " ",
-        value,
-    )
+    value = re.sub(r"[ \t]+", " ", value)
 
-    value = re.sub(
-        r"\n\s*\n+",
-        "\n\n",
-        value,
-    )
+    value = re.sub(r"\n\s*\n+", "\n\n", value)
 
     value = value.strip()
 
-    if (
-        preheader
-        and preheader.casefold()
-        not in value.casefold()
-    ):
-        return (
-            preheader
-            + "\n\n"
-            + value
-        )
+    if preheader and preheader.casefold() not in value.casefold():
+        return preheader + "\n\n" + value
 
     return value
 
@@ -169,12 +105,6 @@ def build_email_message(
     message.set_content(body)
     return message
 
-def sanitize_header_value(
-    value: str,
-) -> str:
-    return " ".join(
-        value
-        .replace("\r", " ")
-        .replace("\n", " ")
-        .split()
-    )
+
+def sanitize_header_value(value: str) -> str:
+    return " ".join(value.replace("\r", " ").replace("\n", " ").split())

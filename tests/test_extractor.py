@@ -1,10 +1,11 @@
-from app.extractor import company_key, extract_job_title, normalize_company_name
 import unittest
 
-from app.connectors.common import (extract_html_preheader, html_to_text)
+from app.connectors.common import extract_html_preheader, html_to_text
 from app.extractor import (
+    company_key,
     extract_application_data,
     extract_job_title,
+    normalize_company_name,
     normalize_email_body,
 )
 
@@ -70,10 +71,9 @@ class ExtractorTests(unittest.TestCase):
         self.assertIn("Administrateur système et réseaux h/f", normalized)
 
     def test_indeed_html_extracts_company_job_and_source(self):
-        subject = ("Des nouvelles de votre candidature pour WIDIP" )
+        subject = "Des nouvelles de votre candidature pour WIDIP"
 
         sender = "Indeed <notifications@indeed.com>"
-        
 
         body = """
         <!doctype html>
@@ -108,6 +108,7 @@ class ExtractorTests(unittest.TestCase):
 
         self.assertEqual(source, "Indeed")
 
+
 def test_html_body_is_normalized_before_extraction(self):
     body = """
     <html>
@@ -135,6 +136,7 @@ def test_html_body_is_normalized_before_extraction(self):
 
     self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
 
+
 def main() -> None:
     print()
     print("=" * 90)
@@ -161,5 +163,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    
     main()

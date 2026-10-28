@@ -1,7 +1,8 @@
 import re
 from email.utils import parseaddr
-from app.connectors.common import html_to_text
+
 from app.classifier import normalize
+from app.connectors.common import html_to_text
 
 COMPANY_PREFIX_PATTERNS = [
     r"^équipe de recrutement de\s+",
@@ -26,18 +27,16 @@ COMPANY_SUFFIX_PATTERNS = [
     r"\s+!$",
 ]
 
+
 def normalize_email_body(body: str) -> str:
     if not body:
         return ""
 
-    if re.search(
-        r"<!doctype|<html|<body|<table|<div|<p\b",
-        body,
-        flags=re.IGNORECASE,
-    ):
+    if re.search(r"<!doctype|<html|<body|<table|<div|<p\b", body, flags=re.IGNORECASE):
         body = html_to_text(body)
 
     return clean_text(body)
+
 
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()

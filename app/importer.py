@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+
 from app.connectors.registry import scan_external_connectors
 from app.database import (
     email_exists,
@@ -11,6 +12,7 @@ from app.models import DetectedEmail
 from app.settings import API_START_DATE
 
 START_DATE = API_START_DATE
+
 
 @dataclass
 class ImportResult:
@@ -46,7 +48,6 @@ def deduplicate_emails(emails: list[DetectedEmail]) -> list[DetectedEmail]:
 def import_emails() -> ImportResult:
 
     detected_emails: list[DetectedEmail] = []
-
 
     # 1. APIs / connecteurs externes
     #

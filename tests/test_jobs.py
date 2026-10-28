@@ -1,5 +1,7 @@
-from app import database, jobs
 from unittest.mock import patch
+
+from app import database, jobs
+
 
 def test_queue_failure_and_serialization(self):
     jobs.init_jobs()
@@ -23,6 +25,7 @@ def test_queue_failure_and_serialization(self):
     jobs.init_jobs()
     self.assertEqual(len(jobs.list_jobs()), 2)
 
+
 def test_worker_restart_keeps_pending_and_marks_interrupted(self):
     jobs.init_jobs()
     interrupted = jobs.enqueue("scan")
@@ -38,6 +41,7 @@ def test_worker_restart_keeps_pending_and_marks_interrupted(self):
     self.assertEqual(
         {row["state"] for row in jobs.list_jobs()}, {"failed", "succeeded"}
     )
+
 
 def test_http_stays_available_during_worker(self):
     import threading
@@ -66,5 +70,5 @@ def test_http_stays_available_during_worker(self):
             self.assertFalse(jobs.run_next())
         finally:
             release.set()
-            
+
         self.assertTrue(future.result(timeout=2))

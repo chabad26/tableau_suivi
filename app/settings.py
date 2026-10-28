@@ -41,9 +41,4 @@ MICROSOFT_AUTHORITY = os.getenv(
 SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "") or os.urandom(32).hex()
 
 
-APPLICATION_EXPIRY_DAYS = int(
-    os.getenv(
-        "APPLICATION_EXPIRY_DAYS",
-        "30",
-    )
-)
+APPLICATION_EXPIRY_DAYS = int(os.getenv("APPLICATION_EXPIRY_DAYS", "30"))

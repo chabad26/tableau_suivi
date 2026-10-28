@@ -120,19 +120,9 @@ def init_database() -> None:
             "TEXT NOT NULL DEFAULT 'unknown'",
         )
 
-        ensure_column(
-            connection,
-            "imap_accounts",
-            "last_error",
-            "TEXT",
-        )
+        ensure_column(connection, "imap_accounts", "last_error", "TEXT")
 
-        ensure_column(
-            connection,
-            "imap_accounts",
-            "last_checked_at",
-            "TEXT",
-        )
+        ensure_column(connection, "imap_accounts", "last_checked_at", "TEXT")
 
         ensure_column(
             connection,
@@ -142,18 +132,10 @@ def init_database() -> None:
         )
 
         ensure_column(
-            connection,
-            "imap_accounts",
-            "last_uid",
-            "INTEGER NOT NULL DEFAULT 0",
+            connection, "imap_accounts", "last_uid", "INTEGER NOT NULL DEFAULT 0"
         )
 
-        ensure_column(
-            connection,
-            "imap_accounts",
-            "uid_validity",
-            "INTEGER",
-        )
+        ensure_column(connection, "imap_accounts", "uid_validity", "INTEGER")
 
         ensure_column(connection, "applications", "manual_status", "TEXT")
 
@@ -466,7 +448,9 @@ def create_manual_application(
 
         return int(cursor.lastrowid)
 
+
 # Candidatures : mises à jour
+
 
 def update_application(
     application_id: int, status: str, date: datetime, job_title: str = ""
@@ -823,6 +807,7 @@ def delete_application(application_id: int) -> None:
 
         connection.commit()
 
+
 def get_imap_accounts() -> list[sqlite3.Row]:
     with get_connection() as connection:
         rows = connection.execute(
@@ -850,7 +835,8 @@ def get_imap_accounts() -> list[sqlite3.Row]:
         ).fetchall()
 
         return list(rows)
-    
+
+
 def get_enabled_imap_accounts() -> list[sqlite3.Row]:
     with get_connection() as connection:
         rows = connection.execute(
@@ -878,7 +864,8 @@ def get_enabled_imap_accounts() -> list[sqlite3.Row]:
         ).fetchall()
 
         return list(rows)
-    
+
+
 def update_imap_account(
     account_id: int,
     email: str,
@@ -922,6 +909,7 @@ def update_imap_account(
 
         connection.commit()
 
+
 def create_imap_account(
     email: str,
     provider: str,
@@ -930,9 +918,9 @@ def create_imap_account(
     use_ssl: bool,
     username: str,
     folder: str = "INBOX",
-    auth_method: str = "password"
+    auth_method: str = "password",
 ) -> int:
-    
+
     with get_connection() as connection:
         cursor = connection.execute(
             """
@@ -963,16 +951,13 @@ def create_imap_account(
         connection.commit()
 
         if cursor.lastrowid is None:
-            raise RuntimeError(
-                "Impossible de créer le compte IMAP."
-            )
+            raise RuntimeError("Impossible de créer le compte IMAP.")
 
         return int(cursor.lastrowid)
 
+
 def update_imap_account_health(
-    account_id: int,
-    status: str,
-    error: str | None = None,
+    account_id: int, status: str, error: str | None = None
 ) -> None:
     with get_connection() as connection:
         connection.execute(
@@ -984,19 +969,14 @@ def update_imap_account_health(
                 last_checked_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (
-                status,
-                error,
-                account_id,
-            ),
+            (status, error, account_id),
         )
 
         connection.commit()
 
+
 def update_imap_sync_state(
-    account_id: int,
-    last_uid: int,
-    uid_validity: int | None,
+    account_id: int, last_uid: int, uid_validity: int | None
 ) -> None:
     with get_connection() as connection:
         connection.execute(
@@ -1007,11 +987,7 @@ def update_imap_sync_state(
                 uid_validity = ?
             WHERE id = ?
             """,
-            (
-                last_uid,
-                uid_validity,
-                account_id,
-            ),
+            (last_uid, uid_validity, account_id),
         )
 
         connection.commit()
