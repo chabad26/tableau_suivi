@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from app.mail_providers import detect_provider_smart, get_mx_hosts
 
@@ -8,25 +9,16 @@ class MXProviderTests(unittest.TestCase):
         provider = detect_provider_smart("test@sfr.fr")
 
         self.assertIsNotNone(provider)
-
         assert provider is not None
-
         self.assertEqual(provider.key, "sfr")
 
-    def test_ovh_domain(self):
-        address = "contact@olidev.ovh"
+    @patch("app.mail_providers.get_mx_hosts", return_value=["mx1.mail.ovh.net"])
+    def test_ovh_domain(self, mock_mx):
+        provider = detect_provider_smart("contact@example.invalid")
 
-        print()
-        print("MX :", get_mx_hosts(address))
-
-        provider = detect_provider_smart(address)
-
-        print("Fournisseur :", provider.name if provider else "Inconnu")
-
+        mock_mx.assert_called_once_with("contact@example.invalid")
         self.assertIsNotNone(provider)
-
         assert provider is not None
-
         self.assertEqual(provider.key, "ovh")
 
 
