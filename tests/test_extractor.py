@@ -1,10 +1,7 @@
 from app.extractor import company_key, extract_job_title, normalize_company_name
 import unittest
 
-from app.connectors.common import (
-    extract_html_preheader,
-    html_to_text,
-)
+from app.connectors.common import (extract_html_preheader, html_to_text)
 from app.extractor import (
     extract_application_data,
     extract_job_title,
@@ -37,8 +34,8 @@ job_samples = [
     ),
 ]
 
-class ExtractorTests(unittest.TestCase):
 
+class ExtractorTests(unittest.TestCase):
     def test_hidden_html_preheader_is_extracted(self):
 
         html_body = """
@@ -64,34 +61,19 @@ class ExtractorTests(unittest.TestCase):
         </html>
         """
 
-        preheader = extract_html_preheader(
-            html_body
-        )
+        preheader = extract_html_preheader(html_body)
 
-        self.assertIn(
-            "Administrateur système et réseaux h/f",
-            preheader,
-        )
+        self.assertIn("Administrateur système et réseaux h/f", preheader)
 
-        normalized = html_to_text(
-            html_body
-        )
+        normalized = html_to_text(html_body)
 
-        self.assertIn(
-            "Administrateur système et réseaux h/f",
-            normalized,
-        )
+        self.assertIn("Administrateur système et réseaux h/f", normalized)
 
     def test_indeed_html_extracts_company_job_and_source(self):
-        subject = (
-            "Des nouvelles de votre candidature "
-            "pour WIDIP"
-        )
+        subject = ("Des nouvelles de votre candidature pour WIDIP" )
 
-        sender = (
-            "Indeed "
-            "<notifications@indeed.com>"
-        )
+        sender = "Indeed <notifications@indeed.com>"
+        
 
         body = """
         <!doctype html>
@@ -118,28 +100,13 @@ class ExtractorTests(unittest.TestCase):
         </html>
         """
 
-        company, job_title, source = (
-            extract_application_data(
-                subject,
-                sender,
-                body,
-            )
-        )
+        company, job_title, source = extract_application_data(subject, sender, body)
 
-        self.assertEqual(
-            company,
-            "WIDIP",
-        )
+        self.assertEqual(company, "WIDIP")
 
-        self.assertEqual(
-            job_title,
-            "Administrateur système et réseaux h/f",
-        )
+        self.assertEqual(job_title, "Administrateur système et réseaux h/f")
 
-        self.assertEqual(
-            source,
-            "Indeed",
-        )
+        self.assertEqual(source, "Indeed")
 
 def test_html_body_is_normalized_before_extraction(self):
     body = """
@@ -158,32 +125,16 @@ def test_html_body_is_normalized_before_extraction(self):
     </html>
     """
 
-    normalized = normalize_email_body(
-        body
-    )
+    normalized = normalize_email_body(body)
 
-    self.assertNotIn(
-        "<p>",
-        normalized,
-    )
+    self.assertNotIn("<p>", normalized)
 
-    self.assertNotIn(
-        "color: red",
-        normalized,
-    )
+    self.assertNotIn("color: red", normalized)
 
-    self.assertIn(
-        "Administrateur DevOps",
-        normalized,
-    )
+    self.assertIn("Administrateur DevOps", normalized)
 
-    self.assertEqual(
-        extract_job_title(
-            "",
-            body,
-        ),
-        "Administrateur DevOps",
-    )
+    self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
+
 def main() -> None:
     print()
     print("=" * 90)
@@ -210,4 +161,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    
     main()

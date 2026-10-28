@@ -1,26 +1,19 @@
 import csv
 import io
 
+
 from openpyxl import load_workbook
+
 from unittest.mock import patch
 
-from app import (
-    database,
-    importer,
-    jobs,
-    reclassifier,
-)
-from app.exports import (
-    EXPORT_HEADERS,
-)
-from app.presentation import (
-    application_statistics,
-    format_datetime,
-)
+from app import database, importer, jobs, reclassifier
 
-from tests.helpers import (
-    OfflineCase,
-)
+from app.exports import EXPORT_HEADERS
+
+from app.presentation import application_statistics, format_datetime
+
+from tests.helpers import OfflineCase
+
 
 class WebTests(OfflineCase):
     def test_dashboard_displays_each_application_once(self):
@@ -51,15 +44,8 @@ class WebTests(OfflineCase):
             sheet = workbook.active
             assert sheet is not None
             rows = [
-                [
-                    ""
-                    if value is None
-                    else value
-                    for value in row
-                ]
-                for row in sheet.iter_rows(
-                    values_only=True
-                )
+                ["" if value is None else value for value in row]
+                for row in sheet.iter_rows(values_only=True)
             ]
             self.assertEqual(rows, csv_rows)
             self.assertEqual(sheet.freeze_panes, "A2")
@@ -96,9 +82,7 @@ class WebTests(OfflineCase):
         application = database.get_application(application_id)
         if application is None:
             self.fail("Application was not found after creation")
-        self.assertEqual(
-            application["manual_status"], "INTERVIEW"
-        )
+        self.assertEqual(application["manual_status"], "INTERVIEW")
         self.assertEqual(
             self.client.post(f"/application/{application_id}/delete").status_code, 302
         )
@@ -135,26 +119,16 @@ class WebTests(OfflineCase):
         )
 
         response = self.client.post(
-            f"/connectors/imap/{account_id}/test",
-            follow_redirects=True,
+            f"/connectors/imap/{account_id}/test", follow_redirects=True
         )
 
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
+        self.assertEqual(response.status_code, 200)
 
         jobs_list = jobs.list_jobs()
 
-        self.assertEqual(
-            len(jobs_list),
-            1,
-        )
+        self.assertEqual(len(jobs_list), 1)
 
-        self.assertEqual(
-            jobs_list[0]["kind"],
-            f"test:imap:{account_id}",
-        )
+        self.assertEqual(jobs_list[0]["kind"], f"test:imap:{account_id}")
 
     def test_scan_and_reclassify_routes(self):
         with patch.object(
@@ -178,33 +152,12 @@ class WebTests(OfflineCase):
     def test_statistics_and_date_fallback(self):
         application_id = self.application()
 
-        database.set_manual_status(
-            application_id,
-            "INTERVIEW",
-            "",
-        )
+        database.set_manual_status(application_id, "INTERVIEW", "")
 
-        stats = application_statistics(
-            database.get_applications()
-        )
+        stats = application_statistics(database.get_applications())
 
-        self.assertEqual(
-            (
-                stats["total"],
-                stats["INTERVIEW"],
-            ),
-            (
-                1,
-                1,
-            ),
-        )
+        self.assertEqual((stats["total"], stats["INTERVIEW"]), (1, 1))
 
-        self.assertEqual(
-            format_datetime(None),
-            "-",
-        )
+        self.assertEqual(format_datetime(None), "-")
 
-        self.assertEqual(
-            format_datetime("date invalide"),
-            "date invalide",
-    )
+        self.assertEqual(format_datetime("date invalide"), "date invalide")

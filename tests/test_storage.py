@@ -45,32 +45,19 @@ class StorageAndImportTests(OfflineCase):
                 "scan_external_connectors",
                 return_value=[
                     email,
-                    replace(
-                        email,
-                        mailbox="IMAP fixture",
-                    ),
+                    replace(email, mailbox="IMAP fixture"),
                     fake_email(""),
                 ],
             ),
             patch.object(
                 importer,
                 "extract_application_data",
-                return_value=(
-                    "Entreprise Fictive",
-                    "Développeur Python",
-                    "Fixture",
-                ),
+                return_value=("Entreprise Fictive", "Développeur Python", "Fixture"),
             ),
         ):
-            self.assertEqual(
-                importer.import_emails(),
-                importer.ImportResult(1, 1, 1),
-            )
+            self.assertEqual(importer.import_emails(), importer.ImportResult(1, 1, 1))
 
-            self.assertEqual(
-                importer.import_emails(),
-                importer.ImportResult(1, 0, 0),
-            )
+            self.assertEqual(importer.import_emails(), importer.ImportResult(1, 0, 0))
 
     def test_merge_and_delete_keep_emails(self):
         source = self.application("Source Fictive")
@@ -128,13 +115,13 @@ class EvolutionTests(OfflineCase):
     def test_reanalysis_all_sources_preserves_manual_status(self):
         app_id = self.application()
         database.set_manual_status(app_id, "INTERVIEW", "Note privée fictive")
-        for index, source in enumerate(["IMAP Gmail", "IMAP Microsoft", "IMAP générique"]):
+        for index, source in enumerate(
+            ["IMAP Gmail", "IMAP Microsoft", "IMAP générique"]
+        ):
             database.save_email(
                 fake_email(f"<{index}@example.invalid>", mailbox=source), app_id
             )
-        with (
-            patch.object(reclassifier, "detect_status", return_value="REJECTED"),
-        ):
+        with patch.object(reclassifier, "detect_status", return_value="REJECTED"):
             result = reclassifier.reclassify_emails()
         self.assertEqual((result.found, result.changed, result.missing), (3, 3, 0))
         row = database.get_application(app_id)
@@ -146,33 +133,15 @@ class EvolutionTests(OfflineCase):
     def test_missing_body_is_counted_as_missing(self):
         app_id = self.application()
 
-        database.save_email(
-            fake_email(
-                "<missing@fixture>",
-                body="",
-            ),
-            app_id,
-        )
+        database.save_email(fake_email("<missing@fixture>", body=""), app_id)
 
         database.save_email(
             fake_email(
-                "<available@fixture>",
-                body="Nous avons bien reçu votre candidature.",
+                "<available@fixture>", body="Nous avons bien reçu votre candidature."
             ),
             app_id,
         )
 
         result = reclassifier.reclassify_emails()
 
-        self.assertEqual(
-            (
-                result.scanned,
-                result.found,
-                result.missing,
-            ),
-            (
-                2,
-                1,
-                1,
-            ),
-        )
+        self.assertEqual((result.scanned, result.found, result.missing), (2, 1, 1))

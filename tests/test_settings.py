@@ -11,21 +11,17 @@ def test_settings_paths_and_dates(self):
             settings.configured_path("GMAIL_TOKEN_FILE", ""),
             settings.PROJECT_ROOT / "tokens/fixture.json",
         )
-    configured = settings.configured_date(
-        "2026-08-01T00:00:00+00:00"
-    )
+    configured = settings.configured_date("2026-08-01T00:00:00+00:00")
 
     offset = configured.utcoffset()
 
     assert offset is not None
 
-    self.assertEqual(
-        offset.total_seconds(),
-        0,
-    )
+    self.assertEqual(offset.total_seconds(), 0)
     self.assertIsNotNone(settings.configured_date("2026-08-01").tzinfo)
     with self.assertRaises(ValueError):
         settings.configured_date("incorrect")
+
 
 def test_dotenv_loaded_outside_project_and_environment_wins(self):
     import os

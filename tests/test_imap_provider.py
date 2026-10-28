@@ -12,10 +12,4 @@ for address in (
 ):
     provider = detect_provider(address)
 
-    print(
-        address,
-        "->",
-        provider.name
-        if provider
-        else "Inconnu",
-    )
+    print(address, "->", provider.name if provider else "Inconnu")

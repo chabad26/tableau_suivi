@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-import web
-
+from app.web import create_app
 from app import database
 from app.connectors import gmail, microsoft
 from app.models import DetectedEmail
@@ -109,22 +108,18 @@ class OfflineCase(unittest.TestCase):
         )
 
         self.stack.enter_context(
-            patch.dict(
-                web.app.config,
-                TESTING=True,
-            )
-        )
-
-        self.stack.enter_context(
             contextlib.redirect_stdout(
                 io.StringIO()
             )
         )
 
         database.init_database()
-
+        self.app = create_app()
+        self.app.config.update(
+            TESTING=True,
+        )
         self.client = (
-            web.app.test_client()
+            self.app.test_client()
         )
 
     def application(
