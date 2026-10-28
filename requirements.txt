@@ -5,3 +5,4 @@ google-auth-oauthlib==1.4.1
 msal==1.38.0
 keyring
 dnspython
+Flask-WTF>=1.2,<2

@@ -23,6 +23,7 @@
                 method="post"
                 action="{{ url_for('jobs.reclassify_emails_web') }}"
             >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button
                     type="submit"
                     class="secondary-button"
@@ -34,6 +35,7 @@
                 method="post"
                 action="{{ url_for('jobs.scan_emails_web') }}"
             >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button
                     type="submit"
                     class="secondary-button"

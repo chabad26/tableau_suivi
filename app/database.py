@@ -1,8 +1,9 @@
 """Accès SQLite, schéma et opérations de persistance."""
 
 import sqlite3
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 
 from app.extractor import clean_job_title, company_key, job_title_score
 from app.models import DetectedEmail
@@ -11,16 +12,31 @@ from app.settings import DATABASE_PATH
 # Connexion et migrations
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection() -> Generator[sqlite3.Connection]:
+    """
+    Fournit une connexion SQLite transactionnelle.
+
+    - Commit si aucune exception.
+    - Rollback en cas d'exception.
+    - Fermeture systématique.
+    """
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     connection = sqlite3.connect(DATABASE_PATH)
 
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA busy_timeout = 10000")
-    connection.row_factory = sqlite3.Row
+    try:
+        connection.row_factory = sqlite3.Row
 
-    return connection
+        connection.execute("PRAGMA foreign_keys = ON")
+
+        connection.execute("PRAGMA busy_timeout = 10000")
+
+        with connection:
+            yield connection
+
+    finally:
+        connection.close()
 
 
 def ensure_column(
@@ -85,6 +101,15 @@ def init_database() -> None:
         connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_emails_message_id
             ON emails(message_id)
+        """)
+
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_emails_application_received
+            ON emails (
+                application_id,
+                received_at DESC
+            )
         """)
 
         connection.execute("""

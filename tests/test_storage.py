@@ -1,8 +1,95 @@
+import sqlite3
 from dataclasses import replace
 from unittest.mock import patch
 
 from app import database, importer, reclassifier
 from tests.helpers import OfflineCase, fake_email
+
+
+class ConnectionTests(OfflineCase):
+    def test_connection_is_closed(self):
+        with database.get_connection() as connection:
+            result = connection.execute("SELECT 1").fetchone()
+
+            self.assertEqual(result[0], 1)
+
+        with self.assertRaises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1")
+
+    def test_transaction_is_committed(self):
+        with database.get_connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO applications (
+                    company,
+                    job_title,
+                    source,
+                    first_seen,
+                    last_update,
+                    current_status
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "Entreprise test",
+                    "Développeur",
+                    "Test",
+                    "2026-10-28T08:00:00+00:00",
+                    "2026-10-28T08:00:00+00:00",
+                    "SENT",
+                ),
+            )
+
+        with database.get_connection() as connection:
+            count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM applications
+                WHERE company = ?
+                """,
+                ("Entreprise test",),
+            ).fetchone()[0]
+
+        self.assertEqual(count, 1)
+
+    def test_transaction_is_rolled_back(self):
+        with self.assertRaises(RuntimeError):
+            with database.get_connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO applications (
+                        company,
+                        job_title,
+                        source,
+                        first_seen,
+                        last_update,
+                        current_status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "Entreprise annulée",
+                        "Administrateur système",
+                        "Test",
+                        "2026-10-28T08:00:00+00:00",
+                        "2026-10-28T08:00:00+00:00",
+                        "SENT",
+                    ),
+                )
+
+                raise RuntimeError("Erreur simulée")
+
+        with database.get_connection() as connection:
+            count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM applications
+                WHERE company = ?
+                """,
+                ("Entreprise annulée",),
+            ).fetchone()[0]
+
+        self.assertEqual(count, 0)
 
 
 class StorageAndImportTests(OfflineCase):

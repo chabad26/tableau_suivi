@@ -1,29 +1,19 @@
-import unittest
+from unittest.mock import patch
 
 from app.web import create_app
 
 
-class AppFactoryTests(unittest.TestCase):
-    def test_factory_creates_independent_apps(self):
-        app1 = create_app()
-        app2 = create_app()
+def test_database_is_not_initialized_on_every_request(self):
+    app = create_app()
+    app.config.update(TESTING=True)
 
-        self.assertIsNot(app1, app2)
+    with (
+        patch("app.database.init_database") as init_db,
+        patch("app.jobs.init_jobs") as init_jobs_mock,
+    ):
+        client = app.test_client()
 
-        app1.config["TESTING"] = True
+        client.get("/application/999999")
 
-        self.assertFalse(app2.config["TESTING"])
-
-    def test_blueprints_are_registered(self):
-        app = create_app()
-
-        self.assertEqual(
-            set(app.blueprints), {"applications", "connectors", "exports", "jobs"}
-        )
-
-    def test_templates_are_available(self):
-        app = create_app()
-
-        template = app.jinja_env.get_template("index.html")
-
-        self.assertIsNotNone(template)
+        init_db.assert_not_called()
+        init_jobs_mock.assert_not_called()

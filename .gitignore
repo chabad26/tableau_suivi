@@ -35,3 +35,6 @@ microsoft_token_cache.json
 
 # Verrou du worker local
 data/*.worker.lock
+
+# Ruff
+.ruff_cache

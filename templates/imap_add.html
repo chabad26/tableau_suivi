@@ -44,6 +44,7 @@ Ajouter une boîte mail - Job Tracker
             method="post"
             action="{{ url_for('connectors.detect_imap_account') }}"
         >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
 
@@ -85,8 +86,9 @@ Ajouter une boîte mail - Job Tracker
 
                 <form
                     method="post"
-                    action="{{ url_for('save_imap_account') }}"
+                    action="{{ url_for('connectors.save_imap_account') }}"
                 >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <input
                         type="hidden"

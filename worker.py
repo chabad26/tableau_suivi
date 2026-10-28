@@ -1,34 +1,73 @@
-"""Lancer avec .venv/bin/python worker.py, dans un terminal dédié à OAuth."""
+"""Worker persistant pour les tâches et la maintenance."""
 
 import fcntl
 import time
 
-from app.database import DATABASE_PATH, get_connection, init_database
+from app.database import DATABASE_PATH, init_database
 from app.jobs import init_jobs, recover_interrupted, run_next
+from app.maintenance import expire_stale_applications
+
+MAINTENANCE_INTERVAL = 60
 
 
 def main() -> None:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with DATABASE_PATH.with_suffix(".worker.lock").open("w") as lock:
+
+    lock_path = DATABASE_PATH.with_suffix(".worker.lock")
+
+    with lock_path.open("w") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
         except BlockingIOError:
             raise SystemExit("Un worker utilise déjà cette base.")
+
         init_database()
         init_jobs()
-        # Le verrou garantit que le précédent worker ne travaille plus.
+
+        # Le verrou garantit que l'ancien worker
+        # ne traite plus de tâches.
         recover_interrupted()
+
         print(
             "Worker prêt. Les instructions OAuth apparaîtront dans ce terminal.",
             flush=True,
         )
+
+        next_maintenance = time.monotonic()
+
         try:
             while True:
+                now = time.monotonic()
+
+                if now >= next_maintenance:
+                    try:
+                        expired = expire_stale_applications()
+
+                        if expired:
+                            print(
+                                f"⏳ {expired} candidature(s) "
+                                "passée(s) en Sans réponse.",
+                                flush=True,
+                            )
+
+                    except Exception as error:
+                        print(
+                            f"❌ Maintenance : {type(error).__name__}: {error}",
+                            flush=True,
+                        )
+
+                    finally:
+                        next_maintenance = time.monotonic() + MAINTENANCE_INTERVAL
+
                 if not run_next():
                     time.sleep(1)
+
         except KeyboardInterrupt:
             print(
-                "Worker arrêté. Un travail interrompu sera signalé au prochain démarrage."
+                "Worker arrêté. "
+                "Un travail interrompu sera "
+                "signalé au prochain démarrage."
             )
 
 

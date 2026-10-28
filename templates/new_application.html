@@ -42,6 +42,7 @@
             action="{{ url_for('applications.create_application_web') }}"
             class="edit-form"
         >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-grid">
 
