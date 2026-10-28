@@ -3,7 +3,7 @@ from tests.helpers import OfflineCase
 
 class HttpSecurityTests(OfflineCase):
     def test_security_headers(self):
-        response = self.client.get("/")
+        response = self.client.get("/login")
 
         self.assertEqual(response.status_code, 200)
 

@@ -8,8 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import database
+from app.accounts import create_user
 from app.connectors import gmail, microsoft
 from app.models import DetectedEmail
+from app.owned_applications import create_user_application
 from app.web import create_app
 
 NOW = datetime(2026, 9, 16, 12, tzinfo=timezone.utc)
@@ -80,3 +82,31 @@ class OfflineCase(unittest.TestCase):
             status=status,
             date=date,
         )
+
+    def create_test_user(
+        self,
+        email: str = "test@example.invalid",
+        password: str = "MotDePasseDeTest2026!",
+    ) -> int:
+        """Crée un utilisateur dans la base temporaire."""
+        return create_user(email=email, password=password, role="student")
+
+    def login_test_user(
+        self,
+        email: str = "test@example.invalid",
+        password: str = "MotDePasseDeTest2026!",
+        csrf_token: str | None = None,
+    ) -> int:
+        """Crée un compte et ouvre une session dans le client Flask."""
+        user_id = self.create_test_user(email, password)
+
+        data = {"email": email, "password": password}
+
+        if csrf_token is not None:
+            data["csrf_token"] = csrf_token
+
+        response = self.client.post("/login", data=data)
+
+        self.assertEqual(response.status_code, 303)
+
+        return user_id

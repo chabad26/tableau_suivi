@@ -78,9 +78,16 @@ class AuthenticationTests(OfflineCase):
 
         self.assertEqual(self.client.get("/account").status_code, 302)
 
-    def test_legacy_routes_are_blocked_after_login(self):
+    def test_dashboard_is_available_after_login(self):
         self.login()
 
         response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_unmigrated_jobs_are_blocked(self):
+        self.login()
+
+        response = self.client.get("/jobs")
 
         self.assertEqual(response.status_code, 503)
