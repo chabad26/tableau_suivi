@@ -5,11 +5,9 @@ import time
 
 from app.accounts import init_users
 from app.database import DATABASE_PATH, init_database
-from app.jobs import init_jobs, recover_interrupted, run_next
-from app.maintenance import expire_stale_applications
+from app.jobs import init_jobs
+from app.owned_jobs import recover_interrupted_user_jobs, run_next_user_job
 from app.ownership import init_ownership
-
-MAINTENANCE_INTERVAL = 60
 
 
 def main() -> None:
@@ -31,7 +29,7 @@ def main() -> None:
 
         # Le verrou garantit que l'ancien worker
         # ne traite plus de tâches.
-        recover_interrupted()
+        recover_interrupted_user_jobs()
 
         print(
             "Worker prêt. Les instructions OAuth apparaîtront dans ce terminal.",
@@ -46,25 +44,14 @@ def main() -> None:
 
                 if now >= next_maintenance:
                     try:
-                        expired = expire_stale_applications()
+                        while True:
+                            if not run_next_user_job():
+                                time.sleep(1)
 
-                        if expired:
-                            print(
-                                f"⏳ {expired} candidature(s) "
-                                "passée(s) en Sans réponse.",
-                                flush=True,
-                            )
+                    except KeyboardInterrupt:
+                        print("Worker arrêté proprement.")
 
-                    except Exception as error:
-                        print(
-                            f"❌ Maintenance : {type(error).__name__}: {error}",
-                            flush=True,
-                        )
-
-                    finally:
-                        next_maintenance = time.monotonic() + MAINTENANCE_INTERVAL
-
-                if not run_next():
+                if not run_next_user_job():
                     time.sleep(1)
 
         except KeyboardInterrupt:

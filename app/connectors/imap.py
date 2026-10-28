@@ -205,7 +205,9 @@ def scan_imap(since: datetime) -> list[DetectedEmail]:
     return detected
 
 
-def scan_imap_account(account: ImapAccount, since: datetime) -> list[DetectedEmail]:
+def scan_imap_account(
+    account: ImapAccount, since: datetime, *, persist_sync_state: bool = True
+) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
 
     connection = connect_imap(account)
@@ -402,7 +404,7 @@ def scan_imap_account(account: ImapAccount, since: datetime) -> list[DetectedEma
 
         max_uid = max(max_uid, minimum_uid)
 
-        if account.account_id is not None:
+        if persist_sync_state and account.account_id is not None:
             update_imap_sync_state(account.account_id, max_uid, current_uid_validity)
 
         print(f"  Détectés  : {len(detected)}")
