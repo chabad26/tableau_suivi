@@ -8,7 +8,6 @@ from app.owned_applications import (
     get_user_applications,
     set_user_application_status,
 )
-from app.extractor import job_title_score
 from tests.helpers import OfflineCase
 
 
@@ -88,68 +87,3 @@ class OwnedApplicationsTests(OfflineCase):
 
         with self.assertRaises(ValueError):
             get_user_applications(None)  # type: ignore[arg-type]
-
-def update_user_application(
-    user_id: int,
-    application_id: int,
-    company: str,
-    job_title: str,
-    source: str,
-    status: str,
-    note: str = "",
-) -> bool:
-    """Modifie une candidature uniquement si elle appartient à l'utilisateur."""
-
-    user_id = require_user_id(user_id)
-
-    if not company.strip():
-        raise ValueError("Le nom de l'entreprise est obligatoire.")
-
-    with get_connection() as connection:
-        current = connection.execute(
-            """
-            SELECT company, job_title, source
-            FROM applications
-            WHERE id = ?
-              AND user_id = ?
-            """,
-            (application_id, user_id),
-        ).fetchone()
-
-        if current is None:
-            return False
-
-        current_title = str(current["job_title"] or "")
-        candidate_title = job_title.strip()
-
-        # On conserve la logique de sélection du meilleur intitulé.
-        new_title = (
-            candidate_title
-            if job_title_score(candidate_title) > job_title_score(current_title)
-            else current_title
-        )
-
-        cursor = connection.execute(
-            """
-            UPDATE applications
-            SET company = ?,
-                job_title = ?,
-                source = ?,
-                manual_status = ?,
-                manual_note = ?,
-                manual_override = 1
-            WHERE id = ?
-              AND user_id = ?
-            """,
-            (
-                company.strip(),
-                new_title,
-                source.strip() or str(current["source"] or ""),
-                status,
-                note,
-                application_id,
-                user_id,
-            ),
-        )
-
-        return cursor.rowcount == 1

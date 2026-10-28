@@ -3,8 +3,8 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from app.extractor import job_title_score
 from app.database import get_connection
+from app.extractor import job_title_score
 
 
 def require_user_id(user_id: int) -> int:

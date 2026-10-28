@@ -1,10 +1,7 @@
 """Tests HTTP d'isolation entre utilisateurs."""
 
 from app.accounts import create_user
-from app.owned_applications import (
-    create_user_application,
-    get_user_application,
-)
+from app.owned_applications import create_user_application, get_user_application
 from tests.helpers import OfflineCase
 
 

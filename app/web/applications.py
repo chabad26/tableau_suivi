@@ -18,7 +18,6 @@ from app.presentation import (
 )
 from app.statuses import STATUS_LABELS, STATUS_ORDER
 
-
 applications_bp = Blueprint("applications", __name__)
 
 
