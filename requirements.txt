@@ -6,3 +6,4 @@ msal==1.38.0
 keyring
 dnspython
 Flask-WTF>=1.2,<2
+Flask-Login>=0.6.3,<0.7

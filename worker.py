@@ -3,9 +3,11 @@
 import fcntl
 import time
 
+from app.accounts import init_users
 from app.database import DATABASE_PATH, init_database
 from app.jobs import init_jobs, recover_interrupted, run_next
 from app.maintenance import expire_stale_applications
+from app.ownership import init_ownership
 
 MAINTENANCE_INTERVAL = 60
 
@@ -24,6 +26,8 @@ def main() -> None:
 
         init_database()
         init_jobs()
+        init_users()
+        init_ownership()
 
         # Le verrou garantit que l'ancien worker
         # ne traite plus de tâches.

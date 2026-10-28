@@ -8,8 +8,49 @@
 </head>
 <body>
 <nav class="app-navigation" aria-label="Navigation principale">
-    <a class="secondary-button" href="{{ url_for('applications.index') }}">Candidatures</a>
-    <a class="secondary-button" href="{{ url_for('jobs.jobs_page') }}">Travaux en cours</a>
+
+    {% if current_user.is_authenticated %}
+
+        <a
+            class="secondary-button"
+            href="{{ url_for('auth.account') }}"
+        >
+            Mon compte
+        </a>
+
+        <a
+            class="secondary-button"
+            href="{{ url_for('applications.index') }}"
+        >
+            📋 Mes candidatures
+        </a>
+
+        <form
+            method="post"
+            action="{{ url_for('auth.logout') }}"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button type="submit" class="secondary-button">
+                Déconnexion
+            </button>
+        </form>
+
+    {% else %}
+
+        <a
+            class="secondary-button"
+            href="{{ url_for('auth.login') }}"
+        >
+            Connexion
+        </a>
+
+    {% endif %}
+
 </nav>
 {% block content %}{% endblock %}
 {% block scripts %}{% endblock %}

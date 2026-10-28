@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Mon compte - Job Tracker{% endblock %}
+
+{% block content %}
+<div class="page">
+
+    <section class="edit-card">
+
+        <div class="edit-card-header">
+            <p class="eyebrow">MON ESPACE</p>
+
+            <h1>Bienvenue !</h1>
+
+            <p class="subtitle">
+                Ton compte est connecté.
+            </p>
+        </div>
+
+        <p>
+            <strong>Adresse :</strong>
+            {{ current_user.email }}
+        </p>
+
+        <p>
+            <strong>Rôle :</strong>
+            {{ current_user.role }}
+        </p>
+
+        <p>
+            Le tableau de suivi personnel sera
+            disponible après la migration
+            des données.
+        </p>
+
+        <form
+            method="post"
+            action="{{ url_for('auth.logout') }}"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button type="submit" class="secondary-button">
+                Se déconnecter
+            </button>
+        </form>
+
+    </section>
+
+</div>
+{% endblock %}

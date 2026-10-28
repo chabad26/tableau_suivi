@@ -1,13 +1,15 @@
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+"""Routes des candidatures personnelles."""
 
-from app.database import (
-    create_manual_application,
-    delete_application,
-    get_application,
-    get_application_emails,
-    get_applications,
-    set_manual_status,
-    update_application_details,
+from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+
+from app.owned_applications import (
+    create_user_application,
+    delete_user_application,
+    get_user_application,
+    get_user_application_emails,
+    get_user_applications,
+    update_user_application,
 )
 from app.presentation import (
     application_statistics,
@@ -16,21 +18,29 @@ from app.presentation import (
 )
 from app.statuses import STATUS_LABELS, STATUS_ORDER
 
+
 applications_bp = Blueprint("applications", __name__)
 
 
+def owner_id() -> int:
+    """Identifiant provenant de la session, jamais du formulaire."""
+    return int(current_user.get_id())
+
+
 @applications_bp.get("/")
+@login_required
 def index():
-    applications = get_applications()
+    applications = get_user_applications(owner_id())
 
     status_filter = request.args.get("status", "").strip()
-
     search = request.args.get("q", "").strip()
-
     mailbox_filter = request.args.get("mailbox", "").strip()
 
     prepared = prepare_application_rows(
-        applications, status_filter, search, mailbox_filter
+        applications,
+        status_filter,
+        search,
+        mailbox_filter,
     )
 
     stats = application_statistics(applications)
@@ -58,25 +68,35 @@ def index():
 
 
 @applications_bp.get("/application/<int:application_id>")
+@login_required
 def application_detail(application_id: int):
-    application = get_application(application_id)
+    user_id = owner_id()
+
+    application = get_user_application(
+        user_id,
+        application_id,
+    )
 
     if application is None:
         abort(404)
 
-    emails = get_application_emails(application_id)
+    emails = get_user_application_emails(
+        user_id,
+        application_id,
+    )
 
     formatted_emails = []
 
     for email in emails:
         item = dict(email)
 
-        item["received_at_display"] = format_datetime(email["received_at"])
+        item["received_at_display"] = format_datetime(
+            email["received_at"]
+        )
 
         formatted_emails.append(item)
 
     first_seen = format_datetime(application["first_seen"])
-
     last_update = format_datetime(application["last_update"])
 
     completion_fields = [
@@ -87,7 +107,9 @@ def application_detail(application_id: int):
     ]
 
     completion = round(
-        (sum(bool(field) for field in completion_fields) / len(completion_fields)) * 100
+        sum(bool(field) for field in completion_fields)
+        / len(completion_fields)
+        * 100
     )
 
     effective_status = str(
@@ -104,8 +126,11 @@ def application_detail(application_id: int):
         application=application,
         emails=formatted_emails,
         completion=completion,
-        effective_status=(effective_status),
-        status_label=(STATUS_LABELS.get(effective_status, effective_status)),
+        effective_status=effective_status,
+        status_label=STATUS_LABELS.get(
+            effective_status,
+            effective_status,
+        ),
         status_labels=STATUS_LABELS,
         first_seen=first_seen,
         last_update=last_update,
@@ -113,84 +138,90 @@ def application_detail(application_id: int):
 
 
 @applications_bp.get("/application/new")
+@login_required
 def new_application():
-    return render_template("new_application.html", status_labels=STATUS_LABELS)
+    return render_template(
+        "new_application.html",
+        status_labels=STATUS_LABELS,
+    )
 
 
 @applications_bp.post("/application/new")
+@login_required
 def create_application_web():
     company = request.form.get("company", "").strip()
-
     job_title = request.form.get("job_title", "").strip()
-
     source = request.form.get("source", "").strip()
-
     status = request.form.get("status", "").strip()
-
     note = request.form.get("note", "").strip()
 
-    if not company:
+    if not company or status not in STATUS_LABELS:
         abort(400)
 
-    if status not in STATUS_LABELS:
-        abort(400)
-
-    if not source:
-        source = "Manuel"
-
-    application_id = create_manual_application(
-        company=company, job_title=job_title, source=source, status=status, note=note
+    application_id = create_user_application(
+        user_id=owner_id(),
+        company=company,
+        job_title=job_title,
+        source=source,
+        status=status,
+        note=note,
     )
 
     return redirect(
-        url_for("applications.application_detail", application_id=(application_id))
+        url_for(
+            "applications.application_detail",
+            application_id=application_id,
+        ),
+        code=303,
     )
 
 
 @applications_bp.post("/application/<int:application_id>/edit")
+@login_required
 def edit_application_web(application_id: int):
-    application = get_application(application_id)
-
-    if application is None:
-        abort(404)
-
     company = request.form.get("company", "").strip()
-
     job_title = request.form.get("job_title", "").strip()
-
     source = request.form.get("source", "").strip()
-
     status = request.form.get("status", "").strip()
-
     note = request.form.get("note", "").strip()
 
-    if not company:
+    if not company or status not in STATUS_LABELS:
         abort(400)
 
-    if status not in STATUS_LABELS:
-        abort(400)
-
-    update_application_details(
-        application_id=(application_id),
+    updated = update_user_application(
+        user_id=owner_id(),
+        application_id=application_id,
         company=company,
         job_title=job_title,
         source=source,
+        status=status,
+        note=note,
     )
 
-    set_manual_status(application_id=(application_id), status=status, note=note)
+    if not updated:
+        abort(404)
 
     return redirect(
-        url_for("applications.application_detail", application_id=(application_id))
+        url_for(
+            "applications.application_detail",
+            application_id=application_id,
+        ),
+        code=303,
     )
 
 
 @applications_bp.post("/application/<int:application_id>/delete")
+@login_required
 def delete_application_web(application_id: int):
-    application = get_application(application_id)
+    deleted = delete_user_application(
+        owner_id(),
+        application_id,
+    )
 
-    if application is None:
+    if not deleted:
         abort(404)
 
-    delete_application(application_id)
-
-    return redirect(url_for("applications.index"))
+    return redirect(
+        url_for("applications.index"),
+        code=303,
+    )
