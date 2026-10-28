@@ -14,6 +14,7 @@ def require_user_id(user_id: int) -> int:
 
     return user_id
 
+
 def update_user_application(
     user_id: int,
     application_id: int,
@@ -77,6 +78,7 @@ def update_user_application(
         )
 
         return cursor.rowcount == 1
+
 
 def get_user_applications(user_id: int) -> list[sqlite3.Row]:
     """Retourne uniquement les candidatures de cet utilisateur."""

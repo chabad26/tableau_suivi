@@ -26,6 +26,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(jobs_bp)
     app.register_blueprint(auth_bp)
 
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -50,12 +51,7 @@ def create_app() -> Flask:
     @app.before_request
     def protect_routes():
         # Fichiers statiques et authentification.
-        if request.endpoint in {
-            "static",
-            "auth.login",
-            "auth.logout",
-            "auth.account",
-        }:
+        if request.endpoint in {"static", "auth.login", "auth.logout", "auth.account"}:
             return None
 
         # Toutes les autres routes nécessitent une session.
@@ -78,9 +74,6 @@ def create_app() -> Flask:
 
         # Connecteurs, exports et jobs :
         # toujours bloqués pendant la migration.
-        abort(
-            503,
-            description="Module en cours de migration multi-utilisateur.",
-        )
+        abort(503, description="Module en cours de migration multi-utilisateur.")
 
     return app

@@ -5,7 +5,6 @@ from tests.helpers import OfflineCase
 
 
 class AuthenticationTests(OfflineCase):
-
     def setUp(self):
         super().setUp()
 
@@ -19,11 +18,7 @@ class AuthenticationTests(OfflineCase):
 
     def login(self, password="MotDePasseDeTest2026!"):
         return self.client.post(
-            "/login",
-            data={
-                "email": "alice@example.invalid",
-                "password": password,
-            },
+            "/login", data={"email": "alice@example.invalid", "password": password}
         )
 
     def test_login_page_is_public(self):
@@ -47,20 +42,14 @@ class AuthenticationTests(OfflineCase):
 
         self.assertEqual(account.status_code, 200)
 
-        self.assertIn(
-            b"alice@example.invalid",
-            account.data,
-        )
+        self.assertIn(b"alice@example.invalid", account.data)
 
     def test_invalid_password(self):
         response = self.login("mot-de-passe-invalide")
 
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(
-            self.client.get("/").status_code,
-            302,
-        )
+        self.assertEqual(self.client.get("/").status_code, 302)
 
     def test_disabled_user_cannot_login(self):
         set_user_active(self.user_id, False)
@@ -69,10 +58,7 @@ class AuthenticationTests(OfflineCase):
 
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(
-            self.client.get("/account").status_code,
-            302,
-        )
+        self.assertEqual(self.client.get("/account").status_code, 302)
 
     def test_disabled_user_loses_access(self):
         self.login()
@@ -90,10 +76,7 @@ class AuthenticationTests(OfflineCase):
 
         self.assertEqual(response.status_code, 303)
 
-        self.assertEqual(
-            self.client.get("/account").status_code,
-            302,
-        )
+        self.assertEqual(self.client.get("/account").status_code, 302)
 
     def test_legacy_routes_are_blocked_after_login(self):
         self.login()

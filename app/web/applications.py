@@ -36,10 +36,7 @@ def index():
     mailbox_filter = request.args.get("mailbox", "").strip()
 
     prepared = prepare_application_rows(
-        applications,
-        status_filter,
-        search,
-        mailbox_filter,
+        applications, status_filter, search, mailbox_filter
     )
 
     stats = application_statistics(applications)
@@ -71,27 +68,19 @@ def index():
 def application_detail(application_id: int):
     user_id = owner_id()
 
-    application = get_user_application(
-        user_id,
-        application_id,
-    )
+    application = get_user_application(user_id, application_id)
 
     if application is None:
         abort(404)
 
-    emails = get_user_application_emails(
-        user_id,
-        application_id,
-    )
+    emails = get_user_application_emails(user_id, application_id)
 
     formatted_emails = []
 
     for email in emails:
         item = dict(email)
 
-        item["received_at_display"] = format_datetime(
-            email["received_at"]
-        )
+        item["received_at_display"] = format_datetime(email["received_at"])
 
         formatted_emails.append(item)
 
@@ -106,9 +95,7 @@ def application_detail(application_id: int):
     ]
 
     completion = round(
-        sum(bool(field) for field in completion_fields)
-        / len(completion_fields)
-        * 100
+        sum(bool(field) for field in completion_fields) / len(completion_fields) * 100
     )
 
     effective_status = str(
@@ -126,10 +113,7 @@ def application_detail(application_id: int):
         emails=formatted_emails,
         completion=completion,
         effective_status=effective_status,
-        status_label=STATUS_LABELS.get(
-            effective_status,
-            effective_status,
-        ),
+        status_label=STATUS_LABELS.get(effective_status, effective_status),
         status_labels=STATUS_LABELS,
         first_seen=first_seen,
         last_update=last_update,
@@ -139,10 +123,7 @@ def application_detail(application_id: int):
 @applications_bp.get("/application/new")
 @login_required
 def new_application():
-    return render_template(
-        "new_application.html",
-        status_labels=STATUS_LABELS,
-    )
+    return render_template("new_application.html", status_labels=STATUS_LABELS)
 
 
 @applications_bp.post("/application/new")
@@ -167,10 +148,7 @@ def create_application_web():
     )
 
     return redirect(
-        url_for(
-            "applications.application_detail",
-            application_id=application_id,
-        ),
+        url_for("applications.application_detail", application_id=application_id),
         code=303,
     )
 
@@ -201,10 +179,7 @@ def edit_application_web(application_id: int):
         abort(404)
 
     return redirect(
-        url_for(
-            "applications.application_detail",
-            application_id=application_id,
-        ),
+        url_for("applications.application_detail", application_id=application_id),
         code=303,
     )
 
@@ -212,15 +187,9 @@ def edit_application_web(application_id: int):
 @applications_bp.post("/application/<int:application_id>/delete")
 @login_required
 def delete_application_web(application_id: int):
-    deleted = delete_user_application(
-        owner_id(),
-        application_id,
-    )
+    deleted = delete_user_application(owner_id(), application_id)
 
     if not deleted:
         abort(404)
 
-    return redirect(
-        url_for("applications.index"),
-        code=303,
-    )
+    return redirect(url_for("applications.index"), code=303)

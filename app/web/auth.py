@@ -10,7 +10,8 @@ from app.accounts import User, authenticate, get_user
 auth_bp = Blueprint("auth", __name__)
 login_manager = LoginManager()
 
-login_manager.login_view = "auth.login"
+# Flask-Login initialise cet attribut à None sans annoter le type str | None.
+login_manager.login_view = "auth.login"  # pyright: ignore[reportAttributeAccessIssue]
 login_manager.login_message = "Connecte-toi pour continuer."
 login_manager.login_message_category = "info"
 
@@ -30,12 +31,7 @@ class LoginUser(UserMixin):
 
 
 def as_login_user(user: User) -> LoginUser:
-    return LoginUser(
-        id=user.id,
-        email=user.email,
-        role=user.role,
-        active=user.active,
-    )
+    return LoginUser(id=user.id, email=user.email, role=user.role, active=user.active)
 
 
 @login_manager.user_loader
