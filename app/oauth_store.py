@@ -1,7 +1,10 @@
 """Stockage privé des jetons OAuth par compte IMAP."""
 
+import fcntl
 import os
 import tempfile
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 
 from app import database
@@ -73,12 +76,20 @@ def ensure_private_directory(directory: Path) -> None:
 
 
 def write_oauth_cache(
-    user_id: int, account_id: int, provider: str, content: str
+    user_id: int,
+    account_id: int,
+    provider: str,
+    content: str,
+    *,
+    overwrite: bool = True,
 ) -> None:
     """
-    Enregistre un cache OAuth avec remplacement atomique.
+    Enregistre un cache OAuth de manière atomique.
 
-    Le fichier final possède des permissions 0600.
+    overwrite=False : création exclusive.
+    overwrite=True  : remplacement atomique.
+
+    Le fichier final possède les permissions 0600.
     """
 
     if not content:
@@ -87,6 +98,9 @@ def write_oauth_cache(
     path = oauth_token_path(user_id, account_id, provider)
 
     ensure_private_directory(path.parent)
+
+    if path.is_symlink():
+        raise RuntimeError("Lien symbolique OAuth interdit.")
 
     temporary_path: Path | None = None
 
@@ -104,7 +118,10 @@ def write_oauth_cache(
 
         os.chmod(temporary_path, 0o600)
 
-        temporary_path.replace(path)
+        if overwrite:
+            temporary_path.replace(path)
+        else:
+            os.link(temporary_path, path, follow_symlinks=False)
 
     finally:
         if temporary_path is not None:
@@ -125,3 +142,41 @@ def read_oauth_cache(user_id: int, account_id: int, provider: str) -> str | None
 
     with os.fdopen(descriptor, "r", encoding="utf-8") as file:
         return file.read()
+
+
+@contextmanager
+def locked_oauth_account(
+    user_id: int, account_id: int, provider: str
+) -> Generator[None]:
+    """
+    Verrou exclusif interprocessus pour un cache OAuth.
+
+    Protège le cycle :
+        lecture -> refresh -> écriture
+
+    Deux processus ne peuvent pas modifier simultanément
+    le cache du même compte.
+    """
+
+    directory = oauth_account_directory(user_id, account_id, provider)
+
+    ensure_private_directory(directory)
+
+    lock_path = directory / ".oauth.lock"
+
+    flags = os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW
+
+    descriptor = os.open(lock_path, flags, 0o600)
+
+    try:
+        os.fchmod(descriptor, 0o600)
+
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+
+        try:
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+    finally:
+        os.close(descriptor)

@@ -4,7 +4,7 @@ from typing import Any
 
 import msal
 
-from app.oauth_store import read_oauth_cache, write_oauth_cache
+from app.oauth_store import locked_oauth_account, read_oauth_cache, write_oauth_cache
 from app.settings import (
     MICROSOFT_AUTHORITY,
     MICROSOFT_CLIENT_ID,
@@ -75,7 +75,7 @@ def get_access_token() -> str:
     return str(access_token)
 
 
-def get_owned_microsoft_token(
+def _get_owned_microsoft_token_unlocked(
     user_id: int, account_id: int, expected_email: str
 ) -> str:
     """Obtient un jeton Microsoft depuis le cache du compte IMAP."""
@@ -142,3 +142,12 @@ def get_owned_microsoft_token(
         write_oauth_cache(user_id, account_id, "microsoft", cache.serialize())
 
     return str(result["access_token"])
+
+
+def get_owned_microsoft_token(
+    user_id: int, account_id: int, expected_email: str
+) -> str:
+    """Lit et renouvelle le cache MSAL sous verrou."""
+
+    with locked_oauth_account(user_id, account_id, "microsoft"):
+        return _get_owned_microsoft_token_unlocked(user_id, account_id, expected_email)

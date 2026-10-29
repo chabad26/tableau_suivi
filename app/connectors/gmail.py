@@ -5,7 +5,7 @@ from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-from app.oauth_store import read_oauth_cache, write_oauth_cache
+from app.oauth_store import locked_oauth_account, read_oauth_cache, write_oauth_cache
 from app.settings import GMAIL_CREDENTIALS_FILE, GMAIL_TOKEN_FILE
 
 SCOPES = ["https://mail.google.com/"]
@@ -49,7 +49,9 @@ def get_credentials() -> Credentials:
     return credentials
 
 
-def get_owned_gmail_token(user_id: int, account_id: int, expected_email: str) -> str:
+def _get_owned_gmail_token_unlocked(
+    user_id: int, account_id: int, expected_email: str
+) -> str:
     """Récupère un jeton Gmail privé après vérification de l'identité."""
 
     content = read_oauth_cache(user_id, account_id, "gmail")
@@ -99,3 +101,10 @@ def get_owned_gmail_token(user_id: int, account_id: int, expected_email: str) ->
     write_oauth_cache(user_id, account_id, "gmail", credentials.to_json())
 
     return str(credentials.token)
+
+
+def get_owned_gmail_token(user_id: int, account_id: int, expected_email: str) -> str:
+    """Lit, vérifie et renouvelle le jeton Gmail sous verrou."""
+
+    with locked_oauth_account(user_id, account_id, "gmail"):
+        return _get_owned_gmail_token_unlocked(user_id, account_id, expected_email)

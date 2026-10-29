@@ -96,3 +96,45 @@ class OAuthStoreTests(OfflineCase):
 
     def test_missing_cache_returns_none(self):
         self.assertIsNone(read_oauth_cache(self.alice, self.account_id, "gmail"))
+
+    def test_cache_can_be_updated(self):
+        write_oauth_cache(self.alice, self.account_id, "gmail", '{"version": 1}')
+
+        write_oauth_cache(self.alice, self.account_id, "gmail", '{"version": 2}')
+
+        self.assertEqual(
+            read_oauth_cache(self.alice, self.account_id, "gmail"), '{"version": 2}'
+        )
+
+        path = oauth_token_path(self.alice, self.account_id, "gmail")
+
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_exclusive_creation_refuses_existing_cache(self):
+        write_oauth_cache(
+            self.alice, self.account_id, "gmail", '{"version": 1}', overwrite=False
+        )
+
+        with self.assertRaises(FileExistsError):
+            write_oauth_cache(
+                self.alice, self.account_id, "gmail", '{"version": 2}', overwrite=False
+            )
+
+        self.assertEqual(
+            read_oauth_cache(self.alice, self.account_id, "gmail"), '{"version": 1}'
+        )
+
+    def test_symbolic_link_is_rejected(self):
+        path = oauth_token_path(self.alice, self.account_id, "gmail")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        target = path.parent / "target.txt"
+        target.write_text("ne-pas-ecraser", encoding="utf-8")
+
+        path.symlink_to(target)
+
+        with self.assertRaises(RuntimeError):
+            write_oauth_cache(self.alice, self.account_id, "gmail", '{"version": 2}')
+
+        self.assertEqual(target.read_text(encoding="utf-8"), "ne-pas-ecraser")
