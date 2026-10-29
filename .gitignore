@@ -28,6 +28,10 @@ tokens/
 microsoft_token_cache.json
 .env
 
+# OAuth : jetons privés des comptes IMAP
+data/oauth/
+oauth/
+
 # Verrou du worker local
 data/*.worker.lock
 
