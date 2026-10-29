@@ -101,11 +101,13 @@ class OwnedScannerTests(OfflineCase):
 
         account = args[0]
 
+        self.assertTrue(callable(kwargs["authenticator"]))
+
         self.assertEqual(account.account_id, self.alice_account_id)
 
         self.assertFalse(kwargs["persist_sync_state"])
 
-    def test_oauth_account_is_not_scanned(self):
+    def test_oauth_account_uses_private_authenticator(self):
         with get_connection() as connection:
             connection.execute(
                 """
@@ -119,15 +121,21 @@ class OwnedScannerTests(OfflineCase):
 
         with (
             patch("app.owned_scanner.get_imap_password") as get_password,
-            patch("app.owned_scanner.scan_imap_account") as scan,
+            patch("app.owned_scanner.scan_imap_account", return_value=[]) as scan,
         ):
             result = scan_user_imap(self.alice_id, SINCE)
 
-        self.assertEqual(result.scanned_accounts, 0)
-        self.assertEqual(result.skipped_accounts, 1)
+        self.assertEqual(result.scanned_accounts, 1)
 
         get_password.assert_not_called()
-        scan.assert_not_called()
+
+        scan.assert_called_once()
+
+        _, kwargs = scan.call_args
+
+        self.assertFalse(kwargs["persist_sync_state"])
+
+        self.assertTrue(callable(kwargs["authenticator"]))
 
     def test_disabled_account_is_not_scanned(self):
         with get_connection() as connection:

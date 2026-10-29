@@ -4,6 +4,7 @@ import email
 import imaplib
 import ssl
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
@@ -206,7 +207,11 @@ def scan_imap(since: datetime) -> list[DetectedEmail]:
 
 
 def scan_imap_account(
-    account: ImapAccount, since: datetime, *, persist_sync_state: bool = True
+    account: ImapAccount,
+    since: datetime,
+    *,
+    persist_sync_state: bool = True,
+    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
 ) -> list[DetectedEmail]:
     detected: list[DetectedEmail] = []
 
@@ -214,9 +219,12 @@ def scan_imap_account(
 
     try:
         try:
-            authenticate_imap(
-                connection, account.provider, account.username, account.password
-            )
+            if authenticator is not None:
+                authenticator(connection)
+            else:
+                authenticate_imap(
+                    connection, account.provider, account.username, account.password
+                )
 
         except imaplib.IMAP4.error as error:
             raise ImapAuthenticationError("Authentification IMAP refusée.") from error

@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.accounts import get_user
 from app.connectors.imap import ImapAccount, scan_imap_account
+from app.connectors.imap_auth import authenticate_owned_imap
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
 from app.owned_imap import get_enabled_user_imap_accounts, get_user_imap_account
@@ -38,27 +39,26 @@ def build_user_imap_account(user_id: int, account_id: int) -> ImapAccount:
         raise ValueError("Compte IMAP désactivé.")
 
     auth_method = str(row["auth_method"] or "password").casefold()
-
     provider = str(row["provider"] or "imap").casefold()
 
-    # Sécurité temporaire :
-    # les caches OAuth ne sont pas encore isolés.
-    if auth_method != "password":
-        raise ValueError(
-            "Authentification OAuth2 indisponible "
-            "pendant la migration multi-utilisateur."
-        )
+    if auth_method == "oauth2":
+        if provider not in {"gmail", "microsoft"}:
+            raise ValueError("Fournisseur OAuth inconnu.")
 
-    if provider in {"gmail", "microsoft"}:
-        raise ValueError(
-            "Ce fournisseur nécessite une authentification "
-            "qui doit encore être isolée par utilisateur."
-        )
+        # OAuth n'utilise pas le mot de passe du keyring.
+        password = None
 
-    password = get_imap_password(account_id)
+    elif auth_method == "password":
+        if provider in {"gmail", "microsoft"}:
+            raise ValueError("Ce fournisseur nécessite OAuth2.")
 
-    if not password:
-        raise ValueError("Mot de passe IMAP absent.")
+        password = get_imap_password(account_id)
+
+        if not password:
+            raise ValueError("Mot de passe IMAP absent.")
+
+    else:
+        raise ValueError("Méthode d'authentification inconnue.")
 
     uid_validity = int(row["uid_validity"]) if row["uid_validity"] is not None else None
 
@@ -112,7 +112,16 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
             continue
 
         try:
-            detected = scan_imap_account(account, since, persist_sync_state=False)
+            detected = scan_imap_account(
+                account,
+                since,
+                persist_sync_state=False,
+                authenticator=lambda connection, aid=account_id: (
+                    authenticate_owned_imap(
+                        connection, user_id, aid, account.username, account.password
+                    )
+                ),
+            )
 
         except Exception as error:
             result.errors.append(
