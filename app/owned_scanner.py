@@ -147,3 +147,37 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
         result.scanned_accounts += 1
 
     return result
+
+
+def test_user_imap_connection(user_id: int, account_id: int) -> dict:
+    """Teste connexion, authentification et dossier, sans lire ni importer d'email."""
+    from app.connectors.imap import connect_imap
+    from app.owned_imap import update_user_imap_health
+
+    user_id = require_user_id(user_id)
+    user = get_user(user_id)
+    if user is None or not user.active:
+        raise ValueError("Utilisateur inexistant ou désactivé.")
+    account = build_user_imap_account(user_id, account_id)
+    connection = None
+    try:
+        connection = connect_imap(account)
+        authenticate_owned_imap(
+            connection, user_id, account_id, account.username, account.password
+        )
+        status, _ = connection.select(account.folder, readonly=True)
+        if status != "OK":
+            raise RuntimeError("Dossier IMAP inaccessible.")
+    except Exception:
+        update_user_imap_health(
+            user_id, account_id, "error", "Connexion ou autorisation indisponible."
+        )
+        raise RuntimeError("Connexion ou autorisation indisponible.") from None
+    finally:
+        if connection is not None:
+            try:
+                connection.logout()
+            except Exception:
+                pass
+    update_user_imap_health(user_id, account_id, "connected", None)
+    return {"account_id": account_id, "connected": True}

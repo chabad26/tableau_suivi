@@ -1,272 +1,47 @@
 {% extends "base.html" %}
-
-{% block title %}
-Connecteurs - Job Tracker
-{% endblock %}
-
+{% block title %}Mes connecteurs — Job Tracker{% endblock %}
 {% block content %}
-
 <div class="page">
-
-    <div class="detail-topbar">
-        <a
-            href="{{ url_for('applications.index') }}"
-            class="back-link"
-        >
-            ← Retour au tableau
-        </a>
-    </div>
-
+    <a href="{{ url_for('applications.index') }}" class="back-link">← Retour au tableau</a>
     <header class="header">
-
-        <div>
-
-            <p class="eyebrow">
-                CONFIGURATION
-            </p>
-
-            <h1>
-                Connecteurs
-            </h1>
-
-            <p class="subtitle">
-                Sources utilisées pour détecter
-                les candidatures.
-            </p>
-
-        </div>
-
-        <div>
-            <a
-                href="{{ url_for('connectors.add_imap_account') }}"
-                class="primary-button"
-            >
-                + Ajouter une boîte mail
-            </a>
-        </div>
-
+        <div><p class="eyebrow">MESSAGERIES PERSONNELLES</p><h1>Mes connecteurs</h1>
+            <p class="subtitle">Ajoutez et configurez les boîtes utilisées pour suivre vos candidatures.</p></div>
+        <a href="{{ url_for('connectors.add_imap_account') }}" class="primary-button">+ Ajouter une boîte mail</a>
     </header>
-
-    {% include "partials/flash_messages.html" %}
-
+    {% include 'partials/flash_messages.html' %}
+    <p>Le test vérifie la connexion à une boîte sans importer d’email. <a href="{{ url_for('jobs.jobs_page') }}">Voir mes travaux</a></p>
     <section class="connectors-grid">
-
-        {% for connector in connectors %}
-
-            <article class="connector-card">
-
-                <div class="connector-header">
-
-                    <div>
-
-                        <h2>
-                            {{ connector.name }}
-                        </h2>
-
-                        <p>
-                            {{ connector.description }}
-                        </p>
-
-                    </div>
-
-                    <span
-                        class="
-                            connector-status
-
-                            {% if connector.connected %}
-                                connector-connected
-
-                            {% elif connector.configured %}
-                                connector-warning
-
-                            {% else %}
-                                connector-disabled
-
-                            {% endif %}
-                        "
-                    >
-
-                        {% if connector.connected %}
-                            ●
-
-                        {% elif connector.configured %}
-                            ◐
-
-                        {% else %}
-                            ○
-
-                        {% endif %}
-
-                        {{ connector.status }}
-
-                    </span>
-
+    {% for account in imap_accounts %}
+        <article class="connector-card">
+            <div class="connector-header"><div><h2>{{ account.email }}</h2>
+                <p>{{ account.provider|upper }} · {{ 'OAuth2' if account.auth_method == 'oauth2' else 'Mot de passe' }}</p>
+                <p>{{ account.host }}:{{ account.port }} · {{ 'TLS direct' if account.use_ssl else 'STARTTLS' }} · {{ account.folder }}</p>
+                <p>Identifiant : {{ account.username }}</p>
+            </div><span class="connector-status">{{ 'Active' if account.enabled else 'Désactivée' }}</span></div>
+            <div class="connector-footer">
+                {% if account.last_status == 'connected' %}<p>Dernier résultat : connexion réussie.</p>
+                {% elif account.last_status in ['error', 'auth_error'] %}<p role="alert">Dernier résultat : connexion ou autorisation à vérifier.</p>
+                {% else %}<p>Connexion non vérifiée.</p>{% endif %}
+                <p>Dernière vérification : {{ account.last_checked_display }}</p>
+                {% if account.auth_method == 'oauth2' %}
+                    {% if account.oauth_cache_present %}<p>Un cache OAuth est présent ; sa validité sera vérifiée au test.</p>
+                    {% else %}<p>Autorisation OAuth nécessaire. Enregistrer la boîte ne connecte pas automatiquement Google ou Microsoft.</p>{% endif %}
+                {% endif %}
+                <div class="connector-actions">
+                    <a href="{{ url_for('connectors.edit_imap_account', account_id=account.id) }}" class="secondary-button">Modifier</a>
+                    <form method="post" action="{{ url_for('connectors.test_imap_account_web', account_id=account.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="secondary-button" {% if not account.enabled %}disabled{% endif %}>Tester la connexion</button>
+                    </form>
+                    <form method="post" action="{{ url_for('connectors.toggle_imap_account', account_id=account.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="revision" value="{{ account.revision }}">
+                        <button type="submit" class="secondary-button">{{ 'Désactiver' if account.enabled else 'Activer' }}</button>
+                    </form>
                 </div>
-
-                <div class="connector-footer">
-
-                    <div class="connector-info">
-
-                        {% if connector.key == "imap"
-                            and connector.configured %}
-
-                            Configuration IMAP prête
-
-                        {% elif connector.connected %}
-
-                            OAuth configuré
-
-                        {% elif connector.configured %}
-
-                            Authentification requise
-
-                        {% else %}
-
-                            Configuration requise
-
-                        {% endif %}
-
-                    </div>
-
-
-                    {% if connector.key == "imap"
-                        and imap_accounts %}
-
-                        <div class="imap-account-list">
-
-                            {% for account in imap_accounts %}
-
-                                <div class="imap-account-row">
-
-                                    <div class="imap-account-header">
-
-                                        <div class="imap-account-identity">
-
-                                            <strong>
-                                                {{ account["email"] }}
-                                            </strong>
-
-                                            <span class="imap-provider">
-                                                {{ account["provider"] or "IMAP" }}
-                                            </span>
-
-                                            <span class="imap-server">
-                                                {{ account["host"] }}:{{ account["port"] }}
-                                            </span>
-
-                                        </div>
-
-                                        <div class="imap-account-health">
-
-                                            {% if account["last_status"] == "connected" %}
-
-                                                <span class="imap-status imap-status-ok">
-                                                    ● Connecté
-                                                </span>
-
-                                            {% elif account["last_status"] == "auth_error" %}
-
-                                                <span class="imap-status imap-status-error">
-                                                    ● Identifiants refusés
-                                                </span>
-
-                                            {% elif account["last_status"] == "error" %}
-
-                                                <span class="imap-status imap-status-error">
-                                                    ● Connexion impossible
-                                                </span>
-
-                                            {% else %}
-
-                                                <span class="imap-status imap-status-unknown">
-                                                    ○ Non testé
-                                                </span>
-
-                                            {% endif %}
-
-                                            <span class="imap-last-check">
-                                                Dernier test :
-                                                {{ account["last_checked_display"] }}
-                                            </span>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div class="connector-actions">
-
-                                        <form
-                                            method="post"
-                                            action="{{ url_for(
-                                                'connectors.test_imap_account_web',
-                                                account_id=account['id']
-                                            ) }}"
-                                        >
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button
-                                                type="submit"
-                                                class="secondary-button connector-button"
-                                            >
-                                                ↻ Tester
-                                            </button>
-                                        </form>
-
-                                        {% if account["last_status"] == "auth_error" %}
-
-                                            <a
-                                                href="{{ url_for(
-                                                    'connectors.edit_imap_account',
-                                                    account_id=account['id']
-                                                ) }}"
-                                                class="primary-button connector-button"
-                                            >
-                                                🔑 Corriger
-                                            </a>
-
-                                        {% else %}
-
-                                            <a
-                                                href="{{ url_for(
-                                                    'connectors.edit_imap_account',
-                                                    account_id=account['id']
-                                                ) }}"
-                                                class="secondary-button connector-button"
-                                            >
-                                                Modifier
-                                            </a>
-
-                                        {% endif %}
-
-                                    </div>
-
-                                </div>
-
-                            {% endfor %}
-
-                        </div>
-
-                    {% endif %}
-
-
-                    <div class="connector-actions">
-
-                        {% if connector.key == "imap" %}
-
-                            {# Actions déjà affichées dans chaque compte #}
-
-                        {% endif %}
-
-                    </div>
-
-                </div>
-
-            </article>
-
-        {% endfor %}
-
+            </div>
+        </article>
+    {% else %}<p>Aucune boîte mail configurée pour votre compte.</p>{% endfor %}
     </section>
-
 </div>
-
 {% endblock %}

@@ -93,7 +93,7 @@ class WebTests(OfflineCase):
         self.assertEqual(self.client.get("/application/9999").status_code, 404)
         self.assertEqual(self.client.get("/application/new").status_code, 200)
 
-    def test_imap_test_route_is_blocked(self):
+    def test_unowned_imap_test_route_is_not_found(self):
         account_id = database.create_imap_account(
             email="test@example.invalid",
             provider="imap",
@@ -107,7 +107,7 @@ class WebTests(OfflineCase):
 
         response = self.client.post(f"/connectors/imap/{account_id}/test")
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 404)
 
         self.assertEqual(len(jobs.list_jobs()), 0)
 

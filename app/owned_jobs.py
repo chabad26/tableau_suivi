@@ -1,6 +1,7 @@
 """File de travaux multi-utilisateur."""
 
 import json
+import re
 import sqlite3
 from dataclasses import asdict
 from uuid import uuid4
@@ -34,13 +35,22 @@ def enqueue_user_job(user_id: int, kind: str) -> str:
 
     user_id = require_user_id(user_id)
 
-    if kind not in ALLOWED_KINDS:
+    test_match = re.fullmatch(r"test:imap:([1-9][0-9]*)", kind)
+    if kind not in ALLOWED_KINDS and test_match is None:
         raise ValueError("Type de travail non autorisé.")
 
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
 
         check_active_user(connection, user_id)
+        if test_match is not None:
+            account_id = int(test_match.group(1))
+            account = connection.execute(
+                "SELECT 1 FROM imap_accounts WHERE id=? AND user_id=? AND enabled=1",
+                (account_id, user_id),
+            ).fetchone()
+            if account is None:
+                raise ValueError("Compte IMAP introuvable ou désactivé.")
 
         # Une même tâche ne doit pas être lancée deux fois
         # simultanément par le même utilisateur.
@@ -121,6 +131,12 @@ def execute_user_job(user_id: int, kind: str) -> dict:
     """Exécute un scan personnel avec checkpoints après import."""
 
     user_id = require_user_id(user_id)
+
+    test_match = re.fullmatch(r"test:imap:([1-9][0-9]*)", kind)
+    if test_match is not None:
+        from app.owned_scanner import test_user_imap_connection
+
+        return test_user_imap_connection(user_id, int(test_match.group(1)))
 
     if kind != "scan":
         raise ValueError("Type de travail non autorisé.")
@@ -227,7 +243,11 @@ def claim_next_user_job() -> tuple[str, int, str] | None:
             WHERE j.state = 'queued'
               AND j.user_id IS NOT NULL
               AND u.active = 1
-              AND j.kind = 'scan'
+              AND (j.kind = 'scan' OR EXISTS (
+                  SELECT 1 FROM imap_accounts AS a
+                  WHERE a.user_id = j.user_id AND a.enabled = 1
+                    AND j.kind = 'test:imap:' || a.id
+              ))
             ORDER BY j.created_at, j.rowid
             LIMIT 1
             """
@@ -311,7 +331,7 @@ def run_next_user_job() -> bool:
         result = execute_user_job(user_id, kind)
 
     except Exception as exception:
-        print(f"❌ Job {job_id} : {type(exception).__name__}: {exception}")
+        print(f"❌ Job {job_id} : {type(exception).__name__}")
 
         finish_user_job(
             job_id,

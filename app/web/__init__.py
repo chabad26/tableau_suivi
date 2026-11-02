@@ -67,6 +67,15 @@ def create_app() -> Flask:
             "applications.create_application_web",
             "applications.edit_application_web",
             "applications.delete_application_web",
+            "connectors.connectors_page",
+            "connectors.add_imap_account",
+            "connectors.detect_imap_account",
+            "connectors.save_imap_account",
+            "connectors.edit_imap_account",
+            "connectors.update_imap_account_web",
+            "connectors.toggle_imap_account",
+            "connectors.test_imap_account_web",
+            "jobs.jobs_page",
         }
 
         if request.endpoint in allowed_endpoints:

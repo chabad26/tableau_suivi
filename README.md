@@ -6,6 +6,14 @@ Job Tracker est une application locale de suivi de candidatures. Elle détecte l
 >
 > Le projet est un prototype fonctionnel en évolution active. L'objectif actuel est de conserver une architecture locale, explicable, testable et indépendante d'un fournisseur de messagerie particulier.
 
+## Connecteurs personnels (branche Campus)
+
+La page `/connectors` permet de lister, créer, modifier et activer/désactiver les boîtes du compte connecté. Le bouton **Tester la connexion** crée un travail personnel, exécuté par `worker.py`, sans import d'email ni modification du checkpoint. CSRF et contrôles de propriétaire sont conservés.
+
+Gmail et Microsoft nécessitent une autorisation OAuth personnelle déjà configurée : la création du connecteur ne lance pas de consentement OAuth. Les scans HTTP, la réanalyse et les exports restent désactivés sur cette branche tant que leurs routes ne sont pas migrées.
+
+Voir [le parcours de présentation et les limites](docs/CONNECTEURS.md).
+
 ## 🎯 Objectif
 
 Réduire le suivi manuel des candidatures en automatisant les tâches répétitives :

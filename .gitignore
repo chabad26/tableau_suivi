@@ -50,3 +50,6 @@ backups/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+
+# Démonstration locale (données hors dépôt)
+.demo-campus/
