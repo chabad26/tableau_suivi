@@ -89,7 +89,7 @@ def run_next() -> bool:
         result = json.dumps(execute(job["kind"]), ensure_ascii=False)
         state, error = "succeeded", None
     except Exception as exception:
-        print(f"❌ Job {job['kind']} : {type(exception).__name__}: {exception}")
+        print(f"❌ Job {job['kind']} : {type(exception).__name__}")
 
         state, result = "failed", None
         error = (

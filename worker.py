@@ -36,21 +36,8 @@ def main() -> None:
             flush=True,
         )
 
-        next_maintenance = time.monotonic()
-
         try:
             while True:
-                now = time.monotonic()
-
-                if now >= next_maintenance:
-                    try:
-                        while True:
-                            if not run_next_user_job():
-                                time.sleep(1)
-
-                    except KeyboardInterrupt:
-                        print("Worker arrêté proprement.")
-
                 if not run_next_user_job():
                     time.sleep(1)
 
