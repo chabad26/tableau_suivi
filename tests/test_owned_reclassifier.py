@@ -19,7 +19,7 @@ from app.owned_jobs import (
     run_next_user_job,
 )
 from app.owned_reclassifier import reclassify_user_emails
-from migrate_email_uniqueness import migrate
+from migrate.migrate_email_uniqueness import migrate
 from tests.helpers import OfflineCase, fake_email
 
 

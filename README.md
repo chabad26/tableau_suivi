@@ -92,7 +92,7 @@ Les tests d'intégration utilisent une base temporaire et un serveur IMAP fictif
 
 Ne pas lancer de migration sur une base existante sans sauvegarde et vérification préalable. Les scripts historiques restent présents ; ils ne sont pas exécutés automatiquement par cette finalisation.
 
-L'unicité `(user_id, message_id)` possède une migration dédiée (`migrate_email_uniqueness.py`). Une base encore en unicité globale refuse un Message-ID déjà détenu par un autre utilisateur plutôt que de fusionner les données. La démonstration initialise uniquement son propre schéma composite.
+L'unicité `(user_id, message_id)` possède une migration dédiée (`migrate/migrate_email_uniqueness.py`, à lancer avec `.venv/bin/python -m migrate.migrate_email_uniqueness`). Une base encore en unicité globale refuse un Message-ID déjà détenu par un autre utilisateur plutôt que de fusionner les données. La démonstration initialise uniquement son propre schéma composite.
 
 Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anciens fichiers sont conservés mais ne sont pas automatiquement réutilisés : une migration contrôlée ou une nouvelle autorisation sera nécessaire. Voir [les détails de sécurité](docs/SECURITE.md).
 

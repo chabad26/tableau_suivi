@@ -17,6 +17,8 @@ Le registre des routes et l'écran des travaux combinent les fonctions des deux 
 
 Un conflit sémantique, pourtant fusionné automatiquement par Git, conservait le refus 503 de la réanalyse. Les tests ont détecté cette incohérence ; la route utilise maintenant le job personnel sécurisé.
 
+Les scripts de migration sont regroupés dans le paquet `migrate/`. Les imports de production, de démonstration et des tests utilisent ce paquet ; lancer les outils depuis la racine avec `.venv/bin/python -m migrate.<nom_du_script> --help`. Le déplacement ne lance aucune migration de données.
+
 ## Tests automatiques
 
 - Ruff format et lint : conformes.

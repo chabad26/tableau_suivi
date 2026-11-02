@@ -8,7 +8,7 @@ from app.database import get_connection
 from app.extractor import company_key, extract_application_data
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
-from migrate_email_uniqueness import has_composite_unique
+from migrate.migrate_email_uniqueness import has_composite_unique
 
 
 class MessageIdConflictError(RuntimeError):

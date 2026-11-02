@@ -91,7 +91,7 @@ def seed_demo(alice_password: str, bob_password: str) -> None:
     from app.owned_applications import create_user_application
     from app.owned_jobs import enqueue_user_job, run_next_user_job
     from app.web import create_app
-    from migrate_email_uniqueness import migrate
+    from migrate.migrate_email_uniqueness import migrate
 
     create_app()
     with get_connection() as connection:

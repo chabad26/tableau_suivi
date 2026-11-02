@@ -6,7 +6,7 @@ from app.accounts import create_user
 from app.database import get_connection
 from app.owned_applications import create_user_application
 from app.owned_importer import import_user_emails
-from migrate_email_uniqueness import has_composite_unique, migrate
+from migrate.migrate_email_uniqueness import has_composite_unique, migrate
 from tests.helpers import OfflineCase, fake_email
 
 

@@ -15,7 +15,7 @@ split-on-trailing-comma = false
 skip-magic-trailing-comma = true
 
 [tool.pyright]
-include = ["app", "*.py", "typings"]
+include = ["app", "migrate", "*.py", "typings"]
 exclude = [".venv", "tests", "**/node_modules", "**/__pycache__", "**/.*"]
 venvPath = "."
 venv = ".venv"
