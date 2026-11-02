@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Administration des comptes — Job Tracker{% endblock %}
+{% block content %}
+<div class="page">
+    <header class="header">
+        <div><p class="eyebrow">ADMINISTRATION</p><h1>Comptes utilisateurs</h1>
+            <p class="subtitle">Créez les accès des apprenants, formateurs et administrateurs.</p></div>
+        <a class="primary-button" href="{{ url_for('admin.new_user') }}">+ Créer un compte</a>
+    </header>
+    {% include 'partials/flash_messages.html' %}
+    <p>La désactivation bloque l’accès au compte et conserve ses candidatures, emails et connecteurs.</p>
+    <section class="table-card"><div class="table-wrapper">
+        <table>
+            <caption>Comptes enregistrés : {{ users|length }}</caption>
+            <thead><tr><th scope="col">Email</th><th scope="col">Rôle</th><th scope="col">État</th><th scope="col">Création (UTC)</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+            {% for user in users %}
+                <tr>
+                    <td>{{ user.email }}{% if user.id == current_user.id %} <span>(vous)</span>{% endif %}</td>
+                    <td>{{ role_labels[user.role] }}</td>
+                    <td>{{ 'Actif' if user.active else 'Désactivé' }}</td>
+                    <td>{{ user.created_at }}</td>
+                    <td>
+                        {% if user.id == current_user.id %}
+                            <span>Votre compte</span>
+                        {% else %}
+                            <form method="post" action="{{ url_for('admin.set_user_active_web', user_id=user.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="active" value="{{ '0' if user.active else '1' }}">
+                                <button type="submit" class="secondary-button">{{ 'Désactiver' if user.active else 'Réactiver' }}</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div></section>
+</div>
+{% endblock %}

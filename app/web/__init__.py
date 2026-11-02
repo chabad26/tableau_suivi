@@ -9,6 +9,7 @@ from app.database import init_database
 from app.jobs import init_jobs
 from app.ownership import init_ownership
 from app.settings import SECRET_KEY
+from app.web.admin import admin_bp
 from app.web.applications import applications_bp
 from app.web.auth import auth_bp, login_manager
 from app.web.connectors import connectors_bp
@@ -25,6 +26,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(exports_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
 
 
 def create_app() -> Flask:
@@ -58,8 +60,8 @@ def create_app() -> Flask:
         if not current_user.is_authenticated:
             return redirect(url_for("auth.login"))
 
-        # Les routes des candidatures utilisent maintenant
-        # les requêtes SQL avec contrôle du propriétaire.
+        # Routes migrées : propriétaire vérifié dans les modules personnels,
+        # rôle administrateur vérifié aussi par le blueprint du backoffice.
         allowed_endpoints = {
             "applications.index",
             "applications.application_detail",
@@ -77,13 +79,16 @@ def create_app() -> Flask:
             "connectors.test_imap_account_web",
             "jobs.jobs_page",
             "jobs.reclassify_emails_web",
+            "admin.users_page",
+            "admin.new_user",
+            "admin.create_user_web",
+            "admin.set_user_active_web",
         }
 
         if request.endpoint in allowed_endpoints:
             return None
 
-        # Connecteurs, exports et jobs :
-        # toujours bloqués pendant la migration.
+        # Les autres actions restent bloquées pendant leur migration.
         abort(503, description="Module en cours de migration multi-utilisateur.")
 
     return app

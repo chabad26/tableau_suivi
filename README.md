@@ -6,6 +6,18 @@ Job Tracker est une application locale de suivi de candidatures. Elle détecte l
 >
 > Le projet est un prototype fonctionnel en évolution active. L'objectif actuel est de conserver une architecture locale, explicable, testable et indépendante d'un fournisseur de messagerie particulier.
 
+## Administration des comptes
+
+Le backoffice `/admin/users` permet aux administrateurs de créer les comptes apprenants, formateurs et administrateurs, puis de les désactiver/réactiver sans supprimer leurs données. Le lien **Administration** apparaît uniquement pour les administrateurs ; les autorisations sont aussi vérifiées côté serveur.
+
+Pour créer le premier administrateur, utiliser une adresse de connexion encore disponible :
+
+```bash
+.venv/bin/python create_account.py admin@campus.invalid --role admin
+```
+
+Le mot de passe est demandé sans affichage. Voir [le guide du backoffice](docs/ADMINISTRATION.md).
+
 ## Connecteurs personnels (branche Campus)
 
 La page `/connectors` permet de lister, créer, modifier et activer/désactiver les boîtes du compte connecté. Le bouton **Tester la connexion** crée un travail personnel, exécuté par `worker.py`, sans import d'email ni modification du checkpoint. CSRF et contrôles de propriétaire sont conservés.

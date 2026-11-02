@@ -25,6 +25,10 @@
             📋 Mes candidatures
         </a>
 
+        {% if current_user.role == 'admin' %}
+            <a class="secondary-button" href="{{ url_for('admin.users_page') }}">Administration</a>
+        {% endif %}
+
         <form
             method="post"
             action="{{ url_for('auth.logout') }}"
