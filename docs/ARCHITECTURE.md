@@ -36,6 +36,12 @@ Le thread HTTP ne réalise pas le scan. Le worker traite un job à la fois. Une 
 
 Les modules historiques globaux restent dans le dépôt pour les données et outils existants. Ils ne sont appelés ni par les nouvelles routes de scan ni par le nouveau worker. `app.jobs.init_jobs` reste utilisé pour créer le schéma, sans lancer de job.
 
+## Routes intégrées
+
+Le registre des routes autorise les scans et la réanalyse des archives, les connecteurs personnels et la liste des jobs. Les opérations du backoffice sont aussi protégées par le rôle administrateur ; elles ne donnent pas de vue globale sur les candidatures. Les exports et anciennes actions globales restent bloqués.
+
+La démonstration remplace également l'écriture des secrets et l'authentification IMAP par des simulations, et utilise une détection des fournisseurs sans DNS. Les nouvelles pages ne peuvent donc pas déclencher de stockage dans le keyring réel.
+
 ## Données et invariants
 
 - `users` : identité, rôle, hash, activation.

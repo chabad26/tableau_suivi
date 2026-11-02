@@ -123,24 +123,22 @@ class ImapConnectorTests(OfflineCase):
         update_sync.assert_called_once_with(1, 0, 999)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TransportSecurityTests(unittest.TestCase):
-    def test_starttls_is_required_before_returning_connection(self):
+    def test_starttls_is_required_before_authentication(self):
         from dataclasses import replace
 
         from app.connectors.imap import connect_imap
 
         connection = MagicMock()
         with patch("app.connectors.imap.imaplib.IMAP4", return_value=connection):
-            result = connect_imap(replace(fake_account(), use_ssl=False, port=143))
-        self.assertIs(result, connection)
+            self.assertIs(
+                connect_imap(replace(fake_account(), use_ssl=False, port=143)),
+                connection,
+            )
         connection.starttls.assert_called_once()
         connection.login.assert_not_called()
 
-    def test_starttls_failure_closes_connection(self):
+    def test_starttls_failure_closes_connection_without_authentication(self):
         from dataclasses import replace
 
         from app.connectors.imap import connect_imap
@@ -152,3 +150,7 @@ class TransportSecurityTests(unittest.TestCase):
                 connect_imap(replace(fake_account(), use_ssl=False, port=143))
         connection.shutdown.assert_called_once()
         connection.login.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

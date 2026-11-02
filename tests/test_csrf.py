@@ -79,12 +79,10 @@ class CSRFTests(OfflineCase):
         self.assertEqual(len(queued), 1)
         self.assertEqual(queued[0]["user_id"], user_id)
 
-    def test_unmigrated_imap_form_is_blocked(self):
+    def test_personal_imap_form_contains_csrf_token(self):
         self.authenticate()
 
-        response = self.client.get("/connectors/imap/add")
-
-        self.assertEqual(response.status_code, 503)
+        self.token("/connectors/imap/add")
 
     def test_login_form_contains_token(self):
         self.token("/login")

@@ -19,10 +19,18 @@
         </div>
 
         <div class="header-actions">
-            <button type="button" class="secondary-button" disabled
-                    title="Disponible après la migration multi-utilisateur">
-                ♻ Réanalyse indisponible
-            </button>
+            <form
+                method="post"
+                action="{{ url_for('jobs.reclassify_emails_web') }}"
+            >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button
+                    type="submit"
+                    class="secondary-button"
+                >
+                    ♻ Réanalyser mes emails archivés
+                </button>
+            </form>
             <form
                 method="post"
                 action="{{ url_for('jobs.scan_emails_web') }}"
@@ -44,12 +52,9 @@
             </a>
 
             <a href="{{ url_for('jobs.jobs_page') }}" class="secondary-button">
-                Mes synchronisations
+                Mes travaux
             </a>
-            <button type="button" class="secondary-button" disabled
-                    title="Disponible après la migration multi-utilisateur">
-                ⚙ Connecteurs indisponibles
-            </button>
+            <a href="{{ url_for('connectors.connectors_page') }}" class="secondary-button">⚙ Mes connecteurs</a>
 
         </div>
 

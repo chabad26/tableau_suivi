@@ -93,7 +93,7 @@ class WebTests(OfflineCase):
         self.assertEqual(self.client.get("/application/9999").status_code, 404)
         self.assertEqual(self.client.get("/application/new").status_code, 200)
 
-    def test_imap_test_route_is_blocked(self):
+    def test_unowned_imap_test_route_is_not_found(self):
         account_id = database.create_imap_account(
             email="test@example.invalid",
             provider="imap",
@@ -107,18 +107,18 @@ class WebTests(OfflineCase):
 
         response = self.client.post(f"/connectors/imap/{account_id}/test")
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 404)
 
         self.assertEqual(len(jobs.list_jobs()), 0)
 
-    def test_scan_is_personal_and_reclassify_remains_blocked(self):
+    def test_scan_and_reanalysis_use_personal_queue(self):
         scan_response = self.client.post("/scan")
         reclassify_response = self.client.post("/reclassify")
 
         self.assertEqual(scan_response.status_code, 303)
-        self.assertEqual(reclassify_response.status_code, 503)
+        self.assertEqual(reclassify_response.status_code, 303)
 
-        self.assertEqual(len(jobs.list_jobs()), 1)
+        self.assertEqual(len(jobs.list_jobs()), 2)
         self.assertEqual(jobs.list_jobs()[0]["user_id"], self.user_id)
 
     def test_statistics_and_date_fallback(self):

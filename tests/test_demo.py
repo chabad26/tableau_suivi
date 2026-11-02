@@ -79,6 +79,36 @@ with ExitStack() as stack:
         assert 'Démonstration hors ligne' in app.test_client().get('/login').text
     with patch.object(Flask, 'run', new=fake_run):
         demo.serve_demo(root)
+    # Les nouvelles routes doivent rester totalement fictives dans la démo.
+    page = client.get('/connectors/imap/add')
+    assert page.status_code == 200
+    token = re.search(r'name="csrf_token"\s+value="([^"]+)"', page.text).group(1)
+    with patch('keyring.set_password', side_effect=AssertionError('Keyring réel interdit')) as keyring:
+        response = client.post('/connectors/imap/add', data={
+            'csrf_token': token, 'email': 'alice-extra@campus.invalid',
+            'provider': 'imap', 'host': 'imap.demo.invalid', 'port': '993',
+            'use_ssl': 'on', 'username': 'alice-extra@campus.invalid',
+            'folder': 'INBOX', 'auth_method': 'password', 'password': secrets.token_urlsafe(24),
+        })
+        assert response.status_code == 303
+        keyring.assert_not_called()
+    with get_connection() as connection:
+        extra = connection.execute("SELECT id FROM imap_accounts WHERE email='alice-extra@campus.invalid' AND user_id=?", (alice,)).fetchone()[0]
+    assert client.post(f'/connectors/imap/{extra}/test', data={'csrf_token':token}).status_code == 303
+    assert run_next_user_job()
+    with get_connection() as connection:
+        assert connection.execute("SELECT state FROM jobs WHERE user_id=? AND kind=?", (alice,f'test:imap:{extra}')).fetchone()[0] == 'succeeded'
+        assert connection.execute('SELECT last_uid FROM imap_accounts WHERE id=?', (extra,)).fetchone()[0] == 0
+    with patch('app.mail_providers.get_mx_hosts', side_effect=AssertionError('DNS réel interdit')) as dns:
+        assert client.post('/connectors/imap/detect', data={'email':'user@example.com','csrf_token':token}).status_code == 200
+        dns.assert_not_called()
+    bob_client = app.test_client()
+    bob_token = re.search(r'name="csrf_token"\s+value="([^"]+)"', bob_client.get('/login').text).group(1)
+    assert bob_client.post('/login', data={'email':'bob@campus.invalid','password':password,'csrf_token':bob_token}).status_code == 303
+    assert 'Atelier des Alpes — Bob' in bob_client.get('/').text
+    assert 'Atelier des Alpes — Alice' not in bob_client.get('/').text
+    assert 'alice-extra@campus.invalid' not in bob_client.get('/connectors').text
+    assert bob_client.get(f'/connectors/imap/{extra}/edit').status_code == 404
     assert not (root / 'oauth').exists()
     assert (root / 'campus.sqlite3').stat().st_mode & 0o777 == 0o600
 """

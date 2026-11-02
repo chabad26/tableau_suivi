@@ -10,7 +10,7 @@ Contrôle local du 2 novembre 2026, Linux, Python 3.14.4, Ruff 0.16.7. Branche `
 | `.venv/bin/ruff format --check .` | Conforme |
 | `.venv/bin/ruff check .` | All checks passed |
 | `npx --yes pyright` | 0 errors, 0 warnings, 0 informations |
-| `.venv/bin/python -m unittest discover -s tests -v` | 160 tests, OK |
+| `.venv/bin/python -m unittest discover -s tests -v` | 233 tests, OK |
 | `git diff --check` | Aucune erreur |
 
 Point de départ vérifié : 126 tests, OK, Ruff et Pyright conformes. La progression inclut la remise en collection de tests auparavant définis hors des classes unittest ; l'augmentation du total ne correspond donc pas uniquement à de nouveaux scénarios.
@@ -40,7 +40,7 @@ Un contrôle complémentaire a lancé réellement `demo.py init` puis `demo.py s
 
 ## Données préservées et limites
 
-Aucune migration de la base réelle, aucune synchronisation réelle, aucune lecture/écriture de véritable jeton OAuth. Le premier contrôle complet utilisait un chemin SQLite temporaire imposé au processus ; le test IMAP qui initialisait auparavant le chemin habituel a ensuite été corrigé pour utiliser sa propre fixture temporaire.
+Les tests automatisés n'utilisent que des bases temporaires et des secrets fictifs. Un contrôle réel distinct, autorisé explicitement après la fusion, a ensuite été exécuté : copie OAuth vérifiée et scan de quatre comptes. Ses résultats figurent dans `INTEGRATION.md`. Le premier contrôle complet utilisait un chemin SQLite temporaire imposé au processus ; le test IMAP qui initialisait auparavant le chemin habituel a ensuite été corrigé pour utiliser sa propre fixture temporaire.
 
 Les anciens jobs restent conservés et ne sont pas exécutés par le nouveau worker. Les routes globales non migrées demeurent en 503. Les détails des risques résiduels et de la compatibilité OAuth figurent dans `SECURITE.md`.
 

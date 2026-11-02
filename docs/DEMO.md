@@ -37,7 +37,7 @@ La clé de session est recréée à chaque lancement : se reconnecter après un 
 4. Ouvrir « Mes synchronisations ». Le premier scan a déjà importé ces trois emails pendant l'initialisation. Il est terminé et possède un point de reprise.
 5. Cliquer « Scanner les mails », puis actualiser les synchronisations. Le nouveau travail passe de l'attente au succès. Le serveur fictif n'ayant pas de nouveau message après UID 3, zéro email supplémentaire est attendu : cela illustre la reprise incrémentale et l'absence de doublons.
 6. Utiliser un second navigateur ou se déconnecter, puis se connecter avec `bob@campus.invalid`. Bob possède ses propres entreprises, emails et travaux. Les lignes d'Alice n'apparaissent pas. Une URL de détail d'Alice renvoie 404 depuis la session de Bob.
-7. Expliquer les boutons indisponibles : exports, connecteurs et réanalyse restent bloqués pendant leur migration. Ne pas présenter ces opérations comme disponibles.
+7. Montrer **Mes connecteurs** : la création et le test de connexion sont simulés dans la démo, sans keyring réel ni DNS sortant. La réanalyse personnelle des archives est disponible sans réseau. Les exports restent bloqués, et aucune autorisation OAuth réelle n’est effectuée. Le backoffice reste réservé aux comptes administrateurs : Alice et Bob restent apprenants.
 
 ## Montrer un checkpoint et les données historiques
 

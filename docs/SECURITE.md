@@ -1,6 +1,6 @@
 # Sécurité : contrôles et limites
 
-Revue du code et validation locale sur cette branche, le 2 novembre 2026. Cette revue ciblée ne constitue ni un audit exhaustif ni un test des vrais fournisseurs. Les bases et jetons réels ne sont pas utilisés pour la validation.
+Revue du code et validation locale sur cette branche, le 2 novembre 2026. Cette revue ciblée ne constitue ni un audit exhaustif ni un test des vrais fournisseurs. Les bases et jetons réels ne sont pas utilisés dans les tests automatisés. Un contrôle réel séparé, explicitement autorisé, est décrit dans `INTEGRATION.md`.
 
 ## Isolation des utilisateurs
 
@@ -28,13 +28,13 @@ Un échec de lecture d'UID laisse le point de reprise avant cet UID et marque la
 - IMAP utilise TLS avec vérification de certificat, directement ou via STARTTLS obligatoire. L'échec de STARTTLS ferme la connexion avant toute authentification.
 - Les secrets IMAP habituels restent dans le keyring ; ils ne sont pas stockés dans SQLite.
 
-**Compatibilité :** les anciens fichiers OAuth restent intacts. Leur réutilisation automatique sous le nouveau chemin est volontairement exclue. Prévoir une migration administrative contrôlée ou une nouvelle autorisation ; aucune opération sur de vrais jetons n'a été effectuée ici.
+**Compatibilité :** les anciens fichiers OAuth restent intacts. Leur réutilisation automatique sous le nouveau chemin est volontairement exclue. Prévoir une migration administrative contrôlée ou une nouvelle autorisation ; le contrôle autorisé de copie des caches réels est décrit dans `INTEGRATION.md`.
 
 ## Routes et CSRF
 
 CSRFProtect reste actif. Des tests utilisent de vrais jetons de formulaires et vérifient le refus des requêtes sans jeton ou avec jeton invalide. L'option de test désactivant le CSRF dans d'autres fixtures ne modifie pas la configuration normale ni la démonstration.
 
-Routes réactivées : `POST /scan` et `GET /jobs`. `/reclassify`, les exports, les écrans/actions de connecteurs et les autres actions globales restent bloqués en 503 après connexion. Le contrôle du propriétaire n'est pas remplacé par la seule présence d'une session. Les tests vérifient aussi l'absence de fuite de jobs historiques.
+Routes personnelles réactivées : `POST /scan`, `POST /reclassify`, `GET /jobs`, liste/création/édition/activation et tests de connexion des connecteurs. Le backoffice `/admin/users` est réservé aux administrateurs actifs. Les exports et les anciennes actions globales non migrées restent bloqués en 503 après connexion. L'autorisation OAuth interactive n'est pas ajoutée au Web. Le contrôle du propriétaire n'est pas remplacé par la seule présence d'une session. Les tests vérifient aussi l'absence de fuite de jobs historiques.
 
 Les cookies sont HttpOnly et SameSite=Lax ; Secure dépend de `APP_HTTPS=true`. Des en-têtes limitent l'intégration en iframe et la détection MIME, avec Cache-Control=no-store. La démonstration reste sur HTTP loopback avec un cookie distinct. `web.py` désactive le debugger et écoute uniquement sur 127.0.0.1.
 
@@ -63,7 +63,7 @@ Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont d
 
 ## Limites et opérations non effectuées
 
-- Ni connexion aux vrais fournisseurs, ni renouvellement de vrais jetons, ni migration d'une base réelle, ni déploiement Internet.
+- Aucun accès fournisseur ni vrai jeton dans les tests automatisés. Le contrôle réel autorisé de la branche intégrée est décrit séparément dans `INTEGRATION.md`. Aucun déploiement Internet ni migration du schéma de la base réelle n’a été réalisé.
 - Le serveur Flask de développement n'est pas une infrastructure de production. HTTPS, limitation des tentatives de connexion, sauvegardes exploitées, supervision et déploiement nécessitent un travail distinct avant exposition réseau.
 - Les anciens modules globaux sont conservés mais ne doivent pas être lancés pour traiter les utilisateurs Campus. Les scripts de migration restent des outils administratifs explicites, sans exécution automatique.
 - Les limites des règles de classification persistent ; le statut Acceptée est manuel dans cette version.

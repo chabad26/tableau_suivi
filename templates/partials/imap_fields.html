@@ -1,0 +1,40 @@
+<div class="form-group">
+    <label for="account-email">Adresse email</label>
+    <input type="email" id="account-email" name="email" value="{{ account.email }}" maxlength="254" required>
+</div>
+<div class="form-group">
+    <label for="account-provider">Fournisseur</label>
+    <select id="account-provider" name="provider">
+        <option value="imap" data-auth="password" data-host="" data-port="993" {% if account.provider == 'imap' %}selected{% endif %}>Autre fournisseur IMAP</option>
+        {% for provider in providers %}
+        <option value="{{ provider.key }}" data-auth="{{ provider.auth_method }}" data-host="{{ provider.imap_host }}" data-port="{{ provider.imap_port }}" {% if account.provider == provider.key %}selected{% endif %}>{{ provider.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<input type="hidden" id="account-auth" name="auth_method" value="{{ account.auth_method }}">
+<p id="oauth-help" {% if account.auth_method != 'oauth2' %}hidden{% endif %}>Google et Microsoft utilisent OAuth2. Aucun mot de passe à saisir ici. L’autorisation OAuth personnelle doit être configurée avant le premier test ; ce formulaire ne lance pas une autorisation OAuth.</p>
+<div class="form-group" id="password-field" {% if account.auth_method == 'oauth2' %}hidden{% endif %}>
+    <label for="account-password">{{ 'Nouveau mot de passe (laisser vide pour conserver l’actuel)' if editing else 'Mot de passe IMAP' }}</label>
+    <input type="password" id="account-password" name="password" autocomplete="new-password" {% if account.auth_method == 'oauth2' %}disabled{% endif %} {% if not editing and account.auth_method == 'password' %}required{% endif %}>
+    <p>Le mot de passe est confié au gestionnaire de secrets du système ; il n’est jamais réaffiché.</p>
+</div>
+<div class="form-group">
+    <label for="account-host">Serveur IMAP</label>
+    <input type="text" id="account-host" name="host" value="{{ account.host }}" maxlength="253" required>
+</div>
+<div class="form-group">
+    <label for="account-port">Port</label>
+    <input type="number" id="account-port" name="port" value="{{ account.port }}" min="1" max="65535" required>
+</div>
+<div class="form-group">
+    <label for="account-username">Identifiant IMAP</label>
+    <input type="text" id="account-username" name="username" value="{{ account.username }}" maxlength="254" required>
+</div>
+<div class="form-group">
+    <label for="account-folder">Dossier</label>
+    <input type="text" id="account-folder" name="folder" value="{{ account.folder }}" maxlength="255" required>
+</div>
+<div class="form-group">
+    <label><input type="checkbox" name="use_ssl" {% if account.use_ssl %}checked{% endif %}> TLS direct (habituellement port 993)</label>
+    <p>Si décoché, STARTTLS est obligatoire avant l’authentification (habituellement port 143).</p>
+</div>

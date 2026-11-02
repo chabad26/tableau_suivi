@@ -1,5 +1,6 @@
 """Comptes utilisateurs : stockage et authentification sans exposition HTTP."""
 
+import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -19,6 +20,10 @@ class User:
 ROLES = frozenset({"student", "trainer", "admin"})
 
 
+class UserInputError(ValueError):
+    """Erreur de saisie dont le message fixe peut être affiché."""
+
+
 def init_users() -> None:
     """Migration additive : aucune donnée de candidature n'est modifiée."""
     with get_connection() as connection:
@@ -35,14 +40,23 @@ def init_users() -> None:
         """)
 
 
-def create_user(email: str, password: str, role: str = "student") -> int:
+def validate_user_input(email: str, password: str, role: str = "student") -> str:
+    """Valide les mêmes paramètres pour le terminal et le backoffice."""
     email = email.strip().casefold()
-    if not email or "@" not in email or len(email) > 254:
-        raise ValueError("Adresse email invalide")
-    if len(password) < 12:
-        raise ValueError("Mot de passe trop court : 12 caractères minimum")
+    if (
+        not re.fullmatch(r"[^\s@<>\"']+@[^\s@<>\"']+\.[^\s@<>\"']+", email)
+        or len(email) > 254
+    ):
+        raise UserInputError("Adresse email invalide")
+    if not 12 <= len(password) <= 256:
+        raise UserInputError("Le mot de passe doit contenir entre 12 et 256 caractères")
     if role not in ROLES:
-        raise ValueError("Rôle invalide")
+        raise UserInputError("Rôle invalide")
+    return email
+
+
+def create_user(email: str, password: str, role: str = "student") -> int:
+    email = validate_user_input(email, password, role)
     password_hash = generate_password_hash(password, method="scrypt")
     with get_connection() as connection:
         cursor = connection.execute(

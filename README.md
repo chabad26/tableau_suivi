@@ -2,6 +2,26 @@
 
 Application locale Python 3.14, Flask et SQLite pour suivre les candidatures des apprenants. Elle analyse les emails, extrait entreprise/poste/source et conserve un historique personnel. État de cette branche : 2 novembre 2026.
 
+## Administration des comptes
+
+Le backoffice `/admin/users` permet aux administrateurs de créer les comptes apprenants, formateurs et administrateurs, puis de les désactiver/réactiver sans supprimer leurs données. Le lien **Administration** apparaît uniquement pour les administrateurs ; les autorisations sont aussi vérifiées côté serveur.
+
+Pour créer le premier administrateur, utiliser une adresse de connexion encore disponible :
+
+```bash
+.venv/bin/python create_account.py admin@campus.invalid --role admin
+```
+
+Le mot de passe est demandé sans affichage. Voir [le guide du backoffice](docs/ADMINISTRATION.md).
+
+## Connecteurs personnels (branche Campus)
+
+La page `/connectors` permet de lister, créer, modifier et activer/désactiver les boîtes du compte connecté. Le bouton **Tester la connexion** crée un travail personnel, exécuté par `worker.py`, sans import d'email ni modification du checkpoint. CSRF et contrôles de propriétaire sont conservés.
+
+Gmail et Microsoft nécessitent une autorisation OAuth personnelle déjà configurée : la création du connecteur ne lance pas de consentement OAuth. La réanalyse personnelle des emails archivés est également disponible depuis le tableau, sans accès réseau. Le scan personnel est disponible sur la branche intégrée ; les exports restent désactivés.
+
+Voir [le parcours des connecteurs](docs/CONNECTEURS.md) et [la réanalyse personnelle](docs/REANALYSE.md).
+
 ## Installation
 
 ```bash
@@ -55,7 +75,7 @@ Le bouton de scan suppose que les comptes IMAP personnels et leurs secrets sont 
 - Déduplication des messages, reprise UID/UIDVALIDITY, refus des checkpoints concurrents devenus incohérents.
 - Statuts : envoyée, reçue, entretien, refus, acceptée, sans réponse, à analyser. **Acceptée** est disponible en saisie manuelle ; sa détection automatique n'est pas ajoutée ici.
 
-**Restent désactivés** : exports CSV/XLSX, réanalyse, gestion/test/reconnexion HTTP des connecteurs et autres actions globales non migrées. Leurs routes renvoient 503 après authentification. Les anciens jobs sans propriétaire sont conservés et ignorés par le nouveau worker.
+**Restent désactivés** : exports CSV/XLSX, autorisation/reconnexion OAuth interactive depuis le Web et autres actions globales non migrées. Leurs routes renvoient 503 après authentification. Les anciens jobs sans propriétaire sont conservés et ignorés par le nouveau worker.
 
 ## Validation
 
@@ -78,6 +98,7 @@ Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anci
 
 ## Documentation
 
+- [Compte rendu d’intégration et scan réel](docs/INTEGRATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Sécurité et limites vérifiées](docs/SECURITE.md)
 - [Démonstration pas à pas](docs/DEMO.md)

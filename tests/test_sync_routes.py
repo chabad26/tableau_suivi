@@ -55,7 +55,7 @@ class SyncRouteTests(OfflineCase):
         self.assertEqual(list_user_jobs(self.alice), [])
 
     def test_unmigrated_routes_cannot_enqueue(self):
-        for route in ["/reclassify", "/connectors/gmail/test"]:
+        for route in ["/connectors/gmail/test"]:
             self.assertEqual(self.client.post(route).status_code, 503)
         self.assertEqual(list_user_jobs(self.alice), [])
 

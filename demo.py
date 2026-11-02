@@ -43,6 +43,7 @@ def configure_demo(directory: Path) -> None:
 
 
 def offline_transport(stack: ExitStack) -> None:
+    from app.mail_providers import detect_provider
     from app.offline_imap import FakeImap
 
     stack.enter_context(
@@ -56,6 +57,19 @@ def offline_transport(stack: ExitStack) -> None:
             "socket.socket.connect_ex",
             side_effect=RuntimeError("Réseau sortant interdit en démonstration."),
         )
+    )
+    stack.enter_context(
+        patch(
+            "socket.socket.sendto",
+            side_effect=RuntimeError("Réseau sortant interdit en démonstration."),
+        )
+    )
+    stack.enter_context(patch("app.secrets.set_imap_password", return_value=None))
+    stack.enter_context(
+        patch("app.owned_scanner.authenticate_owned_imap", return_value=None)
+    )
+    stack.enter_context(
+        patch("app.web.connectors.detect_provider_smart", side_effect=detect_provider)
     )
     stack.enter_context(
         patch(
