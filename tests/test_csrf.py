@@ -67,18 +67,17 @@ class CSRFTests(OfflineCase):
 
         self.assertEqual(len(jobs.list_jobs()), 0)
 
-    def test_valid_token_does_not_unlock_scan(self):
-        self.authenticate()
+    def test_valid_token_enqueues_personal_scan(self):
+        user_id = self.authenticate()
 
         token = self.token("/")
 
         response = self.client.post("/scan", data={"csrf_token": token})
 
-        # Un jeton valide ne donne pas accès à une route
-        # qui n'est pas encore sécurisée par utilisateur.
-        self.assertEqual(response.status_code, 503)
-
-        self.assertEqual(len(jobs.list_jobs()), 0)
+        self.assertEqual(response.status_code, 303)
+        queued = jobs.list_jobs()
+        self.assertEqual(len(queued), 1)
+        self.assertEqual(queued[0]["user_id"], user_id)
 
     def test_unmigrated_imap_form_is_blocked(self):
         self.authenticate()

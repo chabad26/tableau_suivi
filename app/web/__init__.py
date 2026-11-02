@@ -67,6 +67,8 @@ def create_app() -> Flask:
             "applications.create_application_web",
             "applications.edit_application_web",
             "applications.delete_application_web",
+            "jobs.scan_emails_web",
+            "jobs.jobs_page",
         }
 
         if request.endpoint in allowed_endpoints:

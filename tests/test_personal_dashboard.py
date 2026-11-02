@@ -122,11 +122,11 @@ class PersonalDashboardTests(OfflineCase):
 
         self.assertIsNone(get_user_application(self.alice_id, self.alice_application))
 
-    def test_legacy_exports_and_jobs_stay_blocked(self):
+    def test_legacy_exports_and_connectors_stay_blocked(self):
         self.login_as_alice()
 
         self.assertEqual(self.client.get("/export/csv").status_code, 503)
 
-        self.assertEqual(self.client.get("/jobs").status_code, 503)
+        self.assertEqual(self.client.get("/jobs").status_code, 200)
 
         self.assertEqual(self.client.get("/connectors").status_code, 503)
