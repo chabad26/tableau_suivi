@@ -134,6 +134,8 @@ def save_user_imap_checkpoint(
     expected_folder: str,
     expected_provider: str,
     expected_auth_method: str,
+    expected_port: int,
+    expected_use_ssl: bool,
 ) -> bool:
     """
     Enregistre un checkpoint uniquement si la configuration
@@ -152,6 +154,9 @@ def save_user_imap_checkpoint(
     if uid_validity is None:
         return False
 
+    if uid_validity == previous_uid_validity and last_uid < previous_uid:
+        return False
+
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
 
@@ -168,6 +173,8 @@ def save_user_imap_checkpoint(
               AND folder = ?
               AND provider = ?
               AND auth_method = ?
+              AND port = ?
+              AND use_ssl = ?
               AND last_uid = ?
               AND uid_validity IS ?
               AND EXISTS (
@@ -187,6 +194,8 @@ def save_user_imap_checkpoint(
                 expected_folder,
                 expected_provider,
                 expected_auth_method,
+                expected_port,
+                int(expected_use_ssl),
                 previous_uid,
                 previous_uid_validity,
             ),

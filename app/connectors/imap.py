@@ -57,6 +57,7 @@ class ImapScanBatch:
     emails: list[DetectedEmail]
     last_uid: int
     uid_validity: int | None
+    failed_uids: int = 0
 
 
 def get_imap_accounts() -> list[ImapAccount]:
@@ -430,7 +431,7 @@ def scan_imap_account(
 
             except Exception as error:
                 failed_uids.append(int(imap_uid))
-                print(f"  ⚠ UID {imap_uid} ignoré ({type(error).__name__}: {error})")
+                print(f"  ⚠ UID {imap_uid} ignoré ({type(error).__name__})")
                 continue
 
         searched_uids = [int(imap_uid) for imap_uid in message_ids]
@@ -469,7 +470,10 @@ def scan_imap_account(
 
     if return_batch:
         return ImapScanBatch(
-            emails=detected, last_uid=max_uid, uid_validity=current_uid_validity
+            emails=detected,
+            last_uid=max_uid,
+            uid_validity=current_uid_validity,
+            failed_uids=len(failed_uids),
         )
 
     return detected

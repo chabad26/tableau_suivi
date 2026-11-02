@@ -1,5 +1,7 @@
 """Tests de la file de jobs multi-utilisateur."""
 
+import contextlib
+import io
 from unittest.mock import patch
 
 from app.accounts import create_user, set_user_active
@@ -85,10 +87,14 @@ class OwnedJobsTests(OfflineCase):
 
     def test_failed_job_does_not_leak_exception(self):
         job_id = enqueue_user_job(self.alice, "scan")
+        output = io.StringIO()
 
-        with patch(
-            "app.owned_jobs.execute_user_job",
-            side_effect=RuntimeError("mot-de-passe-secret-de-test"),
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.owned_jobs.execute_user_job",
+                side_effect=RuntimeError("mot-de-passe-secret-de-test"),
+            ),
         ):
             self.assertTrue(run_next_user_job())
 
@@ -99,6 +105,7 @@ class OwnedJobsTests(OfflineCase):
         self.assertEqual(job["state"], "failed")
 
         self.assertNotIn("mot-de-passe-secret-de-test", str(job["error"]))
+        self.assertNotIn("mot-de-passe-secret-de-test", output.getvalue())
 
     def test_legacy_jobs_are_not_executed(self):
         with get_connection() as connection:

@@ -172,6 +172,8 @@ def execute_user_job(user_id: int, kind: str) -> dict:
                 expected_folder=account.folder,
                 expected_provider=account.provider,
                 expected_auth_method=account.auth_method,
+                expected_port=account.port,
+                expected_use_ssl=account.use_ssl,
             )
 
         except Exception:
@@ -311,7 +313,7 @@ def run_next_user_job() -> bool:
         result = execute_user_job(user_id, kind)
 
     except Exception as exception:
-        print(f"❌ Job {job_id} : {type(exception).__name__}: {exception}")
+        print(f"❌ Job {job_id} : {type(exception).__name__}")
 
         finish_user_job(
             job_id,

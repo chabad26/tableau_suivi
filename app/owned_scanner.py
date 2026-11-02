@@ -142,6 +142,11 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
 
         result.emails.extend(batch.emails)
 
+        if batch.failed_uids:
+            result.errors.append(
+                f"Compte {account_id} : {batch.failed_uids} UID non lu(s)."
+            )
+
         result.account_scans.append(UserAccountScan(account=account, batch=batch))
 
         result.scanned_accounts += 1
