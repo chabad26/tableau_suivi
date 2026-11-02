@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
+from typing import Literal, overload
 
 from app.classifier import detect_status, score_message
 from app.connectors.common import (
@@ -45,6 +46,15 @@ class ImapAccount:
     auth_method: str
     password: str | None
     folder: str
+    last_uid: int
+    uid_validity: int | None
+
+
+@dataclass(frozen=True)
+class ImapScanBatch:
+    """Résultat d'un scan accompagné de son checkpoint."""
+
+    emails: list[DetectedEmail]
     last_uid: int
     uid_validity: int | None
 
@@ -206,13 +216,36 @@ def scan_imap(since: datetime) -> list[DetectedEmail]:
     return detected
 
 
+@overload
 def scan_imap_account(
     account: ImapAccount,
     since: datetime,
     *,
     persist_sync_state: bool = True,
     authenticator: Callable[[imaplib.IMAP4], None] | None = None,
-) -> list[DetectedEmail]:
+    return_batch: Literal[False] = False,
+) -> list[DetectedEmail]: ...
+
+
+@overload
+def scan_imap_account(
+    account: ImapAccount,
+    since: datetime,
+    *,
+    persist_sync_state: bool = True,
+    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
+    return_batch: Literal[True],
+) -> ImapScanBatch: ...
+
+
+def scan_imap_account(
+    account: ImapAccount,
+    since: datetime,
+    *,
+    persist_sync_state: bool = True,
+    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
+    return_batch: bool = False,
+) -> list[DetectedEmail] | ImapScanBatch:
     detected: list[DetectedEmail] = []
 
     connection = connect_imap(account)
@@ -282,11 +315,20 @@ def scan_imap_account(
         if status != "OK":
             raise RuntimeError("Recherche IMAP impossible.")
 
+        # Récupération des UID renvoyés par le serveur.
         if data and data[0]:
             raw_ids = data[0]
 
             if isinstance(raw_ids, bytes):
                 message_ids = raw_ids.decode("ascii", errors="ignore").split()
+
+        # Protection contre les UID déjà traités.
+        if (
+            current_uid_validity is not None
+            and account.uid_validity == current_uid_validity
+            and account.last_uid > 0
+        ):
+            message_ids = [uid for uid in message_ids if int(uid) > account.last_uid]
 
         print()
         print(f"📨 IMAP — {account.label}")
@@ -424,6 +466,11 @@ def scan_imap_account(
             connection.logout()
         except Exception:
             pass
+
+    if return_batch:
+        return ImapScanBatch(
+            emails=detected, last_uid=max_uid, uid_validity=current_uid_validity
+        )
 
     return detected
 

@@ -119,3 +119,77 @@ def set_user_imap_enabled(user_id: int, account_id: int, enabled: bool) -> bool:
         )
 
         return cursor.rowcount == 1
+
+
+def save_user_imap_checkpoint(
+    user_id: int,
+    account_id: int,
+    *,
+    previous_uid: int,
+    previous_uid_validity: int | None,
+    last_uid: int,
+    uid_validity: int | None,
+    expected_host: str,
+    expected_username: str,
+    expected_folder: str,
+    expected_provider: str,
+    expected_auth_method: str,
+) -> bool:
+    """
+    Enregistre un checkpoint uniquement si la configuration
+    IMAP et son propriétaire n'ont pas changé.
+
+    Retourne False en cas de modification concurrente.
+    """
+
+    user_id = require_user_id(user_id)
+
+    if last_uid < 0 or previous_uid < 0:
+        raise ValueError("UID IMAP invalide.")
+
+    # Sans UIDVALIDITY, on ne peut pas certifier
+    # que les UID correspondent à la même boîte.
+    if uid_validity is None:
+        return False
+
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+
+        cursor = connection.execute(
+            """
+            UPDATE imap_accounts
+            SET last_uid = ?,
+                uid_validity = ?
+            WHERE id = ?
+              AND user_id = ?
+              AND enabled = 1
+              AND host = ?
+              AND username = ?
+              AND folder = ?
+              AND provider = ?
+              AND auth_method = ?
+              AND last_uid = ?
+              AND uid_validity IS ?
+              AND EXISTS (
+                  SELECT 1
+                  FROM users
+                  WHERE users.id = imap_accounts.user_id
+                    AND users.active = 1
+              )
+            """,
+            (
+                last_uid,
+                uid_validity,
+                account_id,
+                user_id,
+                expected_host,
+                expected_username,
+                expected_folder,
+                expected_provider,
+                expected_auth_method,
+                previous_uid,
+                previous_uid_validity,
+            ),
+        )
+
+        return cursor.rowcount == 1

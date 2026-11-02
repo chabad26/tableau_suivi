@@ -26,21 +26,14 @@ from app.settings import (
     MICROSOFT_TOKEN_CACHE_FILE,
 )
 
-LEGACY_FILES = {
-    "gmail": GMAIL_TOKEN_FILE,
-    "microsoft": MICROSOFT_TOKEN_CACHE_FILE,
-}
+LEGACY_FILES = {"gmail": GMAIL_TOKEN_FILE, "microsoft": MICROSOFT_TOKEN_CACHE_FILE}
 
 
 def normalize_email(value: str) -> str:
     return value.strip().casefold()
 
 
-def get_target(
-    user_id: int,
-    account_id: int,
-    provider: str,
-):
+def get_target(user_id: int, account_id: int, provider: str):
     """Vérifie le propriétaire et la configuration OAuth."""
 
     row = get_user_imap_account(user_id, account_id)
@@ -90,24 +83,15 @@ def check_gmail_format(content: str) -> None:
     if not isinstance(info, dict):
         raise ValueError("Format du cache Gmail invalide.")
 
-    Credentials.from_authorized_user_info(
-        info,
-        GMAIL_SCOPES,
-    )
+    Credentials.from_authorized_user_info(info, GMAIL_SCOPES)
 
 
-def verify_gmail_identity(
-    content: str,
-    expected_email: str,
-) -> None:
+def verify_gmail_identity(content: str, expected_email: str) -> None:
     """Vérifie réellement le compte Google associé au jeton."""
 
     info = json.loads(content)
 
-    credentials = Credentials.from_authorized_user_info(
-        info,
-        GMAIL_SCOPES,
-    )
+    credentials = Credentials.from_authorized_user_info(info, GMAIL_SCOPES)
 
     if credentials.expired:
         if not credentials.refresh_token:
@@ -116,29 +100,22 @@ def verify_gmail_identity(
         try:
             credentials.refresh(Request())
         except RefreshError as error:
-            raise RuntimeError(
-                "Impossible de rafraîchir le jeton Gmail."
-            ) from error
+            raise RuntimeError("Impossible de rafraîchir le jeton Gmail.") from error
 
     if not credentials.valid or not credentials.token:
         raise RuntimeError("Jeton Gmail invalide.")
 
     with AuthorizedSession(credentials) as session:
         response = session.get(
-            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-            timeout=15,
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile", timeout=15
         )
         response.raise_for_status()
         profile = response.json()
 
-    actual_email = normalize_email(
-        str(profile.get("emailAddress", ""))
-    )
+    actual_email = normalize_email(str(profile.get("emailAddress", "")))
 
     if actual_email != expected_email:
-        raise RuntimeError(
-            "Le jeton Gmail appartient à une autre boîte."
-        )
+        raise RuntimeError("Le jeton Gmail appartient à une autre boîte.")
 
 
 def load_microsoft_accounts(
@@ -153,43 +130,30 @@ def load_microsoft_accounts(
     cache.deserialize(content)
 
     application = msal.PublicClientApplication(
-        client_id=MICROSOFT_CLIENT_ID,
-        authority=MICROSOFT_AUTHORITY,
-        token_cache=cache,
+        client_id=MICROSOFT_CLIENT_ID, authority=MICROSOFT_AUTHORITY, token_cache=cache
     )
 
     return application, application.get_accounts()
 
 
-def check_microsoft_identity(
-    content: str,
-    expected_email: str,
-) -> None:
+def check_microsoft_identity(content: str, expected_email: str) -> None:
     """Refuse les caches ambigus ou associés à une autre identité."""
 
     _, accounts = load_microsoft_accounts(content)
 
     if len(accounts) != 1:
-        raise RuntimeError(
-            "Le cache Microsoft doit contenir exactement un compte."
-        )
+        raise RuntimeError("Le cache Microsoft doit contenir exactement un compte.")
 
-    username = normalize_email(
-        str(accounts[0].get("username", ""))
-    )
+    username = normalize_email(str(accounts[0].get("username", "")))
 
     if username != expected_email:
         raise RuntimeError(
-            "Le compte Microsoft du cache ne correspond pas "
-            "à la boîte IMAP configurée."
+            "Le compte Microsoft du cache ne correspond pas à la boîte IMAP configurée."
         )
 
 
 def verify_microsoft_imap(
-    content: str,
-    expected_email: str,
-    host: str,
-    port: int,
+    content: str, expected_email: str, host: str, port: int
 ) -> None:
     """
     Vérifie l'autorisation Microsoft par une connexion IMAP réelle.
@@ -203,31 +167,23 @@ def verify_microsoft_imap(
         raise RuntimeError("Cache Microsoft ambigu.")
 
     result = application.acquire_token_silent(
-        scopes=MICROSOFT_SCOPES,
-        account=accounts[0],
+        scopes=MICROSOFT_SCOPES, account=accounts[0]
     )
 
     if not result or not result.get("access_token"):
         raise RuntimeError(
-            "Jeton Microsoft indisponible. "
-            "Une nouvelle autorisation est nécessaire."
+            "Jeton Microsoft indisponible. Une nouvelle autorisation est nécessaire."
         )
 
     token = str(result["access_token"])
 
     context = ssl.create_default_context()
 
-    connection = imaplib.IMAP4_SSL(
-        host,
-        port,
-        ssl_context=context,
-        timeout=15,
-    )
+    connection = imaplib.IMAP4_SSL(host, port, ssl_context=context, timeout=15)
 
     try:
         connection.authenticate(
-            "XOAUTH2",
-            lambda _: xoauth2_string(expected_email, token),
+            "XOAUTH2", lambda _: xoauth2_string(expected_email, token)
         )
 
     finally:
@@ -237,12 +193,7 @@ def verify_microsoft_imap(
             pass
 
 
-def migrate(
-    user_id: int,
-    account_id: int,
-    provider: str,
-    apply: bool,
-) -> None:
+def migrate(user_id: int, account_id: int, provider: str, apply: bool) -> None:
     provider = provider.strip().casefold()
 
     if provider not in LEGACY_FILES:
@@ -254,18 +205,12 @@ def migrate(
 
     source = LEGACY_FILES[provider]
 
-    destination = oauth_token_path(
-        user_id,
-        account_id,
-        provider,
-    )
+    destination = oauth_token_path(user_id, account_id, provider)
 
     content = read_legacy_file(source)
 
     if destination.is_symlink() or destination.exists():
-        raise RuntimeError(
-            "Un cache privé existe déjà. Migration refusée."
-        )
+        raise RuntimeError("Un cache privé existe déjà. Migration refusée.")
 
     if provider == "gmail":
         check_gmail_format(content)
@@ -296,39 +241,23 @@ def migrate(
     print("🔎 Vérification de l'identité OAuth...")
 
     if provider == "gmail":
-        verify_gmail_identity(
-            content,
-            expected_email,
-        )
+        verify_gmail_identity(content, expected_email)
 
     else:
         if not bool(row["use_ssl"]):
-            raise RuntimeError(
-                "La vérification Microsoft exige IMAP SSL."
-            )
+            raise RuntimeError("La vérification Microsoft exige IMAP SSL.")
 
         verify_microsoft_imap(
-            content,
-            expected_email,
-            str(row["host"]),
-            int(row["port"]),
+            content, expected_email, str(row["host"]), int(row["port"])
         )
 
     # Nouvelle vérification juste avant l'écriture.
     get_target(user_id, account_id, provider)
 
     if destination.is_symlink() or destination.exists():
-        raise RuntimeError(
-            "Un cache privé est apparu pendant la migration."
-        )
+        raise RuntimeError("Un cache privé est apparu pendant la migration.")
 
-    write_oauth_cache(
-        user_id,
-        account_id,
-        provider,
-        content,
-        overwrite=False,
-    )
+    write_oauth_cache(user_id, account_id, provider, content, overwrite=False)
 
     print()
     print("✅ Cache privé créé.")
@@ -341,23 +270,11 @@ def main() -> None:
         description="Migration sécurisée des anciens jetons OAuth."
     )
 
-    parser.add_argument(
-        "--user-id",
-        type=int,
-        required=True,
-    )
+    parser.add_argument("--user-id", type=int, required=True)
 
-    parser.add_argument(
-        "--account-id",
-        type=int,
-        required=True,
-    )
+    parser.add_argument("--account-id", type=int, required=True)
 
-    parser.add_argument(
-        "--provider",
-        choices=("gmail", "microsoft"),
-        required=True,
-    )
+    parser.add_argument("--provider", choices=("gmail", "microsoft"), required=True)
 
     parser.add_argument(
         "--apply",
@@ -368,9 +285,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.apply:
-        confirmation = input(
-            "Saisis MIGRER pour confirmer : "
-        ).strip()
+        confirmation = input("Saisis MIGRER pour confirmer : ").strip()
 
         if confirmation != "MIGRER":
             print("Migration annulée.")

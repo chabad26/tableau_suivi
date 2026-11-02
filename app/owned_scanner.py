@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.accounts import get_user
-from app.connectors.imap import ImapAccount, scan_imap_account
+from app.connectors.imap import ImapAccount, ImapScanBatch, scan_imap_account
 from app.connectors.imap_auth import authenticate_owned_imap
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
@@ -15,6 +15,7 @@ from app.secrets import get_imap_password
 @dataclass
 class UserScanResult:
     emails: list[DetectedEmail] = field(default_factory=list)
+    account_scans: list[UserAccountScan] = field(default_factory=list)
     scanned_accounts: int = 0
     skipped_accounts: int = 0
     errors: list[str] = field(default_factory=list)
@@ -79,6 +80,14 @@ def build_user_imap_account(user_id: int, account_id: int) -> ImapAccount:
     )
 
 
+@dataclass(frozen=True)
+class UserAccountScan:
+    """Résultat d'un scan pour un compte IMAP précis."""
+
+    account: ImapAccount
+    batch: ImapScanBatch
+
+
 def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
     """
     Analyse uniquement les comptes IMAP de user_id.
@@ -112,10 +121,11 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
             continue
 
         try:
-            detected = scan_imap_account(
+            batch = scan_imap_account(
                 account,
                 since,
                 persist_sync_state=False,
+                return_batch=True,
                 authenticator=lambda connection, aid=account_id: (
                     authenticate_owned_imap(
                         connection, user_id, aid, account.username, account.password
@@ -130,7 +140,10 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
 
             continue
 
-        result.emails.extend(detected)
+        result.emails.extend(batch.emails)
+
+        result.account_scans.append(UserAccountScan(account=account, batch=batch))
+
         result.scanned_accounts += 1
 
     return result

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from app.accounts import create_user
+from app.connectors.imap import ImapScanBatch
 from app.database import get_connection
 from app.owned_scanner import build_user_imap_account, scan_user_imap
 from tests.helpers import OfflineCase, fake_email
@@ -85,12 +86,22 @@ class OwnedScannerTests(OfflineCase):
                 "app.owned_scanner.get_imap_password", return_value="test-password"
             ) as get_password,
             patch(
-                "app.owned_scanner.scan_imap_account", return_value=[message]
+                "app.owned_scanner.scan_imap_account",
+                return_value=ImapScanBatch(
+                    emails=[message], last_uid=42, uid_validity=123
+                ),
             ) as scan,
         ):
             result = scan_user_imap(self.alice_id, SINCE)
 
         self.assertEqual(result.scanned_accounts, 1)
+
+        self.assertEqual(len(result.account_scans), 1)
+
+        self.assertEqual(result.account_scans[0].batch.last_uid, 42)
+
+        self.assertEqual(result.account_scans[0].batch.uid_validity, 123)
+
         self.assertEqual(len(result.emails), 1)
 
         get_password.assert_called_once_with(self.alice_account_id)
@@ -121,7 +132,10 @@ class OwnedScannerTests(OfflineCase):
 
         with (
             patch("app.owned_scanner.get_imap_password") as get_password,
-            patch("app.owned_scanner.scan_imap_account", return_value=[]) as scan,
+            patch(
+                "app.owned_scanner.scan_imap_account",
+                return_value=ImapScanBatch(emails=[], last_uid=42, uid_validity=123),
+            ) as scan,
         ):
             result = scan_user_imap(self.alice_id, SINCE)
 

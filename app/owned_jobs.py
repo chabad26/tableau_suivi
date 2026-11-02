@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.database import get_connection
 from app.owned_applications import require_user_id
+from app.owned_imap import save_user_imap_checkpoint
 
 ALLOWED_KINDS = frozenset({"scan"})
 
@@ -117,11 +118,7 @@ def get_user_job(user_id: int, job_id: str) -> sqlite3.Row | None:
 
 
 def execute_user_job(user_id: int, kind: str) -> dict:
-    """
-    Exécute un travail personnel.
-
-    Cette fonction ne dépend pas de Flask.
-    """
+    """Exécute un scan personnel avec checkpoints après import."""
 
     user_id = require_user_id(user_id)
 
@@ -134,19 +131,72 @@ def execute_user_job(user_id: int, kind: str) -> dict:
 
     scan_result = scan_user_imap(user_id=user_id, since=API_START_DATE)
 
-    # Un scan partiellement échoué ne doit pas être
-    # déclaré comme une synchronisation complète.
-    if scan_result.errors:
-        raise RuntimeError("Un ou plusieurs comptes IMAP n'ont pas pu être analysés.")
+    # Pas de faux succès si aucune boîte n'a été analysée.
+    if scan_result.scanned_accounts == 0:
+        raise RuntimeError("Aucun compte IMAP n'a pu être analysé.")
 
+    # IMPORTANT :
+    # importer avant toute écriture des checkpoints.
     import_result = import_user_emails(
         user_id=user_id, detected_emails=scan_result.emails
     )
+
+    checkpoint_errors: list[str] = []
+
+    for item in scan_result.account_scans:
+        account = item.account
+        batch = item.batch
+
+        if account.account_id is None:
+            checkpoint_errors.append("Compte IMAP sans identifiant.")
+            continue
+
+        # Une valeur UIDVALIDITY absente interdit
+        # l'enregistrement d'un checkpoint fiable.
+        if batch.uid_validity is None:
+            checkpoint_errors.append(
+                f"UIDVALIDITY absent pour le compte {account.account_id}."
+            )
+            continue
+
+        try:
+            saved = save_user_imap_checkpoint(
+                user_id,
+                account.account_id,
+                previous_uid=account.last_uid,
+                previous_uid_validity=account.uid_validity,
+                last_uid=batch.last_uid,
+                uid_validity=batch.uid_validity,
+                expected_host=account.host,
+                expected_username=account.username,
+                expected_folder=account.folder,
+                expected_provider=account.provider,
+                expected_auth_method=account.auth_method,
+            )
+
+        except Exception:
+            saved = False
+
+        if not saved:
+            checkpoint_errors.append(
+                f"Checkpoint refusé pour le compte {account.account_id}."
+            )
+
+    # L'import peut avoir réussi alors qu'une boîte
+    # a rencontré une erreur. On conserve les emails,
+    # mais on signale une synchronisation incomplète.
+    if scan_result.errors or checkpoint_errors:
+        raise RuntimeError(
+            "Synchronisation partielle : "
+            f"{len(scan_result.errors)} erreur(s) de scan, "
+            f"{len(checkpoint_errors)} erreur(s) de checkpoint."
+        )
 
     return {
         **asdict(import_result),
         "scanned_accounts": scan_result.scanned_accounts,
         "skipped_accounts": scan_result.skipped_accounts,
+        "checkpoints_saved": len(scan_result.account_scans),
     }
 
 
