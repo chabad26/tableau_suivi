@@ -10,7 +10,7 @@ Contrôle local du 2 novembre 2026, Linux, Python 3.14.4, Ruff 0.16.7. Branche `
 | `.venv/bin/ruff format --check .` | Conforme |
 | `.venv/bin/ruff check .` | All checks passed |
 | `npx --yes pyright` | 0 errors, 0 warnings, 0 informations |
-| `.venv/bin/python -m unittest discover -s tests -v` | 155 tests, OK |
+| `.venv/bin/python -m unittest discover -s tests -v` | 160 tests, OK |
 | `git diff --check` | Aucune erreur |
 
 Point de départ vérifié : 126 tests, OK, Ruff et Pyright conformes. La progression inclut la remise en collection de tests auparavant définis hors des classes unittest ; l'augmentation du total ne correspond donc pas uniquement à de nouveaux scénarios.
@@ -27,6 +27,8 @@ Point de départ vérifié : 126 tests, OK, Ruff et Pyright conformes. La progre
 - Une boîte indisponible conserve les messages importés des autres boîtes.
 - UIDVALIDITY absent : import conservé sans checkpoint ; changement de génération : rescan sans doublon.
 - Exception fictive contenant une valeur sensible : aucune fuite dans les logs UID.
+
+Les traces de diagnostic distinguent la fin du scan, les erreurs par compte, les checkpoints refusés et la fin de l'import. Cinq tests supplémentaires vérifient leur présence, l'absence d'un faux message de fin d'import après échec SQLite et le masquage d'une exception imprévue du gestionnaire de secrets.
 
 D'autres tests couvrent le CSRF, le propriétaire issu de session, la liste personnelle des jobs, les caches OAuth, les anciens jobs conservés, STARTTLS et l'arrêt du worker.
 

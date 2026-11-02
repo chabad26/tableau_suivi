@@ -131,6 +131,15 @@ def execute_user_job(user_id: int, kind: str) -> dict:
 
     scan_result = scan_user_imap(user_id=user_id, since=API_START_DATE)
 
+    print(
+        f"📊 Scan utilisateur {user_id} : "
+        f"{scan_result.scanned_accounts} compte(s) analysé(s), "
+        f"{scan_result.skipped_accounts} ignoré(s), "
+        f"{len(scan_result.errors)} erreur(s)."
+    )
+    for error in scan_result.errors:
+        print(f"⚠️ {error}")
+
     # Pas de faux succès si aucune boîte n'a été analysée.
     if scan_result.scanned_accounts == 0:
         raise RuntimeError("Aucun compte IMAP n'a pu être analysé.")
@@ -183,6 +192,13 @@ def execute_user_job(user_id: int, kind: str) -> dict:
             checkpoint_errors.append(
                 f"Checkpoint refusé pour le compte {account.account_id}."
             )
+            print(f"⚠️ Checkpoint refusé : compte {account.account_id}")
+
+    print(
+        f"📬 Import terminé : {len(scan_result.emails)} "
+        f"email(s) détecté(s), "
+        f"{len(checkpoint_errors)} erreur(s) de checkpoint."
+    )
 
     # L'import peut avoir réussi alors qu'une boîte
     # a rencontré une erreur. On conserve les emails,

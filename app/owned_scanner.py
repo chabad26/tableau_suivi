@@ -12,6 +12,10 @@ from app.owned_imap import get_enabled_user_imap_accounts, get_user_imap_account
 from app.secrets import get_imap_password
 
 
+class ImapAccountConfigurationError(ValueError):
+    """Erreur de configuration dont le message fixe peut être affiché."""
+
+
 @dataclass
 class UserScanResult:
     emails: list[DetectedEmail] = field(default_factory=list)
@@ -34,32 +38,32 @@ def build_user_imap_account(user_id: int, account_id: int) -> ImapAccount:
     row = get_user_imap_account(user_id, account_id)
 
     if row is None:
-        raise ValueError("Compte IMAP introuvable.")
+        raise ImapAccountConfigurationError("Compte IMAP introuvable.")
 
     if not bool(row["enabled"]):
-        raise ValueError("Compte IMAP désactivé.")
+        raise ImapAccountConfigurationError("Compte IMAP désactivé.")
 
     auth_method = str(row["auth_method"] or "password").casefold()
     provider = str(row["provider"] or "imap").casefold()
 
     if auth_method == "oauth2":
         if provider not in {"gmail", "microsoft"}:
-            raise ValueError("Fournisseur OAuth inconnu.")
+            raise ImapAccountConfigurationError("Fournisseur OAuth inconnu.")
 
         # OAuth n'utilise pas le mot de passe du keyring.
         password = None
 
     elif auth_method == "password":
         if provider in {"gmail", "microsoft"}:
-            raise ValueError("Ce fournisseur nécessite OAuth2.")
+            raise ImapAccountConfigurationError("Ce fournisseur nécessite OAuth2.")
 
         password = get_imap_password(account_id)
 
         if not password:
-            raise ValueError("Mot de passe IMAP absent.")
+            raise ImapAccountConfigurationError("Mot de passe IMAP absent.")
 
     else:
-        raise ValueError("Méthode d'authentification inconnue.")
+        raise ImapAccountConfigurationError("Méthode d'authentification inconnue.")
 
     uid_validity = int(row["uid_validity"]) if row["uid_validity"] is not None else None
 
@@ -113,11 +117,19 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
         try:
             account = build_user_imap_account(user_id, account_id)
 
-        except ValueError as error:
+        except ImapAccountConfigurationError as error:
             result.skipped_accounts += 1
 
             result.errors.append(f"Compte {account_id} : {error}")
 
+            continue
+
+        except Exception as error:
+            result.skipped_accounts += 1
+            result.errors.append(
+                f"Compte {account_id} : configuration inaccessible "
+                f"({type(error).__name__})"
+            )
             continue
 
         try:

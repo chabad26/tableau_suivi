@@ -42,6 +42,8 @@ Les cookies sont HttpOnly et SameSite=Lax ; Secure dépend de `APP_HTTPS=true`. 
 
 Les exceptions brutes ne sont plus imprimées par le worker personnel ni par la lecture des UID. Le chemin historique des jobs applique aussi cette règle. Les messages enregistrés pour l'interface sont génériques ; les tests injectent une fausse valeur sensible et vérifient son absence dans les logs et dans le résultat enregistré.
 
+Le résumé du scan, les erreurs filtrées par compte et le résumé d'import sont affichés pour distinguer les phases. Les messages de configuration fixes sont identifiés par une exception dédiée ; les exceptions imprévues du gestionnaire de secrets n'exposent que leur type.
+
 Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont des métadonnées à protéger. Ne pas transmettre des journaux réels dans la démonstration. Aucun mot de passe ou jeton réel n'est affiché, enregistré ou manipulé par les tests.
 
 ## Défauts reproduits et corrections

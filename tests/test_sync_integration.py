@@ -211,3 +211,92 @@ class SyncIntegrationTests(OfflineCase):
                 execute_user_job(self.alice, "scan")
         self.assertNotIn("FIXTURE-SECRET", output.getvalue())
         self.assertEqual(self.checkpoint(self.alice_account), (0, 777))
+
+    def test_scan_and_import_diagnostics_are_visible(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Scan utilisateur {self.alice} : 1 compte(s) analysé(s)", output.getvalue()
+        )
+        self.assertIn(
+            "Import terminé : 3 email(s) détecté(s), 0 erreur(s) de checkpoint.",
+            output.getvalue(),
+        )
+
+    def test_checkpoint_refusal_is_visible(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch("app.owned_jobs.save_user_imap_checkpoint", return_value=False),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Checkpoint refusé : compte {self.alice_account}", output.getvalue()
+        )
+        self.assertIn("1 erreur(s) de checkpoint.", output.getvalue())
+
+    def test_sqlite_failure_never_logs_import_completed(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.owned_importer.import_user_emails",
+                side_effect=sqlite3.OperationalError("FIXTURE-SECRET"),
+            ),
+        ):
+            with self.assertRaises(sqlite3.OperationalError):
+                execute_user_job(self.alice, "scan")
+        self.assertIn("Scan utilisateur", output.getvalue())
+        self.assertNotIn("Import terminé", output.getvalue())
+        self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+
+    def test_unexpected_configuration_error_never_exposes_secret(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.owned_scanner.get_imap_password",
+                side_effect=ValueError("FIXTURE-SECRET"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Aucun compte IMAP"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Compte {self.alice_account} : configuration inaccessible (ValueError)",
+            output.getvalue(),
+        )
+        self.assertIn(
+            "0 compte(s) analysé(s), 1 ignoré(s), 1 erreur(s).", output.getvalue()
+        )
+        self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+        self.assertNotIn("Import terminé", output.getvalue())
+
+    def test_known_configuration_error_remains_understandable(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch("app.owned_scanner.get_imap_password", return_value=None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Aucun compte IMAP"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Compte {self.alice_account} : Mot de passe IMAP absent.",
+            output.getvalue(),
+        )
