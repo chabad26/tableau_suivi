@@ -10,9 +10,9 @@ Job Tracker est une application locale de suivi de candidatures. Elle détecte l
 
 La page `/connectors` permet de lister, créer, modifier et activer/désactiver les boîtes du compte connecté. Le bouton **Tester la connexion** crée un travail personnel, exécuté par `worker.py`, sans import d'email ni modification du checkpoint. CSRF et contrôles de propriétaire sont conservés.
 
-Gmail et Microsoft nécessitent une autorisation OAuth personnelle déjà configurée : la création du connecteur ne lance pas de consentement OAuth. Les scans HTTP, la réanalyse et les exports restent désactivés sur cette branche tant que leurs routes ne sont pas migrées.
+Gmail et Microsoft nécessitent une autorisation OAuth personnelle déjà configurée : la création du connecteur ne lance pas de consentement OAuth. La réanalyse personnelle des emails archivés est également disponible depuis le tableau, sans accès réseau. Les scans HTTP et les exports restent désactivés sur cette branche tant que leurs routes ne sont pas migrées.
 
-Voir [le parcours de présentation et les limites](docs/CONNECTEURS.md).
+Voir [le parcours des connecteurs](docs/CONNECTEURS.md) et [la réanalyse personnelle](docs/REANALYSE.md).
 
 ## 🎯 Objectif
 

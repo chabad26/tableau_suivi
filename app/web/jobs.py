@@ -33,5 +33,6 @@ def scan_emails_web():
 
 
 @jobs_bp.post("/reclassify")
+@login_required
 def reclassify_emails_web():
-    abort(503, description="Réanalyse en cours de migration multi-utilisateur.")
+    return submit_job("reclassify")

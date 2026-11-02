@@ -111,14 +111,15 @@ class WebTests(OfflineCase):
 
         self.assertEqual(len(jobs.list_jobs()), 0)
 
-    def test_scan_and_reclassify_routes_are_blocked(self):
+    def test_scan_stays_blocked_and_personal_reanalysis_is_enqueued(self):
         scan_response = self.client.post("/scan")
         reclassify_response = self.client.post("/reclassify")
 
         self.assertEqual(scan_response.status_code, 503)
-        self.assertEqual(reclassify_response.status_code, 503)
+        self.assertEqual(reclassify_response.status_code, 303)
 
-        self.assertEqual(len(jobs.list_jobs()), 0)
+        self.assertEqual(len(jobs.list_jobs()), 1)
+        self.assertEqual(jobs.list_jobs()[0]["user_id"], self.user_id)
 
     def test_statistics_and_date_fallback(self):
         application_id = self.application()

@@ -5,13 +5,13 @@
 <h1>Mes travaux</h1>
 {% include 'partials/flash_messages.html' %}
 <p>Les travaux sont exécutés dans l'ordre. Une demande identique déjà en attente n'est pas ajoutée deux fois.</p>
-<p>Les tests de connexion sont exécutés en arrière-plan. Actualisez cette page pour voir leur résultat.</p>
+<p>Les tests de connexion et les réanalyses sont exécutés en arrière-plan. Actualisez cette page pour voir leur résultat.</p>
 <div class="header-actions">
     <a class="secondary-button" href="{{ url_for('jobs.jobs_page') }}">↻ Actualiser</a>
     <a class="secondary-button" href="{{ url_for('connectors.connectors_page') }}">⚙ Connecteurs</a>
 </div>
 {% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}
-{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
+{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse de mes emails archivés', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
 {% for job in jobs %}
 <section class="card">
 <h2>{% if job.kind.startswith("test:imap:") %}Test de connexion — boîte n° {{ job.kind.rsplit(":", 1)[1] }}{% else %}{{ kinds.get(job.kind, job.kind) }}{% endif %} — {{ states[job.state] }}</h2>
@@ -19,7 +19,7 @@
 {% if job.result %}
 {% if job.result.connected %}<p>Connexion, authentification et accès au dossier vérifiés. Aucun email importé.</p>{% endif %}
 <ul>
-{% for key, label in [('detected', 'Emails détectés'), ('added', 'Emails ajoutés'), ('found', 'Emails réanalysés'), ('changed', 'Statuts modifiés'), ('applications_updated', 'Statuts des candidatures actualisés'), ('missing', 'Emails sans corps récupérable')] %}
+{% for key, label in [('scanned', 'Emails archivés parcourus'), ('detected', 'Emails détectés'), ('added', 'Emails ajoutés'), ('found', 'Emails réanalysés'), ('changed', 'Statuts modifiés'), ('applications_updated', 'Candidatures actualisées'), ('missing', 'Emails sans contenu archivé')] %}
 {% if key in job.result %}<li>{{ label }} : {{ job.result[key] }}</li>{% endif %}
 {% endfor %}
 </ul>

@@ -76,6 +76,7 @@ def create_app() -> Flask:
             "connectors.toggle_imap_account",
             "connectors.test_imap_account_web",
             "jobs.jobs_page",
+            "jobs.reclassify_emails_web",
         }
 
         if request.endpoint in allowed_endpoints:

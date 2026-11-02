@@ -181,7 +181,7 @@ class OwnedJobsTests(OfflineCase):
 
     def test_unknown_kind_is_rejected(self):
         with self.assertRaises(ValueError):
-            enqueue_user_job(self.alice, "reclassify")
+            enqueue_user_job(self.alice, "unknown-kind")
 
         with self.assertRaises(ValueError):
             enqueue_user_job(self.alice, "test:imap:1")

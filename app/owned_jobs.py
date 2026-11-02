@@ -10,7 +10,7 @@ from app.database import get_connection
 from app.owned_applications import require_user_id
 from app.owned_imap import save_user_imap_checkpoint
 
-ALLOWED_KINDS = frozenset({"scan"})
+ALLOWED_KINDS = frozenset({"scan", "reclassify"})
 
 
 def check_active_user(connection: sqlite3.Connection, user_id: int) -> None:
@@ -138,6 +138,11 @@ def execute_user_job(user_id: int, kind: str) -> dict:
 
         return test_user_imap_connection(user_id, int(test_match.group(1)))
 
+    if kind == "reclassify":
+        from app.owned_reclassifier import reclassify_user_emails
+
+        return asdict(reclassify_user_emails(user_id))
+
     if kind != "scan":
         raise ValueError("Type de travail non autorisé.")
 
@@ -243,7 +248,7 @@ def claim_next_user_job() -> tuple[str, int, str] | None:
             WHERE j.state = 'queued'
               AND j.user_id IS NOT NULL
               AND u.active = 1
-              AND (j.kind = 'scan' OR EXISTS (
+              AND (j.kind IN ('scan', 'reclassify') OR EXISTS (
                   SELECT 1 FROM imap_accounts AS a
                   WHERE a.user_id = j.user_id AND a.enabled = 1
                     AND j.kind = 'test:imap:' || a.id

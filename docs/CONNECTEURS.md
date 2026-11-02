@@ -46,7 +46,7 @@ Les anciens caches ne sont ni migrés ni renouvelés par cette évolution. Aucun
 - Les erreurs techniques brutes ne sont affichées ni dans la page ni dans les jobs. Les détails historiques `last_error` ne sont pas rendus dans l'interface.
 - Le schéma existant conserve l'unicité globale des adresses IMAP : un conflit est refusé sans révéler l'autre propriétaire.
 - Les jobs historiques sans propriétaire restent ignorés par le worker personnel.
-- Sur cette branche, `/scan`, `/reclassify`, les exports et les autres actions non migrées restent bloqués ; seul le test de connexion par compte est réactivé avec la liste des jobs personnels.
+- Sur cette branche, `/scan`, les exports et les autres actions non migrées restent bloqués. Les tests de connexion et la [réanalyse personnelle des archives](REANALYSE.md) sont disponibles dans la file des jobs personnels.
 
 ## Validation hors réseau
 
@@ -60,4 +60,4 @@ node --check static/imap-form.js
 
 Les nouveaux tests utilisent SQLite temporaire, un keyring simulé et des connexions IMAP simulées. Ils couvrent création, modification, activation, conflits, CSRF, isolation, déduplication des jobs et absence de lecture d'emails pendant un test de connexion. Aucun test ne lance de synchronisation réelle. Le test IMAP historique a été isolé sur une base temporaire pour ne plus initialiser la base habituelle.
 
-Dernier contrôle local : **150 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'a été lancée.
+Dernier contrôle local : **171 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'a été lancée.
