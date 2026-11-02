@@ -70,6 +70,15 @@ with ExitStack() as stack:
         pass
     else:
         raise AssertionError('Le réseau sortant doit être bloqué')
+    from flask import Flask
+    def fake_run(app, **kwargs):
+        assert kwargs['port'] == 5001
+        assert not kwargs['debug']
+        assert app.config['DEMO_MODE']
+        assert app.config['SESSION_COOKIE_NAME'] == 'job_tracker_demo_session'
+        assert 'Démonstration hors ligne' in app.test_client().get('/login').text
+    with patch.object(Flask, 'run', new=fake_run):
+        demo.serve_demo(root)
     assert not (root / 'oauth').exists()
     assert (root / 'campus.sqlite3').stat().st_mode & 0o777 == 0o600
 """
