@@ -9,7 +9,7 @@ def recruitment_message(uid: int, mailbox: str) -> bytes:
     message["To"] = mailbox
     message["Subject"] = "Votre candidature au poste de Développeur Python"
     message["Date"] = "Mon, 02 Nov 2026 10:00:00 +0000"
-    message["Message-ID"] = f"<{mailbox}-{uid}@demo.invalid>"
+    message["Message-ID"] = f"<{mailbox.replace('@', '-')}-{uid}@demo.invalid>"
     message.set_content(
         "Nous avons bien reçu votre candidature chez Entreprise Fictive."
     )
@@ -22,6 +22,7 @@ class FakeImap:
         self.messages = {uid: recruitment_message(uid, mailbox) for uid in (1, 2, 3)}
         self.failed_uids = set(failed_uids)
         self.unavailable = unavailable
+        self.uid_validity: int | None = 777
         self.fetched: list[int] = []
 
     def login(self, username, password):
@@ -35,7 +36,7 @@ class FakeImap:
 
     def response(self, name):
         assert name == "UIDVALIDITY"
-        return "OK", [b"777"]
+        return "OK", [str(self.uid_validity).encode() if self.uid_validity else None]
 
     def uid(self, command, *args):
         if command == "search":

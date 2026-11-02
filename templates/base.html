@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+{% if config.get('DEMO_MODE') %}
+<p role="status">Démonstration hors ligne — données et messageries fictives.</p>
+{% endif %}
 <nav class="app-navigation" aria-label="Navigation principale">
 
     {% if current_user.is_authenticated %}
