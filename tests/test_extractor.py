@@ -108,33 +108,111 @@ class ExtractorTests(unittest.TestCase):
 
         self.assertEqual(source, "Indeed")
 
+    def test_html_body_is_normalized_before_extraction(self):
+        body = """
+        <html>
+            <head>
+                <style>
+                    p { color: red; }
+                </style>
+            </head>
+            <body>
+                <p>
+                    Merci d'avoir postulé pour le poste
+                    Administrateur DevOps chez ACME.
+                </p>
+            </body>
+        </html>
+        """
 
-def test_html_body_is_normalized_before_extraction(self):
-    body = """
-    <html>
-        <head>
-            <style>
-                p { color: red; }
-            </style>
-        </head>
-        <body>
-            <p>
-                Merci d'avoir postulé pour le poste
-                Administrateur DevOps chez ACME.
-            </p>
-        </body>
-    </html>
-    """
+        normalized = normalize_email_body(body)
 
-    normalized = normalize_email_body(body)
+        self.assertNotIn("<p>", normalized)
 
-    self.assertNotIn("<p>", normalized)
+        self.assertNotIn("color: red", normalized)
 
-    self.assertNotIn("color: red", normalized)
+        self.assertIn("Administrateur DevOps", normalized)
 
-    self.assertIn("Administrateur DevOps", normalized)
+        self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
 
-    self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
+
+class ApplicationReceiptTitleTests(unittest.TestCase):
+    def test_recorded_application_extracts_quoted_title(self):
+        subject = "Votre candidature est arrivée chez GERARD PERRIER INDUSTRIE"
+        body = (
+            "votre candidature est enregistrée. "
+            '"ingénieur cybersécurité industrielle h/f" '
+            "pour l'entreprise gerard perrier industrie"
+        )
+        company, title, _ = extract_application_data(
+            subject, "Notifications <notifications@example.invalid>", body
+        )
+        self.assertEqual(company, "GERARD PERRIER INDUSTRIE")
+        self.assertEqual(title, "ingénieur cybersécurité industrielle h/f")
+
+    def test_linkedin_receipt_separates_title_company_city_and_link(self):
+        subject = "Camille, votre candidature a été envoyée à XEFI"
+        body = (
+            "votre candidature a été envoyée à xefi "
+            "technicien systeme et reseau (h/f) xefi bourgoin-jallieu "
+            "voir l’offre d’emploi : https://www.linkedin.com/comm/jobs/view/0000000000/"
+        )
+        self.assertEqual(
+            extract_application_data(
+                subject, "LinkedIn <notifications@linkedin.com>", body
+            ),
+            ("XEFI", "technicien systeme et reseau (h/f)", "LinkedIn"),
+        )
+
+    def test_quoted_title_accepts_french_quotes_and_html(self):
+        body = (
+            "<p>Votre candidature est enregistrée.</p>"
+            "<p>&laquo; Ingénieur cybersécurité industrielle H/F &raquo; "
+            "pour l’entreprise ACME</p>"
+        )
+        self.assertEqual(
+            extract_job_title("Votre candidature", body),
+            "Ingénieur cybersécurité industrielle H/F",
+        )
+
+    def test_sent_receipt_is_not_specific_to_xefi_or_one_gender_marker(self):
+        for marker in ("H/F", "F/H", "H / F"):
+            with self.subTest(marker=marker):
+                subject = "Votre candidature a été envoyée à ACME (France)"
+                body = f"Votre candidature a été envoyée à ACME (France) Développeur C++ ({marker}) ACME (France) Grenoble Voir l’offre d’emploi"
+                self.assertEqual(
+                    extract_job_title(subject, body), f"Développeur C++ ({marker})"
+                )
+
+    def test_employer_only_subjects_do_not_invent_titles(self):
+        for subject in (
+            "Votre candidature est arrivée chez GERARD PERRIER INDUSTRIE",
+            "Votre candidature a été envoyée à XEFI",
+        ):
+            with self.subTest(subject=subject):
+                self.assertEqual(extract_job_title(subject), "")
+                self.assertEqual(
+                    extract_job_title(subject, "Merci pour votre candidature."), ""
+                )
+
+    def test_sent_receipt_requires_matching_employer_and_title_boundary(self):
+        subject = "Votre candidature a été envoyée à XEFI"
+        for body in (
+            "Votre candidature a été envoyée à XEFI. Voir l’offre d’emploi : https://example.invalid",
+            "Votre candidature a été envoyée à ACME Technicien réseaux (H/F) ACME Grenoble",
+            "Votre candidature a été envoyée à XEFI Technicien réseaux (H/F) Grenoble",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(extract_job_title(subject, body), "")
+
+    def test_explicit_subject_title_keeps_priority_over_receipt_body(self):
+        self.assertEqual(
+            extract_job_title(
+                "Votre candidature : Administrateur réseaux",
+                'Votre candidature est enregistrée. "Ingénieur sécurité H/F" pour l’entreprise ACME',
+            ),
+            "Administrateur réseaux",
+        )
 
 
 def main() -> None:

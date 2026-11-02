@@ -49,3 +49,9 @@ L'ensemble de la réanalyse personnelle s'effectue dans une transaction SQLite :
 La suite utilise une base temporaire et vérifie l'isolation Alice/Bob, les Message-ID identiques entre utilisateurs, les liens historiques incohérents, la conservation des corrections manuelles, la chronologie, les messages incomplets/détachés, l'idempotence, le rollback, le CSRF, l'identité issue de session et la non-exécution des jobs historiques. Un test utilise réellement le classificateur sur un refus fictif ; d'autres injectent des résultats déterministes pour cibler les invariants.
 
 Aucune réanalyse n'est exécutée sur la base réelle pendant cette validation.
+
+## Intitulés présents dans les accusés de candidature
+
+L'extracteur partagé avec l'import reconnaît également un intitulé entre guillemets après « votre candidature est enregistrée », suivi de « pour l’entreprise ». Il reconnaît aussi les récapitulatifs d'envoi dans lesquels le titre terminé par `(H/F)` ou `(F/H)` se situe entre deux occurrences de l'employeur indiqué dans le sujet. La ville, l'employeur répété et le lien vers l'offre sont exclus de l'intitulé.
+
+Un sujet contenant uniquement le nom de l'entreprise ne suffit pas à inventer un poste. Ces nouvelles règles remplissent les titres manquants lors de l'import ou de la réanalyse des candidatures sans correction manuelle ; elles ne remplacent pas les détails des candidatures marquées comme corrigées manuellement.

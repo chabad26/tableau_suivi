@@ -374,7 +374,36 @@ def extract_job_title(subject: str, body: str = "") -> str:
             if title:
                 return title
 
+    # Récapitulatif d'envoi : entreprise, titre (H/F), entreprise, ville, lien.
+    # Le nom de l'employeur vient du sujet, sans supposer un nom ou un métier.
+    receipt_prefix = r"votre candidature a (?:été envoyée à|ete envoyee a)\s+"
+    receipt = re.search(receipt_prefix + r"(.+)$", subject, flags=re.IGNORECASE)
+    if receipt and receipt.group(1).strip(" .!?"):
+        employer = re.escape(receipt.group(1).strip(" .!?"))
+        match = re.search(
+            receipt_prefix
+            + employer
+            + r"\s+(.{3,120}?\(\s*(?:h\s*/\s*f|f\s*/\s*h)\s*\))\s+"
+            + employer
+            + r"(?=\s|$)",
+            body,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            title = clean_job_title(match.group(1))
+            if title and not re.search(
+                r"https?://|voir l['’]offre|autres offres|découvrez|decouvrez",
+                title,
+                flags=re.IGNORECASE,
+            ):
+                return title
+
     body_patterns = [
+        (
+            r"votre candidature est (?:bien\s+)?enregistr(?:ée|ee)"
+            r"\s*[.!:]?\s*[\"«“](.{3,120}?)[\"»”]\s+"
+            r"pour\s+l['’]entreprise\b"
+        ),
         r"intitulé du poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",
         r"intitule du poste\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
         r"poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",

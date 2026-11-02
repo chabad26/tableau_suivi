@@ -60,4 +60,4 @@ node --check static/imap-form.js
 
 Les nouveaux tests utilisent SQLite temporaire, un keyring simulé et des connexions IMAP simulées. Ils couvrent création, modification, activation, conflits, CSRF, isolation, déduplication des jobs et absence de lecture d'emails pendant un test de connexion. Aucun test ne lance de synchronisation réelle. Le test IMAP historique a été isolé sur une base temporaire pour ne plus initialiser la base habituelle.
 
-Dernier contrôle local : **171 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'a été lancée.
+Dernier contrôle local : **181 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'a été lancée.

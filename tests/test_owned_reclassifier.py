@@ -345,3 +345,54 @@ class OwnedReclassifierTests(OfflineCase):
             ),
             (0, 0, 0, 0, 0),
         )
+
+    def test_receipt_formats_recover_missing_job_titles_during_reanalysis(self):
+        examples = [
+            (
+                "Votre candidature est arrivée chez GERARD PERRIER INDUSTRIE",
+                'Votre candidature est enregistrée. "ingénieur cybersécurité industrielle h/f" pour l’entreprise gerard perrier industrie',
+                "ingénieur cybersécurité industrielle h/f",
+            ),
+            (
+                "Votre candidature a été envoyée à XEFI",
+                "Votre candidature a été envoyée à xefi technicien systeme et reseau (h/f) xefi bourgoin-jallieu voir l’offre d’emploi : https://example.invalid/offre",
+                "technicien systeme et reseau (h/f)",
+            ),
+        ]
+        for subject, body, expected in examples:
+            with self.subTest(subject=subject):
+                with get_connection() as connection:
+                    connection.execute(
+                        "UPDATE emails SET subject=?, body=? WHERE user_id=?",
+                        (subject, body, self.alice),
+                    )
+                    connection.execute(
+                        "UPDATE applications SET job_title='', manual_override=0 WHERE id=? AND user_id=?",
+                        (self.alice_app, self.alice),
+                    )
+                reclassify_user_emails(self.alice)
+                self.assertEqual(
+                    get_user_application(self.alice, self.alice_app)["job_title"],
+                    expected,
+                )
+
+    def test_new_receipt_extraction_does_not_replace_manual_job_title(self):
+        corrected_title = "Technicien systèmes et réseaux — correction manuelle"
+        with get_connection() as connection:
+            connection.execute(
+                "UPDATE emails SET subject=?, body=? WHERE user_id=?",
+                (
+                    "Votre candidature a été envoyée à XEFI",
+                    "Votre candidature a été envoyée à xefi technicien systeme et reseau (h/f) xefi bourgoin-jallieu",
+                    self.alice,
+                ),
+            )
+            connection.execute(
+                "UPDATE applications SET job_title=?, manual_override=1 WHERE id=? AND user_id=?",
+                (corrected_title, self.alice_app, self.alice),
+            )
+        reclassify_user_emails(self.alice)
+        self.assertEqual(
+            get_user_application(self.alice, self.alice_app)["job_title"],
+            corrected_title,
+        )
