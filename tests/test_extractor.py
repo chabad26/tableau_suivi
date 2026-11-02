@@ -108,33 +108,32 @@ class ExtractorTests(unittest.TestCase):
 
         self.assertEqual(source, "Indeed")
 
+    def test_html_body_is_normalized_before_extraction(self):
+        body = """
+        <html>
+            <head>
+                <style>
+                    p { color: red; }
+                </style>
+            </head>
+            <body>
+                <p>
+                    Merci d'avoir postulé pour le poste
+                    Administrateur DevOps chez ACME.
+                </p>
+            </body>
+        </html>
+        """
 
-def test_html_body_is_normalized_before_extraction(self):
-    body = """
-    <html>
-        <head>
-            <style>
-                p { color: red; }
-            </style>
-        </head>
-        <body>
-            <p>
-                Merci d'avoir postulé pour le poste
-                Administrateur DevOps chez ACME.
-            </p>
-        </body>
-    </html>
-    """
+        normalized = normalize_email_body(body)
 
-    normalized = normalize_email_body(body)
+        self.assertNotIn("<p>", normalized)
 
-    self.assertNotIn("<p>", normalized)
+        self.assertNotIn("color: red", normalized)
 
-    self.assertNotIn("color: red", normalized)
+        self.assertIn("Administrateur DevOps", normalized)
 
-    self.assertIn("Administrateur DevOps", normalized)
-
-    self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
+        self.assertEqual(extract_job_title("", body), "Administrateur DevOps")
 
 
 def main() -> None:

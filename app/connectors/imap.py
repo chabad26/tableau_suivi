@@ -166,7 +166,13 @@ def connect_imap(account: ImapAccount) -> imaplib.IMAP4:
                     account.host, account.port, ssl_context=context, timeout=15
                 )
 
-            return imaplib.IMAP4(account.host, account.port, timeout=15)
+            connection = imaplib.IMAP4(account.host, account.port, timeout=15)
+            try:
+                connection.starttls(ssl_context=ssl.create_default_context())
+            except Exception:
+                connection.shutdown()
+                raise
+            return connection
 
         except ssl.SSLCertVerificationError:
             raise RuntimeError("Certificat TLS IMAP non valide.") from None

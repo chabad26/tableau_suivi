@@ -172,20 +172,19 @@ class OwnedScannerTests(OfflineCase):
         with self.assertRaises(ValueError):
             scan_user_imap(0, SINCE)
 
+    def test_disabled_user_cannot_scan(self):
+        with get_connection() as connection:
+            connection.execute(
+                """
+                UPDATE users
+                SET active = 0
+                WHERE id = ?
+                """,
+                (self.alice_id,),
+            )
 
-def test_disabled_user_cannot_scan(self):
-    with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE users
-            SET active = 0
-            WHERE id = ?
-            """,
-            (self.alice_id,),
-        )
+        with patch("app.owned_scanner.scan_imap_account") as scan:
+            with self.assertRaises(ValueError):
+                scan_user_imap(self.alice_id, SINCE)
 
-    with patch("app.owned_scanner.scan_imap_account") as scan:
-        with self.assertRaises(ValueError):
-            scan_user_imap(self.alice_id, SINCE)
-
-        scan.assert_not_called()
+            scan.assert_not_called()

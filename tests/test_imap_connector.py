@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from app import database
 from app.connectors.imap import ImapAccount, scan_imap, scan_imap_account
 from app.settings import API_START_DATE
+from tests.helpers import OfflineCase
 
 
 def fake_account(*, last_uid: int = 100, uid_validity: int | None = 777) -> ImapAccount:
@@ -25,10 +26,7 @@ def fake_account(*, last_uid: int = 100, uid_validity: int | None = 777) -> Imap
     )
 
 
-class ImapConnectorTests(unittest.TestCase):
-    def setUp(self):
-        database.init_database()
-
+class ImapConnectorTests(OfflineCase):
     def test_scan_without_accounts_returns_empty_list(self):
         with patch("app.connectors.imap.get_enabled_imap_accounts", return_value=[]):
             emails = scan_imap(API_START_DATE)
@@ -127,3 +125,30 @@ class ImapConnectorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TransportSecurityTests(unittest.TestCase):
+    def test_starttls_is_required_before_returning_connection(self):
+        from dataclasses import replace
+
+        from app.connectors.imap import connect_imap
+
+        connection = MagicMock()
+        with patch("app.connectors.imap.imaplib.IMAP4", return_value=connection):
+            result = connect_imap(replace(fake_account(), use_ssl=False, port=143))
+        self.assertIs(result, connection)
+        connection.starttls.assert_called_once()
+        connection.login.assert_not_called()
+
+    def test_starttls_failure_closes_connection(self):
+        from dataclasses import replace
+
+        from app.connectors.imap import connect_imap
+
+        connection = MagicMock()
+        connection.starttls.side_effect = RuntimeError("TLS unavailable")
+        with patch("app.connectors.imap.imaplib.IMAP4", return_value=connection):
+            with self.assertRaises(RuntimeError):
+                connect_imap(replace(fake_account(), use_ssl=False, port=143))
+        connection.shutdown.assert_called_once()
+        connection.login.assert_not_called()
