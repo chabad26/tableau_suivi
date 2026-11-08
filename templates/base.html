@@ -59,6 +59,16 @@
     {% endif %}
 
 </nav>
+{% if current_user.is_authenticated and session.get('login_sync_jobs') %}
+<aside class="login-sync" id="login-sync" role="status" aria-live="polite"
+       data-status-url="{{ url_for('jobs.login_sync_status') }}"
+       data-dashboard-url="{{ url_for('applications.index') }}">
+    <span class="login-sync-spinner" aria-hidden="true"></span>
+    <span data-sync-message>Mise à jour de tes candidatures en cours… Tu peux continuer à naviguer.</span>
+    <a class="back-link" href="{{ url_for('jobs.jobs_page') }}">Voir les travaux</a>
+</aside>
+<script src="{{ url_for('static', filename='login-sync.js') }}" defer></script>
+{% endif %}
 {% block content %}{% endblock %}
 {% block scripts %}{% endblock %}
 </body>

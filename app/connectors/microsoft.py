@@ -98,7 +98,10 @@ def _get_owned_microsoft_token_unlocked(
         raise RuntimeError("Cache Microsoft invalide.") from error
 
     application = msal.PublicClientApplication(
-        client_id=MICROSOFT_CLIENT_ID, authority=AUTHORITY, token_cache=cache
+        client_id=MICROSOFT_CLIENT_ID,
+        authority=AUTHORITY,
+        token_cache=cache,
+        timeout=15,
     )
 
     expected = expected_email.strip().casefold()

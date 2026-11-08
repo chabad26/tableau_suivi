@@ -60,6 +60,7 @@ with ExitStack() as stack:
     assert 'Atelier des Alpes — Bob' not in page.text
     job_id = enqueue_user_job(alice, 'scan')
     assert run_next_user_job()
+    assert run_next_user_job()
     assert json.loads(get_user_job(alice, job_id)['result'])['added'] == 0
     with get_connection() as connection:
         assert connection.execute("SELECT state FROM jobs WHERE id='historique-demo'").fetchone()[0] == 'queued'

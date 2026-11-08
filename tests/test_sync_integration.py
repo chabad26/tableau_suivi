@@ -1,6 +1,7 @@
 """Pipeline réel scan/détection/import/checkpoint, transport IMAP fictif."""
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from app.database import get_connection
@@ -80,6 +81,58 @@ class SyncIntegrationTests(OfflineCase):
         execute_user_job(self.bob, "scan")
         self.assertTrue(get_user_applications(self.bob))
         self.global_auth.assert_not_called()
+
+    def test_empty_scan_expires_only_owners_stale_waiting_applications(self):
+        now = datetime.now(timezone.utc)
+        old = (now - timedelta(days=31)).isoformat()
+        self.servers[self.alice_account].messages = {}
+        cases = [
+            (self.alice, "SENT", old, 0, "EXPIRED"),
+            (self.alice, "RECEIVED", old, 0, "EXPIRED"),
+            (self.alice, "OTHER", old, 0, "EXPIRED"),
+            (self.alice, "SENT", now.isoformat(), 0, "SENT"),
+            (self.alice, "SENT", old, 1, "EXPIRED"),
+            (self.alice, "RECEIVED", old, 1, "EXPIRED"),
+            (self.alice, "SENT", now.isoformat(), 1, "SENT"),
+            (self.alice, "INTERVIEW", old, 1, "INTERVIEW"),
+            (self.alice, "REJECTED", old, 1, "REJECTED"),
+            (self.alice, "INTERVIEW", old, 0, "INTERVIEW"),
+            (self.alice, "REJECTED", old, 0, "REJECTED"),
+            (self.bob, "SENT", old, 0, "SENT"),
+            (None, "SENT", old, 0, "SENT"),
+        ]
+        ids = []
+        with get_connection() as connection:
+            for owner, status, date, manual, expected in cases:
+                cursor = connection.execute(
+                    "INSERT INTO applications (user_id, company, job_title, source, first_seen, last_update, current_status, manual_override) VALUES (?, 'Fixture', '', 'test', ?, ?, ?, ?)",
+                    (owner, date, date, status, manual),
+                )
+                ids.append(cursor.lastrowid)
+                if manual:
+                    connection.execute(
+                        "UPDATE applications SET manual_status=?, manual_note='Note conservée', job_title='Poste corrigé', current_status='OTHER' WHERE id=?",
+                        (status, cursor.lastrowid),
+                    )
+        with patch("app.maintenance.APPLICATION_EXPIRY_DAYS", 30):
+            result = execute_user_job(self.alice, "scan")
+            self.assertEqual(result["added"], 0)
+            self.assertEqual(result["expired"], 5)
+            self.assertEqual(execute_user_job(self.alice, "scan")["expired"], 0)
+        with get_connection() as connection:
+            for application_id, (_, _, date, manual, expected) in zip(ids, cases):
+                row = connection.execute(
+                    "SELECT * FROM applications WHERE id=?", (application_id,)
+                ).fetchone()
+                self.assertEqual(
+                    row["manual_status"] if manual else row["current_status"], expected
+                )
+                if manual:
+                    self.assertEqual(row["manual_override"], 1)
+                    self.assertEqual(row["manual_note"], "Note conservée")
+                    self.assertEqual(row["job_title"], "Poste corrigé")
+                    self.assertEqual(row["current_status"], "OTHER")
+                self.assertEqual(row["last_update"], date)
 
     def test_sqlite_failure_rolls_back_and_does_not_advance_checkpoint(self):
         with get_connection() as connection:

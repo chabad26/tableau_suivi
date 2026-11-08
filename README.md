@@ -63,7 +63,13 @@ Le mot de passe est demandé sans affichage et seul son hash scrypt est stocké.
 
 Interface : **http://127.0.0.1:5000**. Le mode debug est désactivé. Le serveur de développement reste destiné à un usage local.
 
-Le bouton de scan suppose que les comptes IMAP personnels et leurs secrets sont déjà configurés. Les écrans de gestion des connecteurs restent désactivés pendant leur migration ; cette branche ne fournit pas un parcours complet d'inscription des messageries. Aucun compte réel ni jeton réel n'est créé ou migré par la démonstration.
+Le scan suppose que les comptes IMAP personnels et leurs secrets sont déjà configurés depuis les connecteurs. L'autorisation OAuth interactive reste à effectuer séparément. Aucun compte réel ni jeton réel n'est créé ou migré par la démonstration.
+
+À chaque connexion réussie, une réanalyse des archives est mise en file, puis un scan si l'utilisateur possède au moins une boîte activée. Les tâches personnelles déjà en attente ou en cours sont réutilisées. La connexion ne contacte aucun fournisseur mail et les candidatures sont immédiatement accessibles. La réanalyse recalcule également les candidatures « Sans réponse », même si le scan suivant échoue faute de réseau.
+
+Un bandeau suit l'avancement sur les pages authentifiées. Il disparaît quand les tâches réussissent ; le tableau ouvert est alors actualisé. Un échec laisse un message et un lien vers les travaux. Après 30 secondes en file, le bandeau indique l'attente du worker. Après deux minutes, le suivi automatique s'arrête sans bloquer la page ni annuler le travail ; consulter **Mes travaux** pour connaître son état réel. Les erreurs de suivi HTTP arrêtent également l'animation après trois tentatives, chacune limitée à cinq secondes. Sans JavaScript, le lien vers les travaux reste disponible.
+
+Le worker habituel doit rester démarré pour exécuter ces tâches. La démo utilise son worker fictif intégré, y compris pour les mises à jour de connexion. Aucun scan réel n'est lancé par les tests.
 
 ## Fonctionnalités disponibles
 

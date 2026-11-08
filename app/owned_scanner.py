@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.accounts import get_user
+from app.connectors.gmail import GmailAuthorizationError
 from app.connectors.imap import ImapAccount, ImapScanBatch, scan_imap_account
 from app.connectors.imap_auth import authenticate_owned_imap
 from app.models import DetectedEmail
@@ -14,6 +15,19 @@ from app.secrets import get_imap_password
 
 class ImapAccountConfigurationError(ValueError):
     """Erreur de configuration dont le message fixe peut être affiché."""
+
+
+class ImapConnectionTestError(RuntimeError):
+    """Étape en échec, sans inclure la réponse du serveur ou les secrets."""
+
+    MESSAGES = {
+        "connection": "Connexion au serveur IMAP impossible. Vérifier le réseau et la configuration TLS.",
+        "authentication": "Authentification IMAP ou contrôle OAuth impossible. Vérifier l'autorisation du compte.",
+        "folder": "Accès au dossier IMAP impossible. Vérifier le dossier configuré.",
+    }
+
+    def __init__(self, stage: str):
+        super().__init__(self.MESSAGES[stage])
 
 
 @dataclass
@@ -145,6 +159,10 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
                 ),
             )
 
+        except GmailAuthorizationError as error:
+            result.errors.append(f"Compte {account_id} : {error}")
+            continue
+
         except Exception as error:
             result.errors.append(
                 f"Compte {account_id} : échec du scan ({type(error).__name__})"
@@ -177,19 +195,24 @@ def test_user_imap_connection(user_id: int, account_id: int) -> dict:
         raise ValueError("Utilisateur inexistant ou désactivé.")
     account = build_user_imap_account(user_id, account_id)
     connection = None
+    stage = "connection"
     try:
         connection = connect_imap(account)
+        stage = "authentication"
         authenticate_owned_imap(
             connection, user_id, account_id, account.username, account.password
         )
+        stage = "folder"
         status, _ = connection.select(account.folder, readonly=True)
         if status != "OK":
             raise RuntimeError("Dossier IMAP inaccessible.")
+    except GmailAuthorizationError as error:
+        update_user_imap_health(user_id, account_id, "error", str(error))
+        raise
     except Exception:
-        update_user_imap_health(
-            user_id, account_id, "error", "Connexion ou autorisation indisponible."
-        )
-        raise RuntimeError("Connexion ou autorisation indisponible.") from None
+        error = ImapConnectionTestError(stage)
+        update_user_imap_health(user_id, account_id, "error", str(error))
+        raise error from None
     finally:
         if connection is not None:
             try:

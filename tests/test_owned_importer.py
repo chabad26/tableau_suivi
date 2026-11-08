@@ -45,6 +45,55 @@ class OwnedImporterTests(OfflineCase):
         self.assertEqual(application["user_id"], self.alice_id)
         self.assertEqual(email["user_id"], self.alice_id)
 
+    def test_next_import_replaces_invalid_automatic_title(self):
+        import_user_emails(self.alice_id, [fake_email("<first@example.invalid>")])
+        with get_connection() as connection:
+            connection.execute(
+                "UPDATE applications SET job_title='Votre candidature' WHERE user_id=?",
+                (self.alice_id,),
+            )
+        import_user_emails(self.alice_id, [fake_email("<next@example.invalid>")])
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT job_title FROM applications WHERE user_id=?", (self.alice_id,)
+            ).fetchall()
+        self.assertEqual([row["job_title"] for row in rows], ["Développeur Python"])
+
+    def test_import_keeps_manually_cleared_title(self):
+        import_user_emails(self.alice_id, [fake_email("<first@example.invalid>")])
+        with get_connection() as connection:
+            connection.execute(
+                "UPDATE applications SET job_title='', manual_override=1, manual_note='À conserver' WHERE user_id=?",
+                (self.alice_id,),
+            )
+        import_user_emails(self.alice_id, [fake_email("<next@example.invalid>")])
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT job_title, manual_note FROM applications WHERE user_id=?",
+                (self.alice_id,),
+            ).fetchone()
+        self.assertEqual(row["job_title"], "")
+        self.assertEqual(row["manual_note"], "À conserver")
+
+    def test_different_jobs_at_same_company_stay_separate(self):
+        messages = [
+            fake_email("<developer@example.invalid>"),
+            fake_email(
+                "<technician@example.invalid>",
+                subject="Votre candidature au poste de Technicien réseaux",
+            ),
+        ]
+        import_user_emails(self.alice_id, messages)
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT job_title FROM applications WHERE user_id=? ORDER BY id",
+                (self.alice_id,),
+            ).fetchall()
+        self.assertEqual(
+            [row["job_title"] for row in rows],
+            ["Développeur Python", "Technicien réseaux"],
+        )
+
     def test_duplicate_email_is_skipped(self):
         message = fake_email("<alice-2@example.invalid>")
 

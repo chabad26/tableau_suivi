@@ -1,11 +1,23 @@
 """Authentification HTTP avec Flask-Login."""
 
+import sqlite3
 from dataclasses import dataclass
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_login import LoginManager, UserMixin, current_user, login_user, logout_user
 
 from app.accounts import User, authenticate, get_user
+from app.owned_imap import get_enabled_user_imap_accounts
+from app.owned_jobs import enqueue_user_job
 
 auth_bp = Blueprint("auth", __name__)
 login_manager = LoginManager()
@@ -67,6 +79,24 @@ def login():
             flash("Identifiants invalides.", "error")
         else:
             login_user(as_login_user(user), remember=False)
+            session.pop("login_sync_jobs", None)
+            if current_app.config.get("AUTO_SYNC_ON_LOGIN", True):
+                jobs = []
+                try:
+                    # Le traitement local passe avant le réseau : il reste disponible
+                    # même lorsque les fournisseurs IMAP sont injoignables.
+                    jobs.append(enqueue_user_job(user.id, "reclassify"))
+                    if get_enabled_user_imap_accounts(user.id):
+                        jobs.append(enqueue_user_job(user.id, "scan"))
+                except sqlite3.Error, ValueError:
+                    current_app.logger.warning(
+                        "Synchronisation de connexion indisponible"
+                    )
+                    flash(
+                        "La mise à jour automatique est indisponible. Tes candidatures restent accessibles.",
+                        "info",
+                    )
+                session["login_sync_jobs"] = jobs
 
             return redirect(url_for("auth.account"), code=303)
 
@@ -75,6 +105,7 @@ def login():
 
 @auth_bp.post("/logout")
 def logout():
+    session.pop("login_sync_jobs", None)
     logout_user()
 
     return redirect(url_for("auth.login"), code=303)

@@ -52,6 +52,12 @@ Aucune réanalyse n'est exécutée sur la base réelle pendant cette validation.
 
 ## Intitulés présents dans les accusés de candidature
 
-L'extracteur partagé avec l'import reconnaît également un intitulé entre guillemets après « votre candidature est enregistrée », suivi de « pour l’entreprise ». Il reconnaît aussi les récapitulatifs d'envoi dans lesquels le titre terminé par `(H/F)` ou `(F/H)` se situe entre deux occurrences de l'employeur indiqué dans le sujet. La ville, l'employeur répété et le lien vers l'offre sont exclus de l'intitulé.
+L'extracteur partagé avec l'import reconnaît un intitulé entre guillemets immédiatement après « votre candidature est enregistrée », même sans la mention « pour l’entreprise ». Il reconnaît aussi « Merci d’avoir postulé à l’offre de… », les titres cités dans les notifications de réponse et « Votre candidature de… n’a pas été retenue ».
+
+Les récapitulatifs d'envoi sont reconnus lorsque le titre se situe entre deux occurrences de l'employeur indiqué dans le sujet. Les marqueurs `(H/F)` ou `(F/H)` sont facultatifs si le titre possède un score suffisant selon les règles de l'extracteur. La ville, l'employeur répété et le lien vers l'offre sont exclus de l'intitulé. Les suites comme « et vous remercions… » sont coupées et les caractères de largeur nulle sont retirés.
 
 Un sujet contenant uniquement le nom de l'entreprise ne suffit pas à inventer un poste. Ces nouvelles règles remplissent les titres manquants lors de l'import ou de la réanalyse des candidatures sans correction manuelle ; elles ne remplacent pas les détails des candidatures marquées comme corrigées manuellement.
+
+L'import peut améliorer un titre automatique vide ou invalide, ou nettoyer une fin de phrase capturée par erreur. Deux intitulés distincts chez le même employeur restent séparés. Les nouvelles règles s'appliquent aux prochains imports ; pour les messages déjà archivés, utiliser la réanalyse, car le scan incrémental ne retélécharge pas les anciens emails. Un titre corrigé manuellement, y compris un titre volontairement vide, reste préservé.
+
+Contrôle du 5 novembre 2026 : comparaison en lecture seule sur 143 emails rattachés aux candidatures de l'utilisateur n°1. Les extractions vides passent de 46 à 37 ; 9 messages obtiennent ainsi un titre et 2 extractions existantes sont modifiées. Aucun résultat auparavant non vide ne devient vide. Ces chiffres mesurent la couverture, pas une validation humaine de tous les titres. Aucune réanalyse ni écriture sur la base personnelle n'a été effectuée pendant ce contrôle. La sélection entre les alternatives MIME texte/HTML reste inchangée.

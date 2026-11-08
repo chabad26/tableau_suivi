@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.database import get_connection
-from app.extractor import company_key, extract_application_data
+from app.extractor import (
+    clean_job_title,
+    company_key,
+    extract_application_data,
+    job_title_score,
+)
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
 from migrate.migrate_email_uniqueness import has_composite_unique
@@ -47,13 +52,13 @@ def find_owned_application(
     ).fetchall()
 
     target_company = company_key(company)
-    target_title = job_title.strip().casefold()
+    target_title = clean_job_title(job_title).casefold()
 
     for row in rows:
         if company_key(str(row["company"] or "")) != target_company:
             continue
 
-        existing_title = str(row["job_title"] or "").strip().casefold()
+        existing_title = clean_job_title(str(row["job_title"] or "")).casefold()
 
         if target_title and existing_title and target_title != existing_title:
             continue
@@ -108,7 +113,7 @@ def update_owned_application(
 
     current = connection.execute(
         """
-        SELECT last_update, job_title
+        SELECT last_update, job_title, manual_override
         FROM applications
         WHERE id = ?
           AND user_id = ?
@@ -124,7 +129,14 @@ def update_owned_application(
     existing_date = normalized_date(datetime.fromisoformat(str(current["last_update"])))
 
     current_title = str(current["job_title"] or "")
-    new_title = current_title or job_title
+    new_title = current_title
+    if not current["manual_override"]:
+        cleaned_title = clean_job_title(current_title)
+        new_title = (
+            job_title
+            if job_title_score(job_title) > job_title_score(cleaned_title)
+            else cleaned_title
+        )
 
     if incoming_date >= existing_date:
         connection.execute(

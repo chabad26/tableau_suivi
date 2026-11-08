@@ -60,4 +60,18 @@ node --check static/imap-form.js
 
 Les nouveaux tests utilisent SQLite temporaire, un keyring simulé et des connexions IMAP simulées. Ils couvrent création, modification, activation, conflits, CSRF, isolation, déduplication des jobs et absence de lecture d'emails pendant un test de connexion. Aucun test ne lance de synchronisation réelle. Le test IMAP historique a été isolé sur une base temporaire pour ne plus initialiser la base habituelle.
 
-Dernier contrôle local : **233 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'a été lancée.
+Contrôle initial de la gestion des connecteurs : **233 tests réussis**, Ruff conforme, Pyright sans erreur ni avertissement et JavaScript valide avec `node --check`. Le rendu des pages et les formulaires ont été vérifiés avec le client de test Flask ; aucune connexion réelle à un fournisseur n'avait été lancée pendant ce contrôle initial.
+
+## Renouveler une autorisation Gmail refusée
+
+L'expiration du jeton d'accès est normale. Si Google refuse son renouvellement, une nouvelle autorisation peut être nécessaire. Les diagnostics OAuth Gmail contrôlés sont conservés par le scanner, les tests de connexion, les logs du worker et la page des travaux. Les erreurs techniques inattendues restent masquées ; un test de connexion indique seulement l'étape concernée (connexion/TLS, authentification/OAuth ou dossier).
+
+Depuis le terminal local, arrêter le worker avec `Ctrl+C`, puis lancer, en remplaçant les identifiants par ceux du propriétaire et de sa boîte :
+
+```bash
+.venv/bin/python authorize_gmail.py --user-id 1 --account-id 3
+```
+
+Choisir dans le navigateur l'adresse Google qui correspond exactement au compte IMAP. Le consentement attend au maximum trois minutes. La commande exige une autorisation renouvelable et vérifie l'identité via le profil Gmail avant d'écrire le cache privé de cette seule boîte. Une erreur d'identité conserve le cache existant. Aucun email n'est lu ni importé ; les caches historiques et les autres fournisseurs ne sont pas modifiés. La commande suppose que le fichier client OAuth Google est déjà configuré.
+
+Redémarrer ensuite le worker et demander un seul test de connexion Gmail depuis les connecteurs.

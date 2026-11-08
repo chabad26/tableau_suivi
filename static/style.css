@@ -1239,3 +1239,38 @@ tbody tr:last-child td {
     flex-wrap: wrap;
   }
 }
+.login-sync {
+  margin: 16px auto;
+  padding: 14px 18px;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.login-sync[hidden],
+.login-sync-idle .login-sync-spinner {
+  display: none;
+}
+
+.login-sync-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: login-sync-spin 1s linear infinite;
+}
+
+@keyframes login-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-sync-spinner { animation: none; }
+}

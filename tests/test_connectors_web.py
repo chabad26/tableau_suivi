@@ -5,6 +5,7 @@ import io
 import re
 from unittest.mock import MagicMock, patch
 
+from app.connectors.gmail import GmailAuthorizationError
 from app.database import get_connection
 from app.owned_imap import (
     create_user_imap_account,
@@ -349,6 +350,58 @@ class ConnectorWebTests(OfflineCase):
             get_user_imap_account(self.alice, self.account)["last_status"], "error"
         )
         self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+
+    def test_gmail_diagnostic_survives_test_job_and_health_record(self):
+        self.client.post(f"/connectors/imap/{self.account}/test")
+        output = io.StringIO()
+        connection = MagicMock()
+        expected = GmailAuthorizationError.MESSAGES["refresh_rejected"]
+        with (
+            contextlib.redirect_stdout(output),
+            patch("app.connectors.imap.connect_imap", return_value=connection),
+            patch(
+                "app.owned_scanner.authenticate_owned_imap",
+                side_effect=GmailAuthorizationError("refresh_rejected"),
+            ),
+        ):
+            self.assertTrue(run_next_user_job())
+        job = list_user_jobs(self.alice)[0]
+        self.assertEqual(job["error"], expected)
+        self.assertIn(expected, output.getvalue())
+        self.assertEqual(
+            get_user_imap_account(self.alice, self.account)["last_error"], expected
+        )
+        connection.uid.assert_not_called()
+        connection.logout.assert_called_once()
+
+    def test_unexpected_failures_report_only_the_test_stage(self):
+        for stage in ("connection", "authentication", "folder"):
+            with self.subTest(stage=stage):
+                self.client.post(f"/connectors/imap/{self.account}/test")
+                connection = MagicMock()
+                if stage == "folder":
+                    connection.select.side_effect = RuntimeError("PRIVATE-DETAIL")
+                with (
+                    patch(
+                        "app.connectors.imap.connect_imap",
+                        side_effect=RuntimeError("PRIVATE-DETAIL")
+                        if stage == "connection"
+                        else None,
+                        return_value=connection,
+                    ),
+                    patch(
+                        "app.owned_scanner.authenticate_owned_imap",
+                        side_effect=RuntimeError("PRIVATE-DETAIL")
+                        if stage == "authentication"
+                        else None,
+                    ),
+                ):
+                    self.assertTrue(run_next_user_job())
+                job = list_user_jobs(self.alice)[0]
+                from app.owned_scanner import ImapConnectionTestError
+
+                self.assertEqual(job["error"], ImapConnectionTestError.MESSAGES[stage])
+                self.assertNotIn("PRIVATE-DETAIL", job["error"])
 
     def test_worker_rechecks_owner_before_authentication(self):
         self.client.post(f"/connectors/imap/{self.account}/test")

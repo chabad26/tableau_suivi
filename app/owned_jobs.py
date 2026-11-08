@@ -6,9 +6,11 @@ import sqlite3
 from dataclasses import asdict
 from uuid import uuid4
 
+from app.connectors.gmail import GmailAuthorizationError
 from app.database import get_connection
 from app.owned_applications import require_user_id
 from app.owned_imap import save_user_imap_checkpoint
+from app.owned_scanner import ImapConnectionTestError
 
 ALLOWED_KINDS = frozenset({"scan", "reclassify"})
 
@@ -139,13 +141,18 @@ def execute_user_job(user_id: int, kind: str) -> dict:
         return test_user_imap_connection(user_id, int(test_match.group(1)))
 
     if kind == "reclassify":
+        from app.maintenance import expire_stale_applications
         from app.owned_reclassifier import reclassify_user_emails
 
-        return asdict(reclassify_user_emails(user_id))
+        result = reclassify_user_emails(user_id)
+        # La réanalyse ne doit pas rétablir un ancien statut d'attente lorsque
+        # le scan réseau suivant est indisponible.
+        return {**asdict(result), "expired": expire_stale_applications(user_id=user_id)}
 
     if kind != "scan":
         raise ValueError("Type de travail non autorisé.")
 
+    from app.maintenance import expire_stale_applications
     from app.owned_importer import import_user_emails
     from app.owned_scanner import scan_user_imap
     from app.settings import API_START_DATE
@@ -231,8 +238,11 @@ def execute_user_job(user_id: int, kind: str) -> dict:
             f"{len(checkpoint_errors)} erreur(s) de checkpoint."
         )
 
+    expired = expire_stale_applications(user_id=user_id)
+
     return {
         **asdict(import_result),
+        "expired": expired,
         "scanned_accounts": scan_result.scanned_accounts,
         "skipped_accounts": scan_result.skipped_accounts,
         "checkpoints_saved": len(scan_result.account_scans),
@@ -354,17 +364,16 @@ def run_next_user_job() -> bool:
         result = execute_user_job(user_id, kind)
 
     except Exception as exception:
-        print(f"❌ Job {job_id} : {type(exception).__name__}")
-
-        finish_user_job(
-            job_id,
-            user_id,
-            state="failed",
-            error=(
-                f"Échec ({type(exception).__name__}). "
-                "Vérifier les connecteurs puis relancer."
-            ),
+        # Seuls les diagnostics construits à partir de messages fixes sont exposés.
+        # Une exception inattendue peut contenir un secret ou une réponse serveur.
+        error = (
+            str(exception)
+            if isinstance(exception, (GmailAuthorizationError, ImapConnectionTestError))
+            else f"Échec ({type(exception).__name__}). Vérifier les connecteurs puis relancer."
         )
+        print(f"❌ Job {job_id} ({kind}) : {error}")
+
+        finish_user_job(job_id, user_id, state="failed", error=error)
 
     else:
         finish_user_job(job_id, user_id, state="succeeded", result=result)

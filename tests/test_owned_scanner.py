@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from app.accounts import create_user
+from app.connectors.gmail import GmailAuthorizationError
 from app.connectors.imap import ImapScanBatch
 from app.database import get_connection
 from app.owned_scanner import build_user_imap_account, scan_user_imap
@@ -13,6 +14,24 @@ SINCE = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
 
 class OwnedScannerTests(OfflineCase):
+    def test_only_controlled_gmail_diagnostics_are_displayed(self):
+        for error, expected in (
+            (
+                GmailAuthorizationError("refresh_rejected"),
+                "Une nouvelle autorisation est nécessaire",
+            ),
+            (RuntimeError("PRIVATE-TOKEN-DETAIL"), "échec du scan (RuntimeError)"),
+        ):
+            with (
+                self.subTest(error=type(error).__name__),
+                patch("app.owned_scanner.get_imap_password", return_value="fixture"),
+                patch("app.owned_scanner.scan_imap_account", side_effect=error),
+            ):
+                result = scan_user_imap(self.alice_id, SINCE)
+                self.assertEqual(result.scanned_accounts, 0)
+                self.assertIn(expected, result.errors[0])
+                self.assertNotIn("PRIVATE-TOKEN-DETAIL", result.errors[0])
+
     def setUp(self):
         super().setUp()
 

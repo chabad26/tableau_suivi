@@ -37,6 +37,50 @@ job_samples = [
 
 
 class ExtractorTests(unittest.TestCase):
+    def test_additional_receipt_and_reply_templates(self):
+        title = "Technicien systèmes et réseaux H/F"
+        cases = [
+            (
+                "Candidature reçue",
+                f"Merci d’avoir postulé à l’offre de {title}. Nous étudions votre profil.",
+            ),
+            ("Candidature reçue", f"Vous avez postulé à l’offre {title} chez ACME."),
+            (
+                "Votre candidature",
+                f'Votre candidature est enregistrée. "{title}" pour une mission. Découvrez aussi nos offres : Développeur Java.',
+            ),
+            (
+                f'Vous avez reçu une réponse de ACME pour "{title}"',
+                "Votre candidature n’a pas été retenue.",
+            ),
+            (f"Votre candidature de {title} n’a pas été retenue", ""),
+            (
+                "Votre candidature",
+                f"Nous avons reçu votre candidature au poste de {title} et vous remercions pour votre intérêt et le temps consacré à notre entreprise avant de vous répondre dans les prochaines semaines.",
+            ),
+        ]
+        for subject, body in cases:
+            with self.subTest(subject=subject, body=body):
+                self.assertEqual(extract_job_title(subject, body), title)
+
+    def test_linkedin_receipt_without_gender_marker(self):
+        self.assertEqual(
+            extract_job_title(
+                "Votre candidature a été envoyée à ACME",
+                "Votre candidature a été envoyée à ACME Technicien réseaux ACME Lyon Voir l’offre d’emploi : https://example.invalid/job",
+            ),
+            "Technicien réseaux",
+        )
+
+    def test_recommendations_and_generic_receipts_do_not_invent_titles(self):
+        for body in (
+            "Votre candidature est enregistrée. Découvrez aussi nos offres : Technicien réseaux H/F.",
+            'Merci pour votre candidature. Nos autres offres : "Technicien réseaux H/F".',
+            "Votre candidature a été envoyée à ACME. Voir l’offre d’emploi : https://example.invalid",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(extract_job_title("Votre candidature", body), "")
+
     def test_hidden_html_preheader_is_extracted(self):
 
         html_body = """

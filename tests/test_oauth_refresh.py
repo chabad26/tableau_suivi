@@ -8,6 +8,38 @@ from app.connectors.microsoft import get_owned_microsoft_token
 
 
 class GmailRefreshTests(TestCase):
+    def test_private_refresh_failures_use_fixed_diagnostics(self):
+        from google.auth.exceptions import RefreshError
+
+        from app.connectors.gmail import (
+            GmailAuthorizationError,
+            _get_owned_gmail_token_unlocked,
+        )
+
+        for retryable, code in (
+            (False, "refresh_rejected"),
+            (True, "refresh_temporary"),
+        ):
+            with (
+                self.subTest(retryable=retryable),
+                patch("app.connectors.gmail.read_oauth_cache", return_value="{}"),
+                patch("app.connectors.gmail.Credentials") as credentials_class,
+                patch("app.connectors.gmail.write_oauth_cache") as write,
+            ):
+                credentials = credentials_class.from_authorized_user_info.return_value
+                credentials.expired = True
+                credentials.refresh_token = "fixture"
+                credentials.refresh.side_effect = RefreshError(
+                    "PRIVATE-TOKEN-DETAIL", retryable=retryable
+                )
+                with self.assertRaises(GmailAuthorizationError) as caught:
+                    _get_owned_gmail_token_unlocked(1, 3, "alice@example.invalid")
+                self.assertEqual(
+                    str(caught.exception), GmailAuthorizationError.MESSAGES[code]
+                )
+                self.assertNotIn("PRIVATE", str(caught.exception))
+                write.assert_not_called()
+
     @patch("app.connectors.gmail.locked_oauth_account")
     @patch("app.connectors.gmail._get_owned_gmail_token_unlocked")
     def test_gmail_uses_locked_private_flow(self, get_token, lock):
@@ -51,6 +83,7 @@ class GmailRefreshTests(TestCase):
         self.assertEqual(result, "access-token-test")
 
         credentials.refresh.assert_called_once()
+        self.assertEqual(credentials.refresh.call_args.args[0].keywords["timeout"], 15)
         response.raise_for_status.assert_called_once()
 
         write.assert_called_once_with(1, 3, "gmail", '{"updated": true}')
@@ -130,6 +163,7 @@ class MicrosoftRefreshTests(TestCase):
         result = _get_owned_microsoft_token_unlocked(1, 4, "alice@example.com")
 
         self.assertEqual(result, "ms-access-token-test")
+        self.assertEqual(app_class.call_args.kwargs["timeout"], 15)
 
         self.assertEqual(
             application.acquire_token_silent.call_args.kwargs["account"],

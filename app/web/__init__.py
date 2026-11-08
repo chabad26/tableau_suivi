@@ -78,6 +78,7 @@ def create_app() -> Flask:
             "connectors.toggle_imap_account",
             "connectors.test_imap_account_web",
             "jobs.jobs_page",
+            "jobs.login_sync_status",
             "jobs.scan_emails_web",
             "jobs.reclassify_emails_web",
             "admin.users_page",
