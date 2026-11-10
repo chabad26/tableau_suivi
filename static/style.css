@@ -1000,14 +1000,16 @@ tbody tr:last-child td {
   grid-template-columns:
     repeat(
       auto-fit,
-      minmax(300px, 1fr)
+      minmax(min(100%, 300px), 1fr)
     );
 
   gap: 18px;
 }
 
 .connector-card {
+  min-width: 0;
   min-height: 250px;
+  overflow-wrap: anywhere;
 
   padding: 22px;
 
@@ -1019,11 +1021,17 @@ tbody tr:last-child td {
 
 .connector-header {
   display: flex;
+  flex-wrap: wrap;
 
   justify-content: space-between;
   align-items: flex-start;
 
-  gap: 20px;
+  gap: 12px;
+}
+
+.connector-header > div {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .connector-card h2 {

@@ -1,0 +1,5 @@
+un dashboard pour une vision des status et historiques
+ajout des type promo (Data, GRC ...) sur les users.
+sur le dashboard uniquement les chiffres
+onglet avec CV et LM avec annotations/messages
+rajouter zone de texte pour rentrer l'offre (voir si il peut récuperer l'offre depuis l'url) ou copier coller.
