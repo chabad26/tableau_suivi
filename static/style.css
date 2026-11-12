@@ -1019,6 +1019,16 @@ tbody tr:last-child td {
   border-radius: 16px;
 }
 
+.offer-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
 .connector-header {
   display: flex;
   flex-wrap: wrap;

@@ -4,20 +4,43 @@
 <div class="page">
     <header class="header">
         <div><p class="eyebrow">ADMINISTRATION</p><h1>Comptes utilisateurs</h1>
-            <p class="subtitle">Créez les accès des apprenants, formateurs et administrateurs.</p></div>
+            <p class="subtitle">Créez les accès des apprenants et de l'équipe pédagogique.</p></div>
         <a class="primary-button" href="{{ url_for('admin.new_user') }}">+ Créer un compte</a>
     </header>
     {% include 'partials/flash_messages.html' %}
+    <section class="detail-card" aria-labelledby="promotions-title">
+        <h2 id="promotions-title">Promotions</h2>
+        <p>Ajoutez les libellés utilisés pour classer les comptes, par exemple Data ou GRC. Une promotion ne change pas les droits d'accès.</p>
+        <form method="post" action="{{ url_for('admin.create_promotion_web') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="promotion-name">Nouvelle promotion</label>
+                <input id="promotion-name" name="name" maxlength="100" required>
+            </div>
+            <button type="submit" class="secondary-button">Ajouter la promotion</button>
+        </form>
+        <p>Promotions disponibles : {% for promotion in promotions %}{{ promotion.name }}{% if not loop.last %}, {% endif %}{% else %}aucune pour le moment{% endfor %}.</p>
+    </section>
     <p>La désactivation bloque l’accès au compte et conserve ses candidatures, emails et connecteurs.</p>
     <section class="table-card"><div class="table-wrapper">
         <table>
             <caption>Comptes enregistrés : {{ users|length }}</caption>
-            <thead><tr><th scope="col">Email</th><th scope="col">Rôle</th><th scope="col">État</th><th scope="col">Création (UTC)</th><th scope="col">Action</th></tr></thead>
+            <thead><tr><th scope="col">Email</th><th scope="col">Rôle</th><th scope="col">Promotion</th><th scope="col">État</th><th scope="col">Création (UTC)</th><th scope="col">Action</th></tr></thead>
             <tbody>
             {% for user in users %}
                 <tr>
                     <td>{{ user.email }}{% if user.id == current_user.id %} <span>(vous)</span>{% endif %}</td>
                     <td>{{ role_labels[user.role] }}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('admin.set_user_promotion_web', user_id=user.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select id="promotion-user-{{ user.id }}" name="promotion_id" aria-label="Promotion de {{ user.email }}">
+                                <option value="">Non renseignée</option>
+                                {% for promotion in promotions %}<option value="{{ promotion.id }}" {% if user.promotion_id == promotion.id %}selected{% endif %}>{{ promotion.name }}</option>{% endfor %}
+                            </select>
+                            <button type="submit" class="secondary-button">Enregistrer</button>
+                        </form>
+                    </td>
                     <td>{{ 'Actif' if user.active else 'Désactivé' }}</td>
                     <td>{{ user.created_at }}</td>
                     <td>

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.database import get_connection
+from app.database import ensure_column, get_connection
 
 
 @dataclass(frozen=True)
@@ -15,9 +15,13 @@ class User:
     email: str
     role: str
     active: bool
+    promotion_id: int | None = None
+    promotion_name: str = ""
 
 
 ROLES = frozenset({"student", "trainer", "admin"})
+# Le rôle historique trainer reste lisible pour ne pas réattribuer d'anciens comptes.
+CREATABLE_ROLES = frozenset({"student", "admin"})
 
 
 class UserInputError(ValueError):
@@ -27,6 +31,13 @@ class UserInputError(ValueError):
 def init_users() -> None:
     """Migration additive : aucune donnée de candidature n'est modifiée."""
     with get_connection() as connection:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS promotions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         connection.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +49,27 @@ def init_users() -> None:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        ensure_column(
+            connection, "users", "promotion_id", "INTEGER REFERENCES promotions(id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_users_promotion ON users(promotion_id)"
+        )
+
+
+def check_promotion(connection: sqlite3.Connection, promotion_id: int | None) -> None:
+    """Valide une référence facultative, sans créer de promotion implicitement."""
+    if promotion_id is None:
+        return
+    if type(promotion_id) is not int or not 0 < promotion_id < 2**63:
+        raise UserInputError("Promotion invalide.")
+    if (
+        connection.execute(
+            "SELECT 1 FROM promotions WHERE id=?", (promotion_id,)
+        ).fetchone()
+        is None
+    ):
+        raise UserInputError("Promotion introuvable.")
 
 
 def validate_user_input(email: str, password: str, role: str = "student") -> str:
@@ -55,13 +87,16 @@ def validate_user_input(email: str, password: str, role: str = "student") -> str
     return email
 
 
-def create_user(email: str, password: str, role: str = "student") -> int:
+def create_user(
+    email: str, password: str, role: str = "student", promotion_id: int | None = None
+) -> int:
     email = validate_user_input(email, password, role)
     password_hash = generate_password_hash(password, method="scrypt")
     with get_connection() as connection:
+        check_promotion(connection, promotion_id)
         cursor = connection.execute(
-            "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)",
-            (email, password_hash, role),
+            "INSERT INTO users (email, password_hash, role, promotion_id) VALUES (?, ?, ?, ?)",
+            (email, password_hash, role, promotion_id),
         )
         if cursor.lastrowid is None:
             raise RuntimeError("Identifiant utilisateur indisponible")
@@ -72,14 +107,20 @@ def _as_user(row: sqlite3.Row | None) -> User | None:
     if row is None:
         return None
     return User(
-        int(row["id"]), str(row["email"]), str(row["role"]), bool(row["active"])
+        int(row["id"]),
+        str(row["email"]),
+        str(row["role"]),
+        bool(row["active"]),
+        int(row["promotion_id"]) if row["promotion_id"] is not None else None,
+        str(row["promotion_name"] or ""),
     )
 
 
 def get_user(user_id: int) -> User | None:
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT id, email, role, active FROM users WHERE id = ?", (user_id,)
+            "SELECT u.id, u.email, u.role, u.active, u.promotion_id, p.name AS promotion_name FROM users u LEFT JOIN promotions p ON p.id=u.promotion_id WHERE u.id = ?",
+            (user_id,),
         ).fetchone()
     return _as_user(row)
 
@@ -87,7 +128,7 @@ def get_user(user_id: int) -> User | None:
 def authenticate(email: str, password: str) -> User | None:
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT id, email, role, active, password_hash FROM users WHERE email = ?",
+            "SELECT u.id, u.email, u.role, u.active, u.password_hash, u.promotion_id, p.name AS promotion_name FROM users u LEFT JOIN promotions p ON p.id=u.promotion_id WHERE u.email = ?",
             (email.strip().casefold(),),
         ).fetchone()
     if row is None or not bool(row["active"]):

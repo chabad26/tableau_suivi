@@ -4,7 +4,12 @@ import sqlite3
 
 from werkzeug.security import generate_password_hash
 
-from app.accounts import validate_user_input
+from app.accounts import (
+    CREATABLE_ROLES,
+    UserInputError,
+    check_promotion,
+    validate_user_input,
+)
 from app.database import get_connection
 from app.owned_applications import require_user_id
 
@@ -33,18 +38,25 @@ def list_managed_users(actor_id: int) -> list[sqlite3.Row]:
         _check_admin(connection, actor_id)
         return list(
             connection.execute(
-                "SELECT id, email, role, active, created_at FROM users ORDER BY id DESC"
+                "SELECT u.id, u.email, u.role, u.active, u.created_at, u.promotion_id, p.name AS promotion_name FROM users u LEFT JOIN promotions p ON p.id=u.promotion_id ORDER BY u.id DESC"
             ).fetchall()
         )
 
 
 def create_managed_user(
-    actor_id: int, email: str, password: str, role: str = "student"
+    actor_id: int,
+    email: str,
+    password: str,
+    role: str = "student",
+    promotion_id: int | None = None,
 ) -> int:
     # Rejeter avant le calcul coûteux, puis revérifier dans la transaction d'écriture.
     with get_connection() as connection:
         _check_admin(connection, actor_id)
+        check_promotion(connection, promotion_id)
     email = validate_user_input(email, password, role)
+    if role not in CREATABLE_ROLES:
+        raise UserInputError("Choisir un compte apprenant ou équipe pédagogique.")
     try:
         password_hash = generate_password_hash(password, method="scrypt")
     except Exception:
@@ -52,10 +64,11 @@ def create_managed_user(
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         _check_admin(connection, actor_id)
+        check_promotion(connection, promotion_id)
         try:
             cursor = connection.execute(
-                "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)",
-                (email, password_hash, role),
+                "INSERT INTO users (email, password_hash, role, promotion_id) VALUES (?, ?, ?, ?)",
+                (email, password_hash, role, promotion_id),
             )
         except sqlite3.IntegrityError:
             raise AdminAccountConflict(
@@ -64,6 +77,51 @@ def create_managed_user(
         if cursor.lastrowid is None:
             raise RuntimeError("Identifiant utilisateur indisponible.")
         return cursor.lastrowid
+
+
+def list_managed_promotions(actor_id: int) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        connection.execute("BEGIN")
+        _check_admin(connection, actor_id)
+        return list(
+            connection.execute(
+                "SELECT id, name FROM promotions ORDER BY name COLLATE NOCASE, id"
+            ).fetchall()
+        )
+
+
+def create_managed_promotion(actor_id: int, name: str) -> int:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        _check_admin(connection, actor_id)
+        name = " ".join(name.split())
+        if not 1 <= len(name) <= 100:
+            raise UserInputError(
+                "Le libellé de promotion doit contenir entre 1 et 100 caractères."
+            )
+        try:
+            cursor = connection.execute(
+                "INSERT INTO promotions (name) VALUES (?)", (name,)
+            )
+        except sqlite3.IntegrityError:
+            raise AdminAccountConflict("Cette promotion existe déjà.") from None
+        if cursor.lastrowid is None:
+            raise RuntimeError("Identifiant de promotion indisponible.")
+        return cursor.lastrowid
+
+
+def set_managed_user_promotion(
+    actor_id: int, target_id: int, promotion_id: int | None
+) -> bool:
+    target_id = require_user_id(target_id)
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        _check_admin(connection, actor_id)
+        check_promotion(connection, promotion_id)
+        cursor = connection.execute(
+            "UPDATE users SET promotion_id=? WHERE id=?", (promotion_id, target_id)
+        )
+        return cursor.rowcount == 1
 
 
 def set_managed_user_active(actor_id: int, target_id: int, active: bool) -> bool:

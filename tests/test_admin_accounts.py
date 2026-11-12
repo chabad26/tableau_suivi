@@ -84,7 +84,7 @@ class AdminAccountTests(OfflineCase):
         self.assertNotIn(values["password"], self.client.get("/admin/users").text)
 
     def test_all_supported_roles_can_be_created_by_admin(self):
-        for role in ("student", "trainer", "admin"):
+        for role in ("student", "admin"):
             with self.subTest(role=role):
                 response = self.client.post(
                     "/admin/users",

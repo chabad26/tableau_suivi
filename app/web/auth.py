@@ -36,6 +36,7 @@ class LoginUser(UserMixin):
     email: str
     role: str
     active: bool
+    promotion_name: str = ""
 
     @property
     def is_active(self) -> bool:
@@ -43,7 +44,13 @@ class LoginUser(UserMixin):
 
 
 def as_login_user(user: User) -> LoginUser:
-    return LoginUser(id=user.id, email=user.email, role=user.role, active=user.active)
+    return LoginUser(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        active=user.active,
+        promotion_name=user.promotion_name,
+    )
 
 
 @login_manager.user_loader

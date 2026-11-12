@@ -38,7 +38,7 @@ Les modules historiques globaux restent dans le dépôt pour les données et out
 
 ## Routes intégrées
 
-Le registre des routes autorise les scans et la réanalyse des archives, les connecteurs personnels et la liste des jobs. Les opérations du backoffice sont aussi protégées par le rôle administrateur ; elles ne donnent pas de vue globale sur les candidatures. Les exports et anciennes actions globales restent bloqués.
+Le registre des routes autorise les scans et la réanalyse des archives, les connecteurs personnels et la liste des jobs. Les opérations du backoffice sont aussi protégées par le rôle administrateur ; elles ne donnent pas accès aux candidatures détaillées d’autrui. Le dashboard ajoute une vue agrégée des apprenants pour l’équipe pédagogique, sans sélectionner les champs personnels des candidatures. Les exports et anciennes actions globales restent bloqués.
 
 La démonstration remplace également l'écriture des secrets et l'authentification IMAP par des simulations, et utilise une détection des fournisseurs sans DNS. Les nouvelles pages ne peuvent donc pas déclencher de stockage dans le keyring réel.
 
@@ -58,3 +58,11 @@ La démonstration remplace également l'écriture des secrets et l'authentificat
 Le lanceur fixe les chemins avant les imports applicatifs. Il utilise une nouvelle base dédiée, remplace le transport IMAP et la lecture du secret système par des objets fictifs, puis interdit les connexions sortantes. Les règles de classification, l'import SQLite, les checkpoints, les sessions et le CSRF restent ceux de l'application.
 
 Le serveur de démonstration utilise le port 5001, un cookie distinct et un worker dans un thread, protégé par un verrou de fichier. Le serveur habituel et son worker sont deux processus distincts sur le port 5000. Les verrous `fcntl` rendent cette version dépendante d'un environnement compatible Unix.
+
+## Indicateurs et journal des statuts
+
+`app/dashboard.py` agrège les statuts affichés et les évolutions mensuelles dans une transaction de lecture, avec droits et périmètre promotionnel vérifiés en base. `/dashboard` expose uniquement le rendu chiffré : les apprenants voient leurs indicateurs et l’équipe pédagogique (`admin`) les agrégats des apprenants. La vue personnelle d’un membre de l’équipe reste distincte.
+
+`app/application_history.py`, appelé après la migration de propriété, installe le journal et les triggers de changement du statut effectif. Les anciennes fiches reçoivent un état de départ observé à l’installation ; aucune transition antérieure n’est reconstituée. Les changements sont transactionnels, supprimés avec la candidature et réinitialisés lors d’un transfert de propriétaire. Les premières détections sont agrégées depuis `first_seen` séparément des changements observés.
+
+Le périmètre complet, les filtres et les limites sont documentés dans [DASHBOARD.md](DASHBOARD.md).

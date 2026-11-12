@@ -194,6 +194,23 @@
 
     {% endif %}
 
+    <section class="edit-card" aria-labelledby="offer-heading">
+        <div class="edit-card-header"><p class="eyebrow">OFFRE D'EMPLOI</p><h2 id="offer-heading">L'offre associée</h2></div>
+        {% if application['offer_url'] %}
+            <p><a class="secondary-button" href="{{ application['offer_url'] }}" target="_blank" rel="noopener noreferrer">Ouvrir l'offre d'origine</a></p>
+        {% endif %}
+        {% if application['offer_text'] %}<div class="offer-text">{{ application['offer_text'] }}</div>{% endif %}
+        <p>Tu peux compléter ou remplacer l'offre sans changer le statut de la candidature.</p>
+        {% if offer_error %}<p role="alert">{{ offer_error }}</p>{% endif %}
+        <form class="edit-form" method="post" action="{{ url_for('applications.edit_offer_web', application_id=application['id']) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% with offer_url=offer_values['offer_url'], offer_text=offer_values['offer_text'] %}
+                {% include 'partials/offer_fields.html' %}
+            {% endwith %}
+            <div class="form-actions"><button type="submit" class="primary-button">Enregistrer l'offre</button></div>
+        </form>
+    </section>
+
     <section class="edit-card">
 
         <div class="edit-card-header">
@@ -245,6 +262,11 @@
                         type="text"
                         value="{{ application['job_title'] or '' }}"
                     >
+                    {% if job_title_suggestion %}
+                        <p>Poste proposé depuis {{ "l'offre" if job_title_suggestion.source == 'offer' else 'les emails liés' }} : <strong>{{ job_title_suggestion.title }}</strong></p>
+                        <button type="button" class="secondary-button" data-job-title="{{ job_title_suggestion.title }}">Utiliser ce poste</button>
+                        <p>Le bouton remplit le champ. Enregistre les modifications pour confirmer ton choix.</p>
+                    {% endif %}
                 </div>
 
 

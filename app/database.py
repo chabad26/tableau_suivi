@@ -165,12 +165,22 @@ def init_database() -> None:
         ensure_column(connection, "applications", "manual_status", "TEXT")
 
         ensure_column(connection, "applications", "manual_note", "TEXT")
+        ensure_column(
+            connection, "applications", "offer_text", "TEXT NOT NULL DEFAULT ''"
+        )
+        ensure_column(
+            connection, "applications", "offer_url", "TEXT NOT NULL DEFAULT ''"
+        )
 
         ensure_column(
             connection, "applications", "manual_override", "INTEGER NOT NULL DEFAULT 0"
         )
 
         ensure_column(connection, "emails", "body", "TEXT")
+        ensure_column(connection, "emails", "in_reply_to", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(
+            connection, "emails", "references_header", "TEXT NOT NULL DEFAULT ''"
+        )
 
         # Répare les anciennes références orphelines sans supprimer les messages.
         connection.execute("""

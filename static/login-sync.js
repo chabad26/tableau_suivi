@@ -34,7 +34,8 @@
           notice("Mise à jour incomplète : réseau ou connecteur indisponible, ou traitement en échec. Tes candidatures restent accessibles. Consulte les travaux pour réessayer.");
         } else {
           banner.hidden = true;
-          if (window.location.pathname === banner.dataset.dashboardUrl) {
+          if (window.location.pathname === banner.dataset.dashboardUrl ||
+              window.location.pathname === banner.dataset.metricsUrl) {
             window.location.reload();
           }
         }

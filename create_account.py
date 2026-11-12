@@ -3,7 +3,7 @@
 import argparse
 from getpass import getpass
 
-from app.accounts import create_user, init_users
+from app.accounts import CREATABLE_ROLES, create_user, init_users
 from app.database import init_database
 
 
@@ -11,8 +11,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Créer un compte Job Tracker")
     parser.add_argument("email")
     parser.add_argument(
-        "--role", choices=("student", "trainer", "admin"), default="student"
+        "--promotion-id",
+        type=int,
+        help="Identifiant d'une promotion existante (facultatif)",
     )
+    parser.add_argument("--role", choices=sorted(CREATABLE_ROLES), default="student")
     args = parser.parse_args()
     password = getpass("Mot de passe (12 caractères minimum) : ")
     confirm = getpass("Confirmer le mot de passe : ")
@@ -20,7 +23,9 @@ def main() -> None:
         parser.error("Les mots de passe ne correspondent pas")
     init_database()
     init_users()
-    user_id = create_user(args.email, password, args.role)
+    user_id = create_user(
+        args.email, password, args.role, promotion_id=args.promotion_id
+    )
     print(f"Compte #{user_id} créé : {args.email.strip().casefold()} ({args.role})")
 
 

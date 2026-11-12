@@ -1,0 +1,11 @@
+<div class="form-group">
+    <label for="offer_url">Lien de l'offre (facultatif)</label>
+    <input id="offer_url" name="offer_url" type="url" maxlength="2048"
+           placeholder="https://…" value="{{ offer_url|default('') }}">
+    <p>Le lien est enregistré ; le contenu n'est pas récupéré automatiquement.</p>
+</div>
+<div class="form-group">
+    <label for="offer_text">Texte de l'offre (facultatif)</label>
+    <textarea id="offer_text" name="offer_text" rows="10" maxlength="100000"
+              placeholder="Colle ici le poste, les missions, les compétences et les conditions de l'offre.">{{ offer_text|default('') }}</textarea>
+</div>

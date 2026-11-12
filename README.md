@@ -1,10 +1,10 @@
 # Job Tracker Campus
 
-Application locale Python 3.14, Flask et SQLite pour suivre les candidatures des apprenants. Elle analyse les emails, extrait entreprise/poste/source et conserve un historique personnel. État de cette branche : 2 novembre 2026.
+Application locale Python 3.14, Flask et SQLite pour suivre les candidatures des apprenants. Elle analyse les emails, extrait entreprise/poste/source et conserve un historique personnel. Évolutions campus en cours : 12 novembre 2026.
 
 ## Administration des comptes
 
-Le backoffice `/admin/users` permet aux administrateurs de créer les comptes apprenants, formateurs et administrateurs, puis de les désactiver/réactiver sans supprimer leurs données. Le lien **Administration** apparaît uniquement pour les administrateurs ; les autorisations sont aussi vérifiées côté serveur.
+Le backoffice `/admin/users` permet aux administrateurs de créer les comptes apprenants et équipe pédagogique (rôle `admin`), puis de les désactiver/réactiver sans supprimer leurs données. Le lien **Administration** apparaît uniquement pour les administrateurs ; les autorisations sont aussi vérifiées côté serveur.
 
 Pour créer le premier administrateur, utiliser une adresse de connexion encore disponible :
 
@@ -73,7 +73,8 @@ Le worker habituel doit rester démarré pour exécuter ces tâches. La démo ut
 
 ## Fonctionnalités disponibles
 
-- Connexion, déconnexion, comptes actifs et rôles stockés (`student`, `trainer`, `admin`). Ces rôles n'accordent pas une vue globale sur les données.
+- Connexion, déconnexion et comptes actifs : apprenant (`student`) et équipe pédagogique (`admin`). Le rôle historique `trainer` reste lisible en base, mais n’est plus proposé à la création. Aucun rôle ne donne accès aux candidatures détaillées d’autrui.
+- Dashboard uniquement chiffré (`/dashboard`) : chiffres personnels des apprenants et agrégats des apprenants par promotion pour l’équipe pédagogique ; historique des changements observés après installation et premières détections présentées séparément.
 - Tableau, recherche, filtres, création/modification/suppression et historique des emails propres à l'utilisateur.
 - Scan personnel asynchrone : `/scan` → file personnelle → worker → scan IMAP → import SQLite → checkpoint.
 - `/jobs` affiche uniquement les travaux de la session, y compris les échecs ; une demande identique en attente/en cours est dédupliquée.
@@ -104,6 +105,11 @@ Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anci
 
 ## Documentation
 
+- [Évolutions demandées par le campus et suivi des lots](docs/EVOLUTIONS_CAMPUS.md)
+- [Administration des comptes et des promotions](docs/ADMINISTRATION.md)
+- [Texte et lien de l'offre dans les candidatures](docs/OFFRES.md)
+- [Détection du poste depuis l'offre et les emails](docs/DETECTION_POSTES.md)
+- [Dashboard chiffré et limites de l’historique](docs/DASHBOARD.md)
 - [Compte rendu d’intégration et scan réel](docs/INTEGRATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Sécurité et limites vérifiées](docs/SECURITE.md)

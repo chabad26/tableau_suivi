@@ -24,7 +24,12 @@
 
         <p>
             <strong>Rôle :</strong>
-            {{ {'student': 'Apprenant', 'trainer': 'Formateur', 'admin': 'Administrateur'}.get(current_user.role, current_user.role) }}
+            {{ {'student': 'Apprenant', 'trainer': 'Formateur (ancien rôle)', 'admin': 'Équipe pédagogique'}.get(current_user.role, current_user.role) }}
+        </p>
+
+        <p>
+            <strong>Promotion :</strong>
+            {{ current_user.promotion_name or 'Non renseignée' }}
         </p>
 
         <p>

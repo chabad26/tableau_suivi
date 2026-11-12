@@ -12,7 +12,7 @@ async function setup(result, pathname = "/account") {
   const classes = new Set();
   const banner = {
     hidden: false,
-    dataset: { statusUrl: "/jobs/login-sync", dashboardUrl: "/" },
+    dataset: { statusUrl: "/jobs/login-sync", dashboardUrl: "/", metricsUrl: "/dashboard" },
     querySelector: () => message,
     classList: {
       add: (name) => classes.add(name),
@@ -58,6 +58,13 @@ test("success does not reload a form or account page", async () => {
   const ui = await setup({ pending: false, failed: false });
   assert.equal(ui.banner.hidden, true);
   assert.equal(ui.reloads(), 0);
+});
+
+test("success also refreshes the numeric dashboard once", async () => {
+  const ui = await setup({ pending: false, failed: false }, "/dashboard");
+  assert.equal(ui.banner.hidden, true);
+  assert.equal(ui.reloads(), 1);
+  assert.equal(ui.timers.length, 0);
 });
 
 test("failed jobs stop loading with a useful notice", async () => {

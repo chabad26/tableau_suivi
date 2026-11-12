@@ -37,6 +37,21 @@ job_samples = [
 
 
 class ExtractorTests(unittest.TestCase):
+    def test_quoted_and_explicit_offer_titles_in_email(self):
+        title = "Analyste GRC (H/F)"
+        for subject, body in (
+            (f"Merci pour votre candidature à l’offre ({title})", ""),
+            (f"Votre candidature à l'offre : {title}", ""),
+            (f"Votre candidature à l’offre « {title} »", ""),
+            (
+                "Votre candidature",
+                f'Vous avez envoyé une candidature à ACME : "{title}". Découvrez nos autres offres.',
+            ),
+        ):
+            with self.subTest(subject=subject, body=body):
+                self.assertEqual(extract_job_title(subject, body), title)
+        self.assertEqual(extract_job_title("Votre candidature chez ACME", ""), "")
+
     def test_additional_receipt_and_reply_templates(self):
         title = "Technicien systèmes et réseaux H/F"
         cases = [

@@ -17,7 +17,15 @@
                 <select id="user-role" name="role">
                     {% for role, label in role_labels.items() %}<option value="{{ role }}" {% if selected_role == role %}selected{% endif %}>{{ label }}</option>{% endfor %}
                 </select>
-                <p>Un administrateur peut gérer les comptes utilisateurs. Ce rôle ne donne pas accès aux candidatures des autres personnes.</p>
+                <p>L'équipe pédagogique gère les comptes et consulte les chiffres agrégés du campus. Ce rôle ne donne pas accès aux candidatures détaillées des autres personnes.</p>
+            </div>
+            <div class="form-group">
+                <label for="user-promotion">Promotion (facultative)</label>
+                <select id="user-promotion" name="promotion_id">
+                    <option value="">Non renseignée</option>
+                    {% for promotion in promotions %}<option value="{{ promotion.id }}" {% if selected_promotion == promotion.id|string %}selected{% endif %}>{{ promotion.name }}</option>{% endfor %}
+                </select>
+                <p>Les promotions se créent depuis la liste des comptes utilisateurs.</p>
             </div>
             <div class="form-group">
                 <label for="user-password">Mot de passe initial (12 à 256 caractères)</label>

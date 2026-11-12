@@ -303,6 +303,29 @@ def job_title_score(title: str) -> int:
         score += 2
 
     useful_words = {
+        "analyste",
+        "analyst",
+        "consultant",
+        "consultante",
+        "auditeur",
+        "auditrice",
+        "chargé",
+        "charge",
+        "chargée",
+        "chargee",
+        "responsable",
+        "gestionnaire",
+        "juriste",
+        "comptable",
+        "commercial",
+        "commerciale",
+        "manager",
+        "technicienne",
+        "administratrice",
+        "ingénieure",
+        "ingenieure",
+        "développeuse",
+        "developpeuse",
         "développeur",
         "developpeur",
         "developer",
@@ -346,6 +369,9 @@ def extract_job_title(subject: str, body: str = "") -> str:
     body = normalize_email_body(body)
 
     subject_patterns = [
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*:\s*(.{3,120})$",
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*\((.{3,120})\)\s*$",
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*[\"«“](.{3,120}?)[\"»”]",
         r"vous avez reçu une réponse\s+.+?\s+pour\s+[\"«“](.{3,120}?)[\"»”]",
         (
             r"votre candidature de\s+(.{3,120}?)\s+"
@@ -404,6 +430,10 @@ def extract_job_title(subject: str, body: str = "") -> str:
                 return title
 
     body_patterns = [
+        (
+            r"vous avez (?:envoyé|envoye) une candidature\s+(?:à|a)\s+.{1,100}?\s*:\s*"
+            r"[\"«“](.{3,120}?)[\"»”]"
+        ),
         (
             r"votre candidature est (?:bien\s+)?enregistr(?:ée|ee)"
             r"\s*[.!:]?\s*[\"«“](.{3,120}?)[\"»”]"

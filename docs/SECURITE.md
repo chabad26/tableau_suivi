@@ -69,3 +69,9 @@ Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont d
 - Les limites des règles de classification persistent ; le statut Acceptée est manuel dans cette version.
 - Une base à unicité globale des Message-ID garde une compatibilité restrictive jusqu'à sa migration explicite. Les erreurs sont préférées à une association entre utilisateurs.
 - La démonstration prouve le comportement sous simulation. Elle ne prouve ni la validité des secrets existants ni la compatibilité effective de chaque compte fournisseur.
+
+## Dashboard pédagogique
+
+Le dashboard vérifie le rôle et l’activation dans la transaction de lecture. L’apprenant est limité à son identifiant, même avec un filtre de promotion forgé. La vue campus est réservée au rôle `admin` de l’équipe pédagogique et agrège uniquement les apprenants, sans sélection d’entreprise, poste, note, offre ou contenu mail. Les candidatures détaillées et messageries d’autrui restent inaccessibles. L’ancien rôle `trainer` n’est pas proposé à la création et ne reçoit pas d’accès au dashboard ; les anciens comptes sont conservés sans promotion automatique.
+
+Le journal ne contient que les identifiants nécessaires au périmètre, des codes de statut et leurs dates d’observation. Les états initiaux ne sont pas des preuves d’une transition passée. Le transfert de propriété réinitialise l’historique pour éviter de transmettre celui de l’ancien propriétaire ; les écritures sont annulées avec la transaction métier en cas d’échec. Ce journal applicatif n’est pas présenté comme un audit de sécurité inviolable. Voir [les règles du dashboard](DASHBOARD.md).

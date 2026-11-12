@@ -1,12 +1,20 @@
 """Réanalyse atomique des emails archivés d'un seul utilisateur, sans réseau."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.classifier import detect_status
 from app.database import get_connection
-from app.extractor import clean_job_title, extract_application_data, job_title_score
+from app.extractor import (
+    clean_job_title,
+    extract_application_data,
+    extract_job_title,
+    job_title_score,
+)
+from app.job_titles import extract_offer_job_title
+from app.maintenance import EXPIRABLE_STATUSES
 from app.owned_applications import require_user_id
 from app.reclassifier import ReclassifyResult
+from app.settings import APPLICATION_EXPIRY_DAYS
 
 
 def _message_date(value: str) -> datetime | None:
@@ -59,6 +67,12 @@ def reclassify_user_emails(user_id: int) -> ReclassifyResult:
             candidate = candidates.get(row["application_id"])
             if not body.strip():
                 missing += 1
+                if candidate is not None and not candidate["manual_override"]:
+                    title = extract_job_title(str(row["subject"] or ""))
+                    if job_title_score(title) > job_title_score(
+                        str(candidate["job_title"] or "")
+                    ):
+                        candidate["job_title"] = title
             else:
                 found += 1
                 status = detect_status(str(row["subject"] or ""), body)
@@ -78,7 +92,7 @@ def reclassify_user_emails(user_id: int) -> ReclassifyResult:
                     new_title = clean_job_title(title)
                     candidate["job_title"] = (
                         new_title or current_title
-                        if job_title_score(new_title) >= job_title_score(current_title)
+                        if job_title_score(new_title) > job_title_score(current_title)
                         else current_title
                     )
 
@@ -90,6 +104,25 @@ def reclassify_user_emails(user_id: int) -> ReclassifyResult:
         updated = 0
         fields = ("company", "job_title", "source", "current_status", "last_update")
         for application_id, candidate in candidates.items():
+            if not candidate["manual_override"]:
+                # Une archive ancienne ne constitue pas une nouvelle réponse.
+                # Éviter EXPIRED -> RECEIVED -> EXPIRED à chaque réanalyse.
+                date = _message_date(str(candidate["last_update"] or ""))
+                if (
+                    originals[application_id]["current_status"] == "EXPIRED"
+                    and candidate["current_status"] in EXPIRABLE_STATUSES
+                    and date is not None
+                    and date
+                    <= datetime.now(timezone.utc)
+                    - timedelta(days=APPLICATION_EXPIRY_DAYS)
+                ):
+                    candidate["current_status"] = "EXPIRED"
+                offer_title = extract_offer_job_title(
+                    str(candidate["offer_text"] or ""),
+                    company=str(candidate["company"] or ""),
+                )
+                if offer_title:
+                    candidate["job_title"] = offer_title
             values = tuple(candidate[key] for key in fields)
             if values == tuple(originals[application_id][key] for key in fields):
                 continue

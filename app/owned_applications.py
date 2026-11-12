@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 from app.database import get_connection
-from app.extractor import job_title_score
+from app.offers import validate_offer
 
 
 def require_user_id(user_id: int) -> int:
@@ -45,14 +45,9 @@ def update_user_application(
         if current is None:
             return False
 
-        current_title = str(current["job_title"] or "")
-        candidate_title = job_title.strip()
-
-        new_title = (
-            candidate_title
-            if job_title_score(candidate_title) > job_title_score(current_title)
-            else current_title
-        )
+        # Une saisie explicite prévaut sur les heuristiques, même si le titre
+        # choisi est plus court ou volontairement vide.
+        new_title = job_title.strip()
 
         cursor = connection.execute(
             """
@@ -152,6 +147,9 @@ def create_user_application(
     source: str = "Manuel",
     status: str = "SENT",
     note: str = "",
+    *,
+    offer_text: str = "",
+    offer_url: str = "",
 ) -> int:
     """Crée une candidature appartenant explicitement à l'utilisateur."""
     user_id = require_user_id(user_id)
@@ -160,6 +158,7 @@ def create_user_application(
         raise ValueError("Le nom de l'entreprise est obligatoire.")
 
     now = datetime.now(timezone.utc).isoformat()
+    offer_text, offer_url = validate_offer(offer_text, offer_url)
 
     with get_connection() as connection:
         cursor = connection.execute(
@@ -174,9 +173,11 @@ def create_user_application(
                 current_status,
                 manual_status,
                 manual_note,
-                manual_override
+                manual_override,
+                offer_text,
+                offer_url
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             """,
             (
                 user_id,
@@ -188,6 +189,8 @@ def create_user_application(
                 status,
                 status,
                 note,
+                offer_text,
+                offer_url,
             ),
         )
 
@@ -195,6 +198,20 @@ def create_user_application(
             raise RuntimeError("Création de candidature impossible.")
 
         return int(cursor.lastrowid)
+
+
+def update_user_application_offer(
+    user_id: int, application_id: int, offer_text: str, offer_url: str
+) -> bool:
+    """Modifie seulement l'offre, sans figer le statut ou les détails automatiques."""
+    user_id = require_user_id(user_id)
+    text, url = validate_offer(offer_text, offer_url)
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE applications SET offer_text=?, offer_url=? WHERE id=? AND user_id=?",
+            (text, url, application_id, user_id),
+        )
+        return cursor.rowcount == 1
 
 
 def set_user_application_status(

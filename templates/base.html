@@ -28,6 +28,8 @@
             📋 Mes candidatures
         </a>
 
+        {% if current_user.role in ['student', 'admin'] %}<a class="secondary-button" href="{{ url_for('dashboard.dashboard_page') }}">Tableau de bord</a>{% endif %}
+
         {% if current_user.role == 'admin' %}
             <a class="secondary-button" href="{{ url_for('admin.users_page') }}">Administration</a>
         {% endif %}
@@ -62,7 +64,8 @@
 {% if current_user.is_authenticated and session.get('login_sync_jobs') %}
 <aside class="login-sync" id="login-sync" role="status" aria-live="polite"
        data-status-url="{{ url_for('jobs.login_sync_status') }}"
-       data-dashboard-url="{{ url_for('applications.index') }}">
+       data-dashboard-url="{{ url_for('applications.index') }}"
+       data-metrics-url="{{ url_for('dashboard.dashboard_page') }}">
     <span class="login-sync-spinner" aria-hidden="true"></span>
     <span data-sync-message>Mise à jour de tes candidatures en cours… Tu peux continuer à naviguer.</span>
     <a class="back-link" href="{{ url_for('jobs.jobs_page') }}">Voir les travaux</a>

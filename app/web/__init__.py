@@ -13,6 +13,7 @@ from app.web.admin import admin_bp
 from app.web.applications import applications_bp
 from app.web.auth import auth_bp, login_manager
 from app.web.connectors import connectors_bp
+from app.web.dashboard import dashboard_bp
 from app.web.exports import exports_bp
 from app.web.jobs import jobs_bp
 from app.web.security import configure_security
@@ -27,6 +28,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(jobs_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(dashboard_bp)
 
 
 def create_app() -> Flask:
@@ -64,10 +66,12 @@ def create_app() -> Flask:
         # rôle administrateur vérifié aussi par le blueprint du backoffice.
         allowed_endpoints = {
             "applications.index",
+            "dashboard.dashboard_page",
             "applications.application_detail",
             "applications.new_application",
             "applications.create_application_web",
             "applications.edit_application_web",
+            "applications.edit_offer_web",
             "applications.delete_application_web",
             "connectors.connectors_page",
             "connectors.add_imap_account",
@@ -84,6 +88,8 @@ def create_app() -> Flask:
             "admin.users_page",
             "admin.new_user",
             "admin.create_user_web",
+            "admin.create_promotion_web",
+            "admin.set_user_promotion_web",
             "admin.set_user_active_web",
         }
 

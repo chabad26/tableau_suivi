@@ -24,7 +24,7 @@ Le bouton **Réanalyser mes emails archivés**, sur le tableau des candidatures,
 - **Emails réanalysés** : messages dont le corps archivé n'est pas vide.
 - **Statuts modifiés** : statuts d'emails effectivement modifiés par les règles actuelles.
 - **Candidatures actualisées** : nombre de candidatures dont les informations automatiques ou la date/statut ont effectivement changé, comptées une seule fois chacune.
-- **Emails sans contenu archivé** : messages ignorés faute de corps ; aucune tentative de téléchargement n'est effectuée.
+- **Emails sans contenu archivé** : messages dont le corps manque ; leur statut n'est pas reclassé à partir d'un corps absent et aucun téléchargement n'est tenté. Un intitulé explicite du sujet reste exploitable pour une fiche automatique.
 
 Zéro modification peut être un succès normal si les règles donnent déjà le résultat enregistré.
 
@@ -34,6 +34,7 @@ Zéro modification peut être un succès normal si les règles donnent déjà le
 - Les messages ne sont pas supprimés, fusionnés ou réimportés. Le contenu archivé et les dates de réception restent inchangés. Un message détaché de sa candidature reste détaché.
 - Les statuts manuels, notes, marqueurs de correction et détails des candidatures corrigées manuellement sont conservés. Le statut automatique reste recalculable sans remplacer le statut manuel affiché.
 - Les informations des candidatures non corrigées manuellement sont réextraites, en conservant la meilleure qualité d'intitulé de poste.
+- Un intitulé fiable présent dans le texte d'offre est prioritaire sur les indices d'emails pour ces fiches automatiques, y compris sans email lié. Pour une fiche corrigée manuellement, la page peut proposer une suggestion à confirmer sans remplacer le titre enregistré. Voir [les règles de détection du poste](DETECTION_POSTES.md).
 - Le statut automatique vient du message lié le plus récent avec date valide, en comparant les dates en UTC ; à date égale, le message avec le plus grand identifiant SQLite est retenu. Les anciennes dates naïves sont interprétées en UTC. Une date invalide ne détermine pas le statut ni la date de la candidature.
 - Les comptes IMAP, caches OAuth et checkpoints ne sont pas utilisés ni modifiés.
 - Les anciens messages sans propriétaire restent hors du périmètre, et les anciens jobs sans propriétaire ne sont pas exécutés.
