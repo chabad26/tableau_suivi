@@ -150,7 +150,7 @@ def dashboard_statistics(
             if row["month"] in by_month:
                 by_month[row["month"]]["new"] = int(row["total"])
         for row in connection.execute(
-            f"SELECT strftime('%Y-%m',h.recorded_at) AS month,h.status,COUNT(*) AS total FROM application_status_history h JOIN applications a ON a.id=h.application_id AND a.user_id=h.user_id JOIN users u ON u.id=a.user_id WHERE {where} AND h.event_kind='change' AND julianday(h.recorded_at)>=julianday(?) AND julianday(h.recorded_at)<=julianday(?) GROUP BY month,h.status",
+            f"SELECT strftime('%Y-%m',h.recorded_at) AS month,CASE WHEN h.status='SENT' THEN 'RECEIVED' ELSE h.status END AS status,COUNT(*) AS total FROM application_status_history h JOIN applications a ON a.id=h.application_id AND a.user_id=h.user_id JOIN users u ON u.id=a.user_id WHERE {where} AND h.event_kind='change' AND julianday(h.recorded_at)>=julianday(?) AND julianday(h.recorded_at)<=julianday(?) GROUP BY month,CASE WHEN h.status='SENT' THEN 'RECEIVED' ELSE h.status END",
             [*params, since, now.isoformat()],
         ).fetchall():
             if row["month"] in by_month and row["status"] in counts:

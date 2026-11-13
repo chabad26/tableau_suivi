@@ -75,3 +75,16 @@ Depuis le terminal local, arrêter le worker avec `Ctrl+C`, puis lancer, en remp
 Choisir dans le navigateur l'adresse Google qui correspond exactement au compte IMAP. Le consentement attend au maximum trois minutes. La commande exige une autorisation renouvelable et vérifie l'identité via le profil Gmail avant d'écrire le cache privé de cette seule boîte. Une erreur d'identité conserve le cache existant. Aucun email n'est lu ni importé ; les caches historiques et les autres fournisseurs ne sont pas modifiés. La commande suppose que le fichier client OAuth Google est déjà configuré.
 
 Redémarrer ensuite le worker et demander un seul test de connexion Gmail depuis les connecteurs.
+
+
+## Rapprocher les réponses reçues sur plusieurs boîtes
+
+La déduplication des messages et le regroupement des candidatures sont distincts : un Message-ID déjà enregistré chez le même utilisateur n'est pas réimporté, tandis qu'une nouvelle réponse doit rester un email distinct rattaché à la bonne candidature.
+
+Les nouveaux scans conservent les en-têtes `In-Reply-To` et `References`. L'import cherche en priorité le parent direct, puis les références connues, uniquement dans les emails et candidatures du propriétaire. Ce lien peut fonctionner malgré une autre adresse d'expédition, une autre boîte de réception ou un sujet modifié. Un poste explicitement différent ou plusieurs candidatures possibles empêchent ce rapprochement.
+
+Sans parent connu, un recours plus prudent utilise l'adresse d'expédition exacte, le même sujet après retrait des préfixes Re/Fwd/TR, au moins un message marqué comme réponse/transfert, une proximité maximale de 90 jours et une candidature compatible unique. Un sujet générique comme « Votre candidature », un seul nom de personne ou un simple domaine partagé ne suffisent pas. L'ordre de scan des boîtes peut être inversé : un original arrivé avant une réponse dans le temps peut être importé après elle.
+
+Le rapprochement entreprise/poste existant reste disponible lorsque ces indices ne suffisent pas. Aucun rapprochement ne traverse les propriétaires. Aucun ancien doublon n'est fusionné automatiquement : des statuts, notes ou intitulés manuels différents doivent être arbitrés explicitement. Les corps d'emails, boîtes d'origine et corrections manuelles sont conservés.
+
+La migration ajoute deux champs texte vides par défaut aux anciens emails (`in_reply_to`, `references_header`). Elle ne télécharge pas leurs en-têtes historiques et ne réécrit pas leurs liens. La migration administrative d'unicité des emails préserve également ces champs lors de sa reconstruction de table. Redémarrer Flask et le worker après sauvegarde de la base pour charger les nouveaux champs et le rapprochement.

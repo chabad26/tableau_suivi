@@ -61,7 +61,7 @@ Le mot de passe est demandé sans affichage et seul son hash scrypt est stocké.
 .venv/bin/python worker.py
 ```
 
-Interface : **http://127.0.0.1:5000**. Le mode debug est désactivé. Le serveur de développement reste destiné à un usage local.
+Interface : **http://127.0.0.1:5000**. Le mode debug est désactivé. Le serveur de développement reste destiné à un usage local. Pour un serveur hébergé, suivre le [guide de déploiement en production](docs/DEPLOIEMENT_PRODUCTION.md).
 
 Le scan suppose que les comptes IMAP personnels et leurs secrets sont déjà configurés depuis les connecteurs. L'autorisation OAuth interactive reste à effectuer séparément. Aucun compte réel ni jeton réel n'est créé ou migré par la démonstration.
 
@@ -73,6 +73,11 @@ Le worker habituel doit rester démarré pour exécuter ces tâches. La démo ut
 
 ## Fonctionnalités disponibles
 
+Le périmètre est le suivi des candidatures réalisées par l’apprenant. La récupération automatique d’annonces et l’envoi de candidatures depuis le site sont abandonnés. Le texte et le lien d’une offre peuvent être conservés manuellement pour faciliter le suivi et la détection du poste.
+
+Le statut « Envoyée » est retiré. Au prochain démarrage, les anciens statuts `SENT` des candidatures et emails deviennent `RECEIVED` (« Reçue »), sans supprimer de données ni modifier les notes ou dates. Les événements historiques bruts sont conservés et leurs chiffres regroupés dans « Reçue ».
+
+- CV et lettres de motivation : dépôt PDF/DOCX privé (10 Mo), versions et échanges apprenant/équipe pédagogique dans l'onglet **CV et lettres**.
 - Connexion, déconnexion et comptes actifs : apprenant (`student`) et équipe pédagogique (`admin`). Le rôle historique `trainer` reste lisible en base, mais n’est plus proposé à la création. Aucun rôle ne donne accès aux candidatures détaillées d’autrui.
 - Dashboard uniquement chiffré (`/dashboard`) : chiffres personnels des apprenants et agrégats des apprenants par promotion pour l’équipe pédagogique ; historique des changements observés après installation et premières détections présentées séparément.
 - Tableau, recherche, filtres, création/modification/suppression et historique des emails propres à l'utilisateur.
@@ -80,7 +85,8 @@ Le worker habituel doit rester démarré pour exécuter ces tâches. La démo ut
 - `/jobs` affiche uniquement les travaux de la session, y compris les échecs ; une demande identique en attente/en cours est dédupliquée.
 - Gmail et Microsoft : authentification OAuth privée ; OVH, SFR et autres boîtes : IMAP avec secret système. TLS direct ou STARTTLS obligatoire.
 - Déduplication des messages, reprise UID/UIDVALIDITY, refus des checkpoints concurrents devenus incohérents.
-- Statuts : envoyée, reçue, entretien, refus, acceptée, sans réponse, à analyser. **Acceptée** est disponible en saisie manuelle ; sa détection automatique n'est pas ajoutée ici.
+- Rapprochement des réponses par fil (`In-Reply-To`, `References`) ou expéditeur/sujet précis, y compris sur plusieurs boîtes d’un même utilisateur ; les anciens doublons ne sont pas fusionnés automatiquement.
+- Statuts : reçue, entretien, refus, acceptée, sans réponse, à analyser. **Acceptée** est disponible en saisie manuelle ; sa détection automatique n'est pas ajoutée ici.
 
 **Restent désactivés** : exports CSV/XLSX, autorisation/reconnexion OAuth interactive depuis le Web et autres actions globales non migrées. Leurs routes renvoient 503 après authentification. Les anciens jobs sans propriétaire sont conservés et ignorés par le nouveau worker.
 
@@ -105,11 +111,14 @@ Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anci
 
 ## Documentation
 
+- [Déploiement en production : installation, services, HTTPS, sauvegarde et reprise](docs/DEPLOIEMENT_PRODUCTION.md)
+
 - [Évolutions demandées par le campus et suivi des lots](docs/EVOLUTIONS_CAMPUS.md)
 - [Administration des comptes et des promotions](docs/ADMINISTRATION.md)
 - [Texte et lien de l'offre dans les candidatures](docs/OFFRES.md)
 - [Détection du poste depuis l'offre et les emails](docs/DETECTION_POSTES.md)
 - [Dashboard chiffré et limites de l’historique](docs/DASHBOARD.md)
+- [CV, lettres, versions et échanges pédagogiques](docs/DOCUMENTS.md)
 - [Compte rendu d’intégration et scan réel](docs/INTEGRATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Sécurité et limites vérifiées](docs/SECURITE.md)
@@ -118,3 +127,7 @@ Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anci
 - Historique : [ROADMAP.md](ROADMAP.md), [EVOLUTIONS.md](EVOLUTIONS.md), [REFACTORING.md](REFACTORING.md).
 
 Licence à définir.
+
+Le [rendu des emails HTML](docs/EMAILS_HTML.md) conserve la mise en forme utile avec nettoyage et isolation du contenu. Après installation des dépendances, redémarrer le serveur web et le worker pour conserver le HTML des prochains messages.
+
+Les [couleurs du Campus](docs/IDENTITE_VISUELLE.md) et leurs variantes pour l'interface sombre sont centralisées dans la feuille de style commune.

@@ -15,6 +15,7 @@ from app.classifier import detect_status, score_message
 from app.connectors.common import (
     build_email_message,
     decode_mime_header,
+    get_message_html,
     html_to_text,
     sanitize_header_value,
 )
@@ -432,6 +433,7 @@ def scan_imap_account(
                         status=status_value,
                         reasons=reasons,
                         body=normalized_body,
+                        html_body=get_message_html(message),
                         in_reply_to=sanitize_header_value(
                             str(message.get("In-Reply-To", ""))[-8192:]
                         ),

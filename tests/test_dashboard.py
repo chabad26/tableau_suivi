@@ -74,7 +74,7 @@ class DashboardTests(OfflineCase):
         self.assertEqual(
             (
                 data["total"],
-                data["counts"]["SENT"],
+                data["counts"]["RECEIVED"],
                 data["counts"]["REJECTED"],
                 data["counts"]["INTERVIEW"],
             ),
@@ -149,7 +149,7 @@ class DashboardTests(OfflineCase):
         rows = {row["id"]: row for row in data["learners"]}
         self.assertEqual(set(rows), {self.alice, self.bob})
         self.assertEqual(rows[self.alice]["total"], 2)
-        self.assertEqual(rows[self.alice]["counts"]["SENT"], 1)
+        self.assertEqual(rows[self.alice]["counts"]["RECEIVED"], 1)
         self.assertEqual(rows[self.alice]["counts"]["REJECTED"], 1)
         self.assertEqual(rows[self.bob]["counts"]["INTERVIEW"], 1)
         self.assertEqual(sum(row["total"] for row in rows.values()), data["total"])
@@ -296,7 +296,7 @@ class ApplicationHistoryTests(OfflineCase):
         self.assertEqual(len(self.events()), 2)
         self.assertEqual(
             (self.events()[-1]["previous_status"], self.events()[-1]["status"]),
-            ("SENT", "INTERVIEW"),
+            ("RECEIVED", "INTERVIEW"),
         )
         with get_connection() as connection:
             connection.execute(

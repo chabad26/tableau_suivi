@@ -102,7 +102,7 @@ class PersonalDashboardTests(OfflineCase):
                 "company": "Nouvelle entreprise Alice",
                 "job_title": "Développeuse Flask",
                 "source": "Campus",
-                "status": "SENT",
+                "status": "RECEIVED",
                 "note": "Candidature spontanée",
             },
         )

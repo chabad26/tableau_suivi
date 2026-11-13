@@ -1,5 +1,9 @@
 # 🧭 Roadmap — Job Tracker
 
+## Périmètre Campus confirmé le 13 novembre 2026
+
+La récupération automatique d’offres et l’envoi de candidatures depuis le site sont abandonnés. Le projet suit les candidatures réalisées ailleurs et conserve, si souhaité, le texte ou le lien d’une offre saisis par l’utilisateur. Le statut « Envoyée » est retiré au profit de « Reçue » ; voir le [suivi actuel](docs/EVOLUTIONS_CAMPUS.md). Les autres sections ci-dessous restent un historique de la roadmap de septembre.
+
 ## Vision
 
 Job Tracker doit évoluer d’un outil personnel de suivi de candidatures vers une application générique, sécurisée et multi-source.
@@ -37,8 +41,6 @@ Le socle fonctionnel comprend déjà :
 ### Statuts actuels
 
 ```text
-Envoyée
-   ↓
 Reçue
    ↓
 Entretien
@@ -294,9 +296,9 @@ Selon les besoins réels :
 
 ---
 
-## 🚫 Hors périmètre actuel
+## 🚫 Périmètre abandonné ou exclu
 
-Les éléments suivants ne font pas partie du périmètre actuel :
+Les éléments suivants sont exclus du projet :
 
 - bot Discord ;
 - scraping direct de sites d’emploi ;

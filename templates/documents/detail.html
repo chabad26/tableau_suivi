@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}{{ document.title }} — Documents{% endblock %}
+{% block content %}
+<div class="page document-page">
+    <a class="back-link" href="{{ url_for('documents.list_page', learner=owner.id) if not is_owner else url_for('documents.list_page') }}">← CV et lettres de motivation</a>
+    <header class="header"><div><p class="eyebrow">{{ kinds[document.kind] }}</p><h1>{{ document.title }}</h1><p class="subtitle">{{ owner.email }} — {{ owner.promotion_name or 'Promotion non renseignée' }}</p></div></header>
+    {% include 'partials/flash_messages.html' %}
+    {% if error %}<p class="document-alert" role="alert">{{ error }}</p>{% endif %}
+    {% if version %}
+    <section class="detail-card">
+        <h2>Version {{ version.version }}</h2>
+        <p>{{ version.filename }} — {{ (version.size_bytes / 1024)|round(1) }} Ko — {{ version.created_at }} UTC</p>
+        <a class="primary-button" href="{{ url_for('documents.download_web', version_id=version.id) }}">Télécharger cette version</a>
+        <form class="document-panel" method="get" action="{{ url_for('documents.detail_page', document_id=document.id) }}">
+            <div class="form-group"><label for="document-version">Versions conservées</label>
+                <select id="document-version" name="version">{% for item in versions %}<option value="{{ item.id }}" {% if version.id == item.id %}selected{% endif %}>Version {{ item.version }} — {{ item.filename }} — {{ item.created_at }} UTC</option>{% endfor %}</select>
+            </div>
+            <button class="secondary-button" type="submit">Afficher la version</button>
+        </form>
+    </section>
+    <section class="document-panel" id="discussion" aria-labelledby="discussion-title">
+        <h2 id="discussion-title">Échanges sur la version {{ version.version }}</h2>
+        <p>Les messages et annotations restent associés à cette version du fichier.</p>
+        {% for comment in comments %}
+        <article class="detail-card document-panel">
+            <p><strong>{{ 'Équipe pédagogique' if comment.author_role == 'admin' else 'Apprenant' }}</strong> — {{ comment.author_email }} — {{ comment.created_at }} UTC</p>
+            <p>{{ 'Annotation' if comment.kind == 'annotation' else 'Message' }}{% if comment.page %} — page {{ comment.page }}{% endif %}</p>
+            <div class="document-text">{{ comment.body }}</div>
+        </article>
+        {% else %}<p>Aucun échange sur cette version pour le moment.</p>{% endfor %}
+        <form class="edit-card document-panel" method="post" action="{{ url_for('documents.add_comment_web', document_id=document.id, version_id=version.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3>Ajouter un échange</h3>
+            <div class="form-group"><label for="comment-kind">Type d'échange</label><select id="comment-kind" name="kind"><option value="message">Message</option><option value="annotation" {% if values.get('kind') == 'annotation' %}selected{% endif %}>Annotation</option></select></div>
+            <div class="form-group"><label for="comment-page">Page concernée (facultative, pour une annotation)</label><input id="comment-page" type="number" name="page" min="1" max="9999" value="{{ values.get('page','') }}"></div>
+            <div class="form-group"><label for="comment-body">Message ou annotation</label><textarea id="comment-body" name="body" rows="5" maxlength="4000" required>{{ values.get('body','') }}</textarea></div>
+            <button type="submit" class="primary-button">Envoyer</button>
+        </form>
+    </section>
+    {% else %}<p>Aucune version disponible.</p>{% endif %}
+    {% if is_owner %}
+    <section class="edit-card document-panel">
+        <h2>Déposer une nouvelle version</h2><p>Le document et les échanges précédents restent disponibles.</p>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('documents.upload_version_web', document_id=document.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group"><label for="new-version-file">Nouveau fichier PDF ou DOCX — 10 Mo maximum</label><input id="new-version-file" type="file" name="file" accept=".pdf,.docx" required></div>
+            <button class="secondary-button" type="submit">Déposer la nouvelle version</button>
+        </form>
+    </section>
+    <section class="danger-zone document-panel">
+        <div><h2>Supprimer ce document</h2><p>Le document, toutes ses versions et leurs échanges seront supprimés.</p></div>
+        <form method="post" action="{{ url_for('documents.delete_document_web', document_id=document.id) }}" onsubmit="return confirm('Supprimer ce document, toutes ses versions et leurs échanges ?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="danger-button">Supprimer le document</button>
+        </form>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

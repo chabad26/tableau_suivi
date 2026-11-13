@@ -1,5 +1,4 @@
 STATUS_LABELS = {
-    "SENT": "Envoyée",
     "RECEIVED": "Reçue",
     "INTERVIEW": "Entretien",
     "REJECTED": "Refus",

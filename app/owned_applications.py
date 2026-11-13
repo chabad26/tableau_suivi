@@ -145,7 +145,7 @@ def create_user_application(
     company: str,
     job_title: str,
     source: str = "Manuel",
-    status: str = "SENT",
+    status: str = "RECEIVED",
     note: str = "",
     *,
     offer_text: str = "",

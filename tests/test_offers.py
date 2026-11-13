@@ -84,7 +84,7 @@ class OfferApplicationTests(OfflineCase):
                 "CREATE TABLE applications (id INTEGER PRIMARY KEY, company TEXT NOT NULL, job_title TEXT, source TEXT, first_seen TEXT NOT NULL, last_update TEXT NOT NULL, current_status TEXT NOT NULL)"
             )
             connection.execute(
-                "INSERT INTO applications VALUES (5, 'Entreprise historique', 'Technicien', 'Manuel', '2020-01-01', '2020-01-02', 'SENT')"
+                "INSERT INTO applications VALUES (5, 'Entreprise historique', 'Technicien', 'Manuel', '2020-01-01', '2020-01-02', 'RECEIVED')"
             )
         with patch.object(database, "DATABASE_PATH", path):
             init_database()
@@ -100,7 +100,7 @@ class OfferApplicationTests(OfflineCase):
                         row["last_update"],
                         row["current_status"],
                     ),
-                    ("Entreprise historique", "Technicien", "2020-01-02", "SENT"),
+                    ("Entreprise historique", "Technicien", "2020-01-02", "RECEIVED"),
                 )
                 self.assertEqual((row["offer_text"], row["offer_url"]), ("", ""))
                 names = [
@@ -117,7 +117,7 @@ class OfferApplicationTests(OfflineCase):
             data={
                 "company": "ACME",
                 "job_title": "Technicien",
-                "status": "SENT",
+                "status": "RECEIVED",
                 "offer_url": "https://example.invalid/jobs/1",
                 "offer_text": text,
                 "user_id": self.bob,
@@ -212,7 +212,7 @@ class OfferApplicationTests(OfflineCase):
             data={
                 "company": "ACME",
                 "job_title": "Technicien",
-                "status": "SENT",
+                "status": "RECEIVED",
                 "note": "Note à conserver",
                 "offer_text": "Texte à conserver",
                 "offer_url": "invalid",

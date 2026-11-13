@@ -1,0 +1,25 @@
+[Unit]
+Description=Job Tracker Campus - serveur web
+After=network.target
+
+[Service]
+Type=simple
+User=jobtracker
+Group=jobtracker
+WorkingDirectory=/opt/jobtracker
+EnvironmentFile=/etc/jobtracker/jobtracker.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/jobtracker/.venv/bin/gunicorn --bind 127.0.0.1:8000 --workers 1 --threads 4 --timeout 60 --access-logfile - --error-logfile - web:app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=75
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jobtracker
+
+[Install]
+WantedBy=multi-user.target

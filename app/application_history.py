@@ -8,11 +8,23 @@ from app.statuses import STATUS_ORDER
 def effective_status_sql(alias: str) -> str:
     """SQL interne : alias et statuts viennent uniquement du code."""
     value = f"CASE WHEN {alias}.manual_override=1 THEN {alias}.manual_status ELSE {alias}.current_status END"
+    # Ancien statut conservé uniquement dans les événements historiques bruts.
+    value = f"CASE WHEN ({value})='SENT' THEN 'RECEIVED' ELSE ({value}) END"
     allowed = ",".join(f"'{status}'" for status in STATUS_ORDER)
     return f"CASE WHEN ({value}) IN ({allowed}) THEN ({value}) ELSE 'OTHER' END"
 
 
 def init_application_history(connection: sqlite3.Connection) -> None:
+    if not connection.in_transaction:
+        connection.execute("BEGIN IMMEDIATE")
+    # Met à jour les expressions des déclencheurs sans effacer le journal.
+    for trigger in (
+        "record_application_created",
+        "record_application_status_changed",
+        "reset_application_history_on_owner_change",
+        "delete_application_history",
+    ):
+        connection.execute(f"DROP TRIGGER IF EXISTS {trigger}")
     new = effective_status_sql("NEW")
     old = effective_status_sql("OLD")
     connection.execute("""

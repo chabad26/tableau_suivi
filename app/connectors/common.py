@@ -3,7 +3,40 @@
 import html
 import re
 from email.header import decode_header, make_header
-from email.message import EmailMessage
+from email.message import EmailMessage, Message
+
+MAX_EMAIL_HTML_LENGTH = 1_000_000
+
+
+def get_message_html(message: Message) -> str:
+    """Conserve une alternative HTML de corps, sans pièce jointe ni mail attaché."""
+    if (
+        message.get_content_disposition() == "attachment"
+        or message.get_filename()
+        or message.get_content_maintype() == "message"
+    ):
+        return ""
+    if message.is_multipart():
+        payload = message.get_payload()
+        if isinstance(payload, list):
+            for part in payload:
+                if isinstance(part, Message):
+                    content = get_message_html(part)
+                    if content:
+                        return content
+        return ""
+    if message.get_content_type() != "text/html":
+        return ""
+    payload = message.get_payload(decode=True)
+    if not isinstance(payload, bytes) or len(payload) > MAX_EMAIL_HTML_LENGTH * 4:
+        return ""
+    try:
+        content = payload.decode(
+            message.get_content_charset() or "utf-8", errors="replace"
+        )
+    except LookupError:
+        content = payload.decode("utf-8", errors="replace")
+    return content if len(content) <= MAX_EMAIL_HTML_LENGTH else ""
 
 
 def decode_mime_header(value: str) -> str:

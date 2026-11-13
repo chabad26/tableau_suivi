@@ -297,9 +297,10 @@ def import_user_emails(
                     score,
                     body,
                     in_reply_to,
-                    references_header
+                    references_header,
+                    html_body
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -314,6 +315,7 @@ def import_user_emails(
                     email.body,
                     email.in_reply_to[-8192:],
                     email.references[-8192:],
+                    email.html_body,
                 ),
             )
 

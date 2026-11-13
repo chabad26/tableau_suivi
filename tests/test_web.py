@@ -46,7 +46,7 @@ class WebTests(OfflineCase):
             data={
                 "company": "Entreprise Fictive",
                 "job_title": "Développeur Python",
-                "status": "SENT",
+                "status": "RECEIVED",
                 "note": "Note fictive",
             },
         )
@@ -80,7 +80,7 @@ class WebTests(OfflineCase):
     def test_invalid_forms_and_missing_application(self):
         self.assertEqual(
             self.client.post(
-                "/application/new", data={"company": "", "status": "SENT"}
+                "/application/new", data={"company": "", "status": "RECEIVED"}
             ).status_code,
             400,
         )

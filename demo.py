@@ -100,7 +100,7 @@ def seed_demo(alice_password: str, bob_password: str) -> None:
     bob = create_user("bob@campus.invalid", bob_password)
     for user_id, prefix in [(alice, "Alice"), (bob, "Bob")]:
         for company, status in [
-            ("Atelier des Alpes", "SENT"),
+            ("Atelier des Alpes", "RECEIVED"),
             ("Campus Numérique", "INTERVIEW"),
             ("Studio Horizon", "REJECTED"),
             ("Tech Montagne", "ACCEPTED"),

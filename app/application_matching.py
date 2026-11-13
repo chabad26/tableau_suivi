@@ -78,9 +78,11 @@ def find_conversation_application(
     rows = connection.execute(
         """SELECT a.id,a.job_title,e.sender,e.subject FROM emails e
            JOIN applications a ON a.id=e.application_id AND a.user_id=e.user_id
-           WHERE e.user_id=? AND julianday(e.received_at) BETWEEN julianday(?) AND julianday(?)""",
+           WHERE e.user_id=? AND instr(lower(e.sender),?)>0
+             AND julianday(e.received_at) BETWEEN julianday(?) AND julianday(?)""",
         (
             user_id,
+            address,
             (date - timedelta(days=90)).isoformat(),
             (date + timedelta(days=90)).isoformat(),
         ),

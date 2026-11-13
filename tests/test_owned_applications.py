@@ -52,7 +52,7 @@ class OwnedApplicationsTests(OfflineCase):
 
         assert application is not None
 
-        self.assertEqual(application["manual_status"], "SENT")
+        self.assertEqual(application["manual_status"], "RECEIVED")
 
     def test_user_cannot_delete_another_application(self):
         application_id = create_user_application(

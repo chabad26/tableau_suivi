@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Documents — Job Tracker{% endblock %}
+{% block content %}<div class="page"><section class="detail-card"><h1>Documents CV et lettres</h1><p role="alert">{{ message }}</p><a class="secondary-button" href="{{ url_for('documents.list_page') }}">Retour aux documents</a></section></div>{% endblock %}

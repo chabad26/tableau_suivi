@@ -6,6 +6,7 @@ from flask_wtf.csrf import CSRFProtect
 
 from app.accounts import init_users
 from app.database import init_database
+from app.documents import init_documents
 from app.jobs import init_jobs
 from app.ownership import init_ownership
 from app.settings import SECRET_KEY
@@ -14,6 +15,7 @@ from app.web.applications import applications_bp
 from app.web.auth import auth_bp, login_manager
 from app.web.connectors import connectors_bp
 from app.web.dashboard import dashboard_bp
+from app.web.documents import documents_bp
 from app.web.exports import exports_bp
 from app.web.jobs import jobs_bp
 from app.web.security import configure_security
@@ -29,6 +31,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(documents_bp)
 
 
 def create_app() -> Flask:
@@ -47,6 +50,7 @@ def create_app() -> Flask:
     init_users()
     init_jobs()
     init_ownership()
+    init_documents()
     login_manager.init_app(app)
     CSRFProtect(app)
 
@@ -67,6 +71,13 @@ def create_app() -> Flask:
         allowed_endpoints = {
             "applications.index",
             "dashboard.dashboard_page",
+            "documents.list_page",
+            "documents.detail_page",
+            "documents.upload_document_web",
+            "documents.upload_version_web",
+            "documents.download_web",
+            "documents.add_comment_web",
+            "documents.delete_document_web",
             "applications.application_detail",
             "applications.new_application",
             "applications.create_application_web",

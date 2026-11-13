@@ -1,5 +1,7 @@
 # Conserver l'offre d'emploi d'une candidature
 
+La récupération automatique des offres et l’envoi de candidatures depuis le site sont abandonnés. Cette page concerne uniquement la conservation manuelle d’une annonce déjà trouvée.
+
 ## Ajouter l'offre
 
 Lors de la création d'une candidature manuelle, les champs **Lien de l'offre** et **Texte de l'offre** sont facultatifs. Copier-coller le contenu utile : poste, missions, compétences, contrat et conditions.

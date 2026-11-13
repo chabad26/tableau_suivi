@@ -15,6 +15,7 @@ class DetectedEmail:
     body: str = ""
     in_reply_to: str = ""
     references: str = ""
+    html_body: str = ""
 
 
 @dataclass

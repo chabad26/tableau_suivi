@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}CV et lettres de motivation — Job Tracker{% endblock %}
+{% block content %}
+<div class="page document-page">
+    <header class="header"><div><p class="eyebrow">DOCUMENTS ET ÉCHANGES</p><h1>CV et lettres de motivation</h1>
+        <p class="subtitle">{{ 'Dépose tes documents et échange avec l’équipe pédagogique.' if is_owner else 'Consulte les documents des apprenants et accompagne leurs révisions.' }}</p>
+    </div></header>
+    {% include 'partials/flash_messages.html' %}
+    {% if error %}<p class="document-alert" role="alert">{{ error }} Choisis à nouveau le fichier après correction.</p>{% endif %}
+    {% if not is_owner %}
+    <section class="detail-card">
+        <form method="get" action="{{ url_for('documents.list_page') }}">
+            <div class="form-group"><label for="promotion">1. Choisir la promotion</label>
+                <select id="promotion" name="promotion" required>
+                    <option value="">Choisir une promotion</option>
+                    <option value="unassigned" {% if selected_promotion == 'unassigned' %}selected{% endif %}>Sans promotion renseignée</option>
+                    {% for promotion in promotions %}<option value="{{ promotion.id }}" {% if selected_promotion == promotion.id|string %}selected{% endif %}>{{ promotion.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="secondary-button">Afficher les apprenants</button>
+        </form>
+        {% if selected_promotion %}
+        <form class="document-panel" method="get" action="{{ url_for('documents.list_page') }}">
+            <input type="hidden" name="promotion" value="{{ selected_promotion }}">
+            <div class="form-group"><label for="learner">2. Choisir l'apprenant</label>
+                <select id="learner" name="learner" required>
+                    <option value="">Choisir un apprenant</option>
+                    {% for learner in learners %}<option value="{{ learner.id }}" {% if owner and owner.id == learner.id %}selected{% endif %}>{{ learner.email }} — {{ learner.promotion_name or 'Sans promotion' }} — {{ learner.documents_count }} document(s){{ ' — compte désactivé' if not learner.active else '' }}</option>{% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="secondary-button">Consulter ses documents</button>
+        </form>
+        {% if not learners %}<p>Aucun apprenant dans cette promotion.</p>{% endif %}
+        {% else %}<p>Sélectionne une promotion pour afficher ses apprenants.</p>{% endif %}
+    </section>
+    {% endif %}
+    {% if owner %}
+        {% if not is_owner %}<h2>{{ owner.email }}</h2><p>{{ owner.promotion_name or 'Promotion non renseignée' }}</p>{% endif %}
+        <section aria-label="Documents disponibles" class="documents-list">
+            {% for document in documents %}
+            <article class="detail-card">
+                <p class="eyebrow">{{ kinds[document.kind] }}</p><h2>{{ document.title }}</h2>
+                <p>{{ document.versions_count }} version(s) — dernier dépôt : {{ document.updated_at or document.created_at }} UTC</p>
+                <a class="secondary-button" href="{{ url_for('documents.detail_page', document_id=document.id) }}">Ouvrir et échanger</a>
+            </article>
+            {% else %}<p>Aucun document déposé pour le moment.</p>{% endfor %}
+        </section>
+    {% endif %}
+    {% if is_owner %}
+    <section class="edit-card document-panel">
+        <div class="edit-card-header"><h2>Déposer un document</h2><p>PDF ou DOCX, 10 Mo maximum. Crée un document distinct pour chaque CV ou lettre ; tu pourras ensuite y ajouter de nouvelles versions.</p></div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('documents.upload_document_web') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group"><label for="document-kind">Type</label><select id="document-kind" name="kind">{% for key, label in kinds.items() %}<option value="{{ key }}" {% if values.get('kind','cv') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="form-group"><label for="document-title">Titre du document</label><input id="document-title" name="title" required maxlength="120" value="{{ values.get('title','') }}" placeholder="Ex. CV cybersécurité ou lettre pour ACME"></div>
+            <div class="form-group"><label for="document-file">Fichier</label><input id="document-file" type="file" name="file" accept=".pdf,.docx" required></div>
+            <button class="primary-button" type="submit">Déposer le document</button>
+        </form>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

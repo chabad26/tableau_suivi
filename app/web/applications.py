@@ -3,6 +3,7 @@
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from app.email_rendering import render_email_body
 from app.job_titles import suggest_job_title
 from app.offers import OfferInputError
 from app.owned_applications import (
@@ -103,6 +104,9 @@ def _render_application(
         item = dict(email)
 
         item["received_at_display"] = format_datetime(email["received_at"])
+        item.update(
+            render_email_body(str(email["body"] or ""), str(email["html_body"] or ""))
+        )
 
         formatted_emails.append(item)
 

@@ -239,7 +239,7 @@ class OwnedReclassifierTests(OfflineCase):
 
     def test_manual_application_without_email_is_unchanged(self):
         app_id = create_user_application(
-            self.alice, "Entreprise manuelle", "Poste manuel", status="SENT"
+            self.alice, "Entreprise manuelle", "Poste manuel", status="RECEIVED"
         )
         before = tuple(get_user_application(self.alice, app_id))
         reclassify_user_emails(self.alice)

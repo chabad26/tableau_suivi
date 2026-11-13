@@ -171,7 +171,7 @@ class JobTitleIntegrationTests(OfflineCase):
                     "company": "ACME",
                     "job_title": title,
                     "source": "Manuel",
-                    "status": "SENT",
+                    "status": "RECEIVED",
                     "note": "Choix explicite",
                 },
             )

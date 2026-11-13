@@ -2,6 +2,8 @@
 
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from email import message_from_bytes
+from email.message import EmailMessage
 from unittest.mock import patch
 
 from app.database import get_connection
@@ -13,6 +15,53 @@ from tests.helpers import OfflineCase
 
 
 class SyncIntegrationTests(OfflineCase):
+    def test_scan_archives_html_without_changing_plain_analysis(self):
+        server = self.servers[self.alice_account]
+        original = message_from_bytes(server.messages[1])
+        message = EmailMessage()
+        for name in ("From", "To", "Date", "Subject", "Message-ID"):
+            if original[name]:
+                message[name] = original[name]
+        payload = original.get_payload(decode=True)
+        assert isinstance(payload, bytes)
+        plain = payload.decode(original.get_content_charset() or "utf-8")
+        message.set_content(plain)
+        message.add_alternative(
+            "<p>Votre candidature <strong>reçue</strong></p>", subtype="html"
+        )
+        server.messages[1] = message.as_bytes()
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(result["added"], 3)
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT body,html_body FROM emails WHERE user_id=? AND message_id=?",
+                (self.alice, str(message["Message-ID"])),
+            ).fetchone()
+        self.assertIsNotNone(row)
+        self.assertIn("<strong>reçue</strong>", row["html_body"])
+        self.assertNotIn("<strong>", row["body"])
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 777))
+
+    def test_scan_preserves_thread_headers_in_archived_email(self):
+        server = self.servers[self.alice_account]
+        message = message_from_bytes(server.messages[1])
+        message["In-Reply-To"] = "<parent@example.invalid>"
+        message["References"] = "<root@example.invalid> <parent@example.invalid>"
+        server.messages[1] = message.as_bytes()
+        execute_user_job(self.alice, "scan")
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT in_reply_to,references_header FROM emails WHERE user_id=? AND message_id=?",
+                (self.alice, str(message["Message-ID"])),
+            ).fetchone()
+        self.assertEqual(
+            tuple(row),
+            (
+                "<parent@example.invalid>",
+                "<root@example.invalid> <parent@example.invalid>",
+            ),
+        )
+
     def setUp(self):
         super().setUp()
         self.alice = self.create_test_user("alice@example.invalid")
@@ -87,19 +136,19 @@ class SyncIntegrationTests(OfflineCase):
         old = (now - timedelta(days=31)).isoformat()
         self.servers[self.alice_account].messages = {}
         cases = [
-            (self.alice, "SENT", old, 0, "EXPIRED"),
+            (self.alice, "RECEIVED", old, 0, "EXPIRED"),
             (self.alice, "RECEIVED", old, 0, "EXPIRED"),
             (self.alice, "OTHER", old, 0, "EXPIRED"),
-            (self.alice, "SENT", now.isoformat(), 0, "SENT"),
-            (self.alice, "SENT", old, 1, "EXPIRED"),
+            (self.alice, "RECEIVED", now.isoformat(), 0, "RECEIVED"),
             (self.alice, "RECEIVED", old, 1, "EXPIRED"),
-            (self.alice, "SENT", now.isoformat(), 1, "SENT"),
+            (self.alice, "RECEIVED", old, 1, "EXPIRED"),
+            (self.alice, "RECEIVED", now.isoformat(), 1, "RECEIVED"),
             (self.alice, "INTERVIEW", old, 1, "INTERVIEW"),
             (self.alice, "REJECTED", old, 1, "REJECTED"),
             (self.alice, "INTERVIEW", old, 0, "INTERVIEW"),
             (self.alice, "REJECTED", old, 0, "REJECTED"),
-            (self.bob, "SENT", old, 0, "SENT"),
-            (None, "SENT", old, 0, "SENT"),
+            (self.bob, "RECEIVED", old, 0, "RECEIVED"),
+            (None, "RECEIVED", old, 0, "RECEIVED"),
         ]
         ids = []
         with get_connection() as connection:

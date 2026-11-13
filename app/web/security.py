@@ -2,7 +2,9 @@
 
 import os
 
-from flask import Flask
+from flask import Flask, request
+
+from app.documents import MAX_DOCUMENT_BYTES
 
 
 def configure_security(app: Flask) -> None:
@@ -16,6 +18,14 @@ def configure_security(app: Flask) -> None:
         PERMANENT_SESSION_LIFETIME=3600,
         MAX_CONTENT_LENGTH=2 * 1024 * 1024,
     )
+
+    @app.before_request
+    def document_upload_limit():
+        if request.endpoint in {
+            "documents.upload_document_web",
+            "documents.upload_version_web",
+        }:
+            request.max_content_length = MAX_DOCUMENT_BYTES + 1024 * 1024
 
     @app.after_request
     def set_security_headers(response):

@@ -75,3 +75,16 @@ Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont d
 Le dashboard vérifie le rôle et l’activation dans la transaction de lecture. L’apprenant est limité à son identifiant, même avec un filtre de promotion forgé. La vue campus est réservée au rôle `admin` de l’équipe pédagogique et agrège uniquement les apprenants, sans sélection d’entreprise, poste, note, offre ou contenu mail. Les candidatures détaillées et messageries d’autrui restent inaccessibles. L’ancien rôle `trainer` n’est pas proposé à la création et ne reçoit pas d’accès au dashboard ; les anciens comptes sont conservés sans promotion automatique.
 
 Le journal ne contient que les identifiants nécessaires au périmètre, des codes de statut et leurs dates d’observation. Les états initiaux ne sont pas des preuves d’une transition passée. Le transfert de propriété réinitialise l’historique pour éviter de transmettre celui de l’ancien propriétaire ; les écritures sont annulées avec la transaction métier en cas d’échec. Ce journal applicatif n’est pas présenté comme un audit de sécurité inviolable. Voir [les règles du dashboard](DASHBOARD.md).
+
+
+## Documents privés et échanges
+
+Le lot CV/LM accorde explicitement à l’équipe pédagogique active le droit de consulter et commenter les documents des apprenants. Un apprenant n’a accès qu’à ses propres fichiers et échanges. Les propriétaires et auteurs viennent des contrôles serveur ; des champs de formulaire forgés ne permettent pas de les remplacer. L’équipe ne peut pas déposer une version à la place d’un apprenant ni supprimer ses fichiers. Tous les POST sont protégés par CSRF.
+
+Le stockage est hors du répertoire statique, avec noms physiques générés, permissions privées et refus des symlinks. Les téléchargements sont autorisés avant lecture des fichiers, vérifiés par taille et empreinte, servis en pièce jointe sans cache et sans HTML exécutable dans la page. Les contrôles de signature et de structure ne sont pas présentés comme un antivirus. Le dépôt de fichiers reste limité à 10 Mo et ne relève pas la limite des autres formulaires.
+
+Les sauvegardes doivent couvrir de manière cohérente la base et les fichiers. Une suppression efface également les versions et leurs échanges ; la mise à l’écart temporaire des fichiers permet de les remettre en place si la transaction échoue. Le comportement en cas d’interruption de processus et les modalités de restauration sont décrits dans [DOCUMENTS.md](DOCUMENTS.md).
+
+### Corps HTML des emails
+
+Le HTML source conservé en base est non fiable. La fiche applique le nettoyeur nh3 à liste restrictive puis isole le résultat dans une iframe `srcdoc` échappée, avec sandbox et CSP interdisant scripts, formulaires et ressources distantes. Toutes les images et les styles d'expéditeur sont retirés. Seuls les liens HTTP/HTTPS absolus restent cliquables, sans accès à la fenêtre d'origine et sans référent. Les droits restent limités au propriétaire de la candidature. Voir [le rendu HTML et ses limites](EMAILS_HTML.md).

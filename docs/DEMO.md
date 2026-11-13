@@ -32,7 +32,7 @@ La clé de session est recréée à chaque lancement : se reconnecter après un 
 ## Scénario (5 à 8 minutes)
 
 1. Se connecter avec `alice@campus.invalid` et le mot de passe choisi.
-2. Montrer les entreprises fictives : Atelier des Alpes, Campus Numérique, Studio Horizon et Tech Montagne. Les libellés portent le prénom du propriétaire. Montrer les statuts envoyée, entretien, refus et acceptée. L'acceptation est ici une donnée manuelle de démonstration, pas une détection automatique ajoutée au classificateur.
+2. Montrer les entreprises fictives : Atelier des Alpes, Campus Numérique, Studio Horizon et Tech Montagne. Les libellés portent le prénom du propriétaire. Montrer les statuts reçue, entretien, refus et acceptée. L'acceptation est ici une donnée manuelle de démonstration, pas une détection automatique ajoutée au classificateur.
 3. Ouvrir la candidature créée automatiquement depuis les trois emails de recrutement fictifs. Montrer son historique : lecture MIME, classification et import utilisent le vrai pipeline applicatif avec un serveur IMAP en mémoire.
 4. Ouvrir « Mes synchronisations ». Le premier scan a déjà importé ces trois emails pendant l'initialisation. Il est terminé et possède un point de reprise.
 5. Cliquer « Scanner les mails », puis actualiser les synchronisations. Le nouveau travail passe de l'attente au succès. Le serveur fictif n'ayant pas de nouveau message après UID 3, zéro email supplémentaire est attendu : cela illustre la reprise incrémentale et l'absence de doublons.

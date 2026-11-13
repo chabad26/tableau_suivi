@@ -4,7 +4,7 @@ from app.database import get_connection
 from app.owned_applications import require_user_id
 from app.settings import APPLICATION_EXPIRY_DAYS
 
-EXPIRABLE_STATUSES = {"SENT", "RECEIVED", "OTHER"}
+EXPIRABLE_STATUSES = {"RECEIVED", "OTHER"}
 
 
 def expire_stale_applications(user_id: int | None = None) -> int:

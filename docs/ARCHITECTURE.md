@@ -66,3 +66,16 @@ Le serveur de démonstration utilise le port 5001, un cookie distinct et un work
 `app/application_history.py`, appelé après la migration de propriété, installe le journal et les triggers de changement du statut effectif. Les anciennes fiches reçoivent un état de départ observé à l’installation ; aucune transition antérieure n’est reconstituée. Les changements sont transactionnels, supprimés avec la candidature et réinitialisés lors d’un transfert de propriétaire. Les premières détections sont agrégées depuis `first_seen` séparément des changements observés.
 
 Le périmètre complet, les filtres et les limites sont documentés dans [DASHBOARD.md](DASHBOARD.md).
+
+
+## Documents CV/LM et échanges pédagogiques
+
+`app/documents.py` sépare les dossiers de documents (`documents`), leurs versions (`document_versions`) et les commentaires rattachés à chaque version (`document_comments`). Les fichiers restent dans un stockage privé à côté de la base ; leur nom physique est aléatoire et leur intégrité est vérifiée au téléchargement. Les services contrôlent les droits à chaque accès et dans les transactions de mutation.
+
+L’apprenant gère ses fichiers. L’équipe pédagogique (`admin`) peut consulter les dossiers des apprenants et échanger, mais ne remplace ni ne supprime les fichiers. Cet accès documentaire explicite est distinct de l’accès aux candidatures détaillées et aux emails, qui restent personnels. Le dépôt utilise uniquement des traitements locaux ; les formats acceptés sont PDF et DOCX, avec une limite de 10 Mo par fichier.
+
+Le blueprint `/documents` applique les mêmes protections de session et CSRF que les autres modules. La limite multipart de requête est ajustée pour les seules routes de dépôt. Les discussions et versions sont affichées sans exécution de contenu HTML, et les fichiers sont fournis comme pièces jointes. Voir [DOCUMENTS.md](DOCUMENTS.md) pour le périmètre, les limites et la sauvegarde base/fichiers.
+
+### Présentation des emails HTML
+
+Le scan IMAP conserve une alternative HTML de corps dans `DetectedEmail.html_body`, puis `emails.html_body`. Le champ texte existant reste la source de classification et de réanalyse. `app/email_rendering.py` nettoie le HTML à la lecture ; le template l'isole dans une iframe `srcdoc` échappée. Aucun chargement réseau n'est nécessaire pour afficher le corps. Voir [les limites et l'installation](EMAILS_HTML.md).

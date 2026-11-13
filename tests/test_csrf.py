@@ -37,7 +37,7 @@ class CSRFTests(OfflineCase):
         user_id = self.authenticate()
 
         response = self.client.post(
-            "/application/new", data={"company": "Fausse société", "status": "SENT"}
+            "/application/new", data={"company": "Fausse société", "status": "RECEIVED"}
         )
 
         self.assertEqual(response.status_code, 400)
@@ -51,7 +51,11 @@ class CSRFTests(OfflineCase):
 
         response = self.client.post(
             "/application/new",
-            data={"company": "Entreprise test", "status": "SENT", "csrf_token": token},
+            data={
+                "company": "Entreprise test",
+                "status": "RECEIVED",
+                "csrf_token": token,
+            },
         )
 
         self.assertEqual(response.status_code, 303)

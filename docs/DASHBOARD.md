@@ -17,7 +17,7 @@ L'ancien rôle `trainer` reste lisible dans la base pour compatibilité, mais n'
 
 ## Chiffres et filtres
 
-Les cartes donnent les statuts **actuellement affichés**, en tenant compte des corrections manuelles : total, envoyées, reçues, entretiens, refus, acceptées, sans réponse et à analyser. Elles portent sur toutes les dates. Un compteur indique le nombre d'apprenants dans le périmètre campus, ou le compte personnel en vue individuelle.
+Les cartes donnent les statuts **actuellement affichés**, en tenant compte des corrections manuelles : total, reçues, entretiens, refus, acceptées, sans réponse et à analyser. Elles portent sur toutes les dates. Un compteur indique le nombre d'apprenants dans le périmètre campus, ou le compte personnel en vue individuelle.
 
 Le tableau par apprenant utilise exactement le même filtre de promotion et le même périmètre que les cartes ; la somme des lignes correspond aux totaux affichés. Ses chiffres portent également sur toutes les dates. Le choix de 6 ou 12 mois concerne uniquement l'évolution mensuelle.
 
@@ -34,6 +34,8 @@ Le catalogue des promotions est lu en base : une nouvelle formation/session est 
 Pour l'équipe pédagogique, **Ajouter une formation / promotion** ouvre la section du catalogue dans l'administration. La création et l'affectation conservent les contrôles de rôle et de CSRF existants.
 
 La fin d'une synchronisation de connexion réussie actualise aussi cette page. En dehors de ce suivi, utiliser **Actualiser les chiffres** ou recharger la page. Les calculs sont locaux, sans téléchargement d'email ni dépendance à Internet ; le worker reste nécessaire aux scans et réanalyses habituels.
+
+Les anciennes valeurs internes `SENT` sont regroupées dans « Reçue ». Les événements bruts conservent leur statut d'origine, leur identifiant et leur date ; le regroupement ne crée pas un changement de statut supplémentaire.
 
 ## Historique : ce qui est réellement connu
 

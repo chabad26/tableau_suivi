@@ -178,6 +178,16 @@ def migrate(connection: sqlite3.Connection) -> int:
             return 0
 
         expected_count = check_preconditions(connection)
+        columns = {
+            str(row["name"]) for row in connection.execute("PRAGMA table_info(emails)")
+        }
+        reply_column = "COALESCE(in_reply_to, '')" if "in_reply_to" in columns else "''"
+        html_column = "COALESCE(html_body, '')" if "html_body" in columns else "''"
+        references_column = (
+            "COALESCE(references_header, '')"
+            if "references_header" in columns
+            else "''"
+        )
 
         connection.execute("""
             CREATE TABLE emails_new (
@@ -201,6 +211,9 @@ def migrate(connection: sqlite3.Connection) -> int:
                 score INTEGER NOT NULL,
 
                 body TEXT,
+                in_reply_to TEXT NOT NULL DEFAULT '',
+                references_header TEXT NOT NULL DEFAULT '',
+                html_body TEXT NOT NULL DEFAULT '',
 
                 UNIQUE(user_id, message_id),
 
@@ -213,7 +226,7 @@ def migrate(connection: sqlite3.Connection) -> int:
             )
         """)
 
-        connection.execute("""
+        connection.execute(f"""
             INSERT INTO emails_new (
                 id,
                 user_id,
@@ -225,7 +238,10 @@ def migrate(connection: sqlite3.Connection) -> int:
                 received_at,
                 detected_status,
                 score,
-                body
+                body,
+                in_reply_to,
+                references_header,
+                html_body
             )
             SELECT
                 id,
@@ -238,7 +254,10 @@ def migrate(connection: sqlite3.Connection) -> int:
                 received_at,
                 detected_status,
                 score,
-                body
+                body,
+                {reply_column},
+                {references_column},
+                {html_column}
             FROM emails
         """)
 

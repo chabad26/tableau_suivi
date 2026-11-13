@@ -422,9 +422,17 @@
                                 {{ email["detected_status"] }}
                             </div>
 
-                            <div class="email-body">
-                                {{ email["body"] or "Contenu non disponible." }}
-                            </div>
+                            {% if email['html_document'] %}
+                                <div class="email-html-view">
+                                    <p>Affichage allégé : images et contenus actifs désactivés.</p>
+                                    <iframe class="email-html-frame" title="Email HTML : {{ email['subject'] }}"
+                                            sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"
+                                            loading="lazy" srcdoc="{{ email['html_document'] }}"></iframe>
+                                    <details><summary>Afficher le texte archivé</summary><div class="email-body">{{ email['text_body'] or 'Contenu non disponible.' }}</div></details>
+                                </div>
+                            {% else %}
+                                <div class="email-body">{{ email['text_body'] or 'Contenu non disponible.' }}</div>
+                            {% endif %}
 
                         </div>
 
