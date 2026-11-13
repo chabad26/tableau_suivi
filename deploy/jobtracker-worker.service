@@ -1,0 +1,26 @@
+[Unit]
+Description=Job Tracker Campus - worker personnel IMAP et reanalyse
+After=network-online.target jobtracker-web.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jobtracker
+Group=jobtracker
+WorkingDirectory=/opt/jobtracker
+EnvironmentFile=/etc/jobtracker/jobtracker.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/jobtracker/.venv/bin/python worker.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jobtracker
+
+[Install]
+WantedBy=multi-user.target

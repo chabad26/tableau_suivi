@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Créer un compte — Administration{% endblock %}
+{% block content %}
+<div class="page">
+    <a class="back-link" href="{{ url_for('admin.users_page') }}">← Comptes utilisateurs</a>
+    <header class="header"><div><p class="eyebrow">ADMINISTRATION</p><h1>Créer un compte</h1></div></header>
+    <section class="detail-card">
+        {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+        <form method="post" action="{{ url_for('admin.create_user_web') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="user-email">Adresse email de connexion</label>
+                <input type="email" id="user-email" name="email" value="{{ email }}" maxlength="254" autocomplete="off" required>
+            </div>
+            <div class="form-group">
+                <label for="user-role">Rôle</label>
+                <select id="user-role" name="role">
+                    {% for role, label in role_labels.items() %}<option value="{{ role }}" {% if selected_role == role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                <p>L'équipe pédagogique gère les comptes et consulte les chiffres agrégés du campus. Ce rôle ne donne pas accès aux candidatures détaillées des autres personnes.</p>
+            </div>
+            <div class="form-group">
+                <label for="user-promotion">Promotion (facultative)</label>
+                <select id="user-promotion" name="promotion_id">
+                    <option value="">Non renseignée</option>
+                    {% for promotion in promotions %}<option value="{{ promotion.id }}" {% if selected_promotion == promotion.id|string %}selected{% endif %}>{{ promotion.name }}</option>{% endfor %}
+                </select>
+                <p>Les promotions se créent depuis la liste des comptes utilisateurs.</p>
+            </div>
+            <div class="form-group">
+                <label for="user-password">Mot de passe initial (12 à 256 caractères)</label>
+                <input type="password" id="user-password" name="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+            </div>
+            <div class="form-group">
+                <label for="user-password-confirm">Confirmer le mot de passe</label>
+                <input type="password" id="user-password-confirm" name="password_confirm" minlength="12" maxlength="256" autocomplete="new-password" required>
+            </div>
+            <p>Le mot de passe ne sera pas réaffiché après la création. Transmettez-le directement à son destinataire par un moyen adapté.</p>
+            <button type="submit" class="primary-button">Créer le compte</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -64,7 +64,9 @@ class OfflineCase(unittest.TestCase):
         self.stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
 
         self.app = create_app()
-        self.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+        self.app.config.update(
+            TESTING=True, WTF_CSRF_ENABLED=False, AUTO_SYNC_ON_LOGIN=False
+        )
         self.client = self.app.test_client()
 
     def application(

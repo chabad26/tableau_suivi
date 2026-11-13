@@ -1,4 +1,5 @@
 import json
+from functools import partial
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import AuthorizedSession, Request
@@ -13,6 +14,22 @@ SCOPES = ["https://mail.google.com/"]
 CREDENTIALS_FILE = GMAIL_CREDENTIALS_FILE
 
 TOKEN_FILE = GMAIL_TOKEN_FILE
+
+
+class GmailAuthorizationError(RuntimeError):
+    """Diagnostic fixe affichable, sans recopier la réponse OAuth du fournisseur."""
+
+    MESSAGES = {
+        "missing": "Autorisation Gmail absente. Ce compte doit être connecté via OAuth.",
+        "invalid_cache": "Cache OAuth Gmail invalide.",
+        "refresh_rejected": "Autorisation Gmail expirée ou révoquée. Une nouvelle autorisation est nécessaire.",
+        "refresh_temporary": "Renouvellement Gmail temporairement indisponible. Réessayer plus tard.",
+        "invalid_token": "Aucun jeton Gmail valide.",
+        "identity_mismatch": "L'identité Gmail autorisée ne correspond pas à la boîte IMAP configurée.",
+    }
+
+    def __init__(self, code: str):
+        super().__init__(self.MESSAGES[code])
 
 
 def get_credentials() -> Credentials:
@@ -57,9 +74,7 @@ def _get_owned_gmail_token_unlocked(
     content = read_oauth_cache(user_id, account_id, "gmail")
 
     if not content:
-        raise RuntimeError(
-            "Autorisation Gmail absente. Ce compte doit être connecté via OAuth."
-        )
+        raise GmailAuthorizationError("missing")
 
     try:
         info = json.loads(content)
@@ -67,17 +82,22 @@ def _get_owned_gmail_token_unlocked(
         credentials = Credentials.from_authorized_user_info(info, SCOPES)
 
     except (ValueError, TypeError, KeyError) as error:
-        raise RuntimeError("Cache OAuth Gmail invalide.") from error
+        raise GmailAuthorizationError("invalid_cache") from error
 
     if credentials.expired and credentials.refresh_token:
         try:
-            credentials.refresh(Request())
+            credentials.refresh(partial(Request(), timeout=15))
 
         except RefreshError as error:
-            raise RuntimeError("Autorisation Gmail expirée ou révoquée.") from error
+            code = (
+                "refresh_temporary"
+                if getattr(error, "retryable", False)
+                else "refresh_rejected"
+            )
+            raise GmailAuthorizationError(code) from error
 
     if not credentials.valid or not credentials.token:
-        raise RuntimeError("Aucun jeton Gmail valide.")
+        raise GmailAuthorizationError("invalid_token")
 
     # Ne jamais se fier uniquement au nom de fichier.
     # On vérifie l'adresse réellement associée au jeton.
@@ -93,9 +113,7 @@ def _get_owned_gmail_token_unlocked(
     actual_email = str(profile.get("emailAddress", "")).strip().casefold()
 
     if actual_email != expected_email.strip().casefold():
-        raise RuntimeError(
-            "L'identité Gmail autorisée ne correspond pas à la boîte IMAP configurée."
-        )
+        raise GmailAuthorizationError("identity_mismatch")
 
     # Le cache n'est enregistré qu'après vérification.
     write_oauth_cache(user_id, account_id, "gmail", credentials.to_json())

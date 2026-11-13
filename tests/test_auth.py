@@ -85,9 +85,9 @@ class AuthenticationTests(OfflineCase):
 
         self.assertEqual(response.status_code, 200)
 
-    def test_unmigrated_jobs_are_blocked(self):
+    def test_personal_jobs_are_available(self):
         self.login()
 
         response = self.client.get("/jobs")
 
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 200)

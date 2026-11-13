@@ -2,6 +2,7 @@
 
 import sqlite3
 
+from app.application_history import init_application_history
 from app.database import get_connection
 
 OWNED_TABLES = ("applications", "emails", "imap_accounts", "jobs")
@@ -65,3 +66,4 @@ def init_ownership() -> None:
             idx_jobs_user_id
             ON jobs(user_id)
         """)
+        init_application_history(connection)

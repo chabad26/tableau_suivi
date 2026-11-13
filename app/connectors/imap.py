@@ -15,6 +15,7 @@ from app.classifier import detect_status, score_message
 from app.connectors.common import (
     build_email_message,
     decode_mime_header,
+    get_message_html,
     html_to_text,
     sanitize_header_value,
 )
@@ -57,6 +58,7 @@ class ImapScanBatch:
     emails: list[DetectedEmail]
     last_uid: int
     uid_validity: int | None
+    failed_uids: int = 0
 
 
 def get_imap_accounts() -> list[ImapAccount]:
@@ -165,7 +167,13 @@ def connect_imap(account: ImapAccount) -> imaplib.IMAP4:
                     account.host, account.port, ssl_context=context, timeout=15
                 )
 
-            return imaplib.IMAP4(account.host, account.port, timeout=15)
+            connection = imaplib.IMAP4(account.host, account.port, timeout=15)
+            try:
+                connection.starttls(ssl_context=ssl.create_default_context())
+            except Exception:
+                connection.shutdown()
+                raise
+            return connection
 
         except ssl.SSLCertVerificationError:
             raise RuntimeError("Certificat TLS IMAP non valide.") from None
@@ -425,12 +433,19 @@ def scan_imap_account(
                         status=status_value,
                         reasons=reasons,
                         body=normalized_body,
+                        html_body=get_message_html(message),
+                        in_reply_to=sanitize_header_value(
+                            str(message.get("In-Reply-To", ""))[-8192:]
+                        ),
+                        references=sanitize_header_value(
+                            str(message.get("References", ""))[-8192:]
+                        ),
                     )
                 )
 
             except Exception as error:
                 failed_uids.append(int(imap_uid))
-                print(f"  ⚠ UID {imap_uid} ignoré ({type(error).__name__}: {error})")
+                print(f"  ⚠ UID {imap_uid} ignoré ({type(error).__name__})")
                 continue
 
         searched_uids = [int(imap_uid) for imap_uid in message_ids]
@@ -469,7 +484,10 @@ def scan_imap_account(
 
     if return_batch:
         return ImapScanBatch(
-            emails=detected, last_uid=max_uid, uid_validity=current_uid_validity
+            emails=detected,
+            last_uid=max_uid,
+            uid_validity=current_uid_validity,
+            failed_uids=len(failed_uids),
         )
 
     return detected

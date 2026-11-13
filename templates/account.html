@@ -24,14 +24,21 @@
 
         <p>
             <strong>Rôle :</strong>
-            {{ current_user.role }}
+            {{ {'student': 'Apprenant', 'trainer': 'Formateur (ancien rôle)', 'admin': 'Équipe pédagogique'}.get(current_user.role, current_user.role) }}
         </p>
 
         <p>
-            Le tableau de suivi personnel sera
-            disponible après la migration
-            des données.
+            <strong>Promotion :</strong>
+            {{ current_user.promotion_name or 'Non renseignée' }}
         </p>
+
+        <p>
+            <a class="primary-button" href="{{ url_for('applications.index') }}">Accéder à mes candidatures</a>
+        </p>
+
+        {% if current_user.role == 'admin' %}
+            <p><a class="primary-button" href="{{ url_for('admin.users_page') }}">Gérer les comptes utilisateurs</a></p>
+        {% endif %}
 
         <form
             method="post"

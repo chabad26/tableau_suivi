@@ -28,7 +28,7 @@
                     type="submit"
                     class="secondary-button"
                 >
-                    ♻ Réanalyser les mails
+                    ♻ Réanalyser mes emails archivés
                 </button>
             </form>
             <form
@@ -51,12 +51,10 @@
                 + Nouvelle candidature
             </a>
 
-            <a
-                href="{{ url_for('connectors.connectors_page') }}"
-                class="secondary-button"
-            >
-                ⚙ Connecteurs
+            <a href="{{ url_for('jobs.jobs_page') }}" class="secondary-button">
+                Mes travaux
             </a>
+            <a href="{{ url_for('connectors.connectors_page') }}" class="secondary-button">⚙ Mes connecteurs</a>
 
         </div>
 
@@ -168,31 +166,7 @@
 
 
     <div class="export-actions">
-
-        <a
-            class="secondary-button"
-            href="{{ url_for(
-                'exports.export_csv',
-                status=status_filter,
-                q=search,
-                mailbox=mailbox_filter
-            ) }}"
-        >
-            Export CSV
-        </a>
-
-        <a
-            class="secondary-button"
-            href="{{ url_for(
-                'exports.export_xlsx',
-                status=status_filter,
-                q=search,
-                mailbox=mailbox_filter
-            ) }}"
-        >
-            Export Excel
-        </a>
-
+        <p>Les exports sont temporairement indisponibles pendant la migration multi-utilisateur.</p>
     </div>
 
 </section>

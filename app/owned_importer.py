@@ -4,11 +4,18 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.application_matching import find_conversation_application
 from app.database import get_connection
-from app.extractor import company_key, extract_application_data
+from app.extractor import (
+    clean_job_title,
+    company_key,
+    extract_application_data,
+    job_title_score,
+)
+from app.job_titles import extract_offer_job_title
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
-from migrate_email_uniqueness import has_composite_unique
+from migrate.migrate_email_uniqueness import has_composite_unique
 
 
 class MessageIdConflictError(RuntimeError):
@@ -32,9 +39,21 @@ def normalized_date(value: datetime) -> datetime:
 
 
 def find_owned_application(
-    connection: sqlite3.Connection, user_id: int, company: str, job_title: str
+    connection: sqlite3.Connection,
+    user_id: int,
+    company: str,
+    job_title: str,
+    *,
+    email: DetectedEmail | None = None,
 ) -> int | None:
     """Retrouve une candidature uniquement chez son propriétaire."""
+
+    if email is not None:
+        conversation = find_conversation_application(
+            connection, user_id, email, job_title
+        )
+        if conversation is not None:
+            return conversation
 
     rows = connection.execute(
         """
@@ -47,13 +66,13 @@ def find_owned_application(
     ).fetchall()
 
     target_company = company_key(company)
-    target_title = job_title.strip().casefold()
+    target_title = clean_job_title(job_title).casefold()
 
     for row in rows:
         if company_key(str(row["company"] or "")) != target_company:
             continue
 
-        existing_title = str(row["job_title"] or "").strip().casefold()
+        existing_title = clean_job_title(str(row["job_title"] or "")).casefold()
 
         if target_title and existing_title and target_title != existing_title:
             continue
@@ -108,7 +127,7 @@ def update_owned_application(
 
     current = connection.execute(
         """
-        SELECT last_update, job_title
+        SELECT last_update, job_title, manual_override, offer_text, company
         FROM applications
         WHERE id = ?
           AND user_id = ?
@@ -124,7 +143,16 @@ def update_owned_application(
     existing_date = normalized_date(datetime.fromisoformat(str(current["last_update"])))
 
     current_title = str(current["job_title"] or "")
-    new_title = current_title or job_title
+    new_title = current_title
+    if not current["manual_override"]:
+        cleaned_title = clean_job_title(current_title)
+        new_title = extract_offer_job_title(
+            str(current["offer_text"] or ""), company=str(current["company"] or "")
+        ) or (
+            job_title
+            if job_title_score(job_title) > job_title_score(cleaned_title)
+            else cleaned_title
+        )
 
     if incoming_date >= existing_date:
         connection.execute(
@@ -245,7 +273,7 @@ def import_user_emails(
             )
 
             application_id = find_owned_application(
-                connection, user_id, company, job_title
+                connection, user_id, company, job_title, email=email
             )
 
             if application_id is None:
@@ -267,9 +295,12 @@ def import_user_emails(
                     received_at,
                     detected_status,
                     score,
-                    body
+                    body,
+                    in_reply_to,
+                    references_header,
+                    html_body
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -282,6 +313,9 @@ def import_user_emails(
                     email.status,
                     email.score,
                     email.body,
+                    email.in_reply_to[-8192:],
+                    email.references[-8192:],
+                    email.html_body,
                 ),
             )
 

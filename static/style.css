@@ -1,11 +1,20 @@
+/* Palette issue du site du Campus Numérique, adaptée aux fonds sombres.
+   Source : https://le-campus-numerique.fr/wp-content/uploads/elementor/css/post-7.css */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-soft: #1d2129;
-  --border: #2a303b;
+  --campus-pink: #ef2961;
+  --campus-blue: #2f82c5;
+  --campus-orange: #f76534;
+  --action: #c91b50;
+  --action-hover: #ad1744;
+  --action-text: #ffffff;
+  --focus: #ffb3ca;
+  --bg: #111116;
+  --panel: #1b1a22;
+  --panel-soft: #23212c;
+  --border: #393443;
   --text: #f2f4f8;
-  --muted: #9ca3af;
-  --accent: #6ea8fe;
+  --muted: #b1abbc;
+  --accent: #ff86aa;
 }
 
 
@@ -19,6 +28,9 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 
   font-family:
     Inter,
@@ -31,11 +43,31 @@ body {
   background:
     radial-gradient(
       circle at top left,
-      #18202d,
+      #30202d,
       var(--bg) 40%
     );
 
+  background-repeat: no-repeat;
   color: var(--text);
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--action);
+  color: var(--action-text);
 }
 
 h1 {
@@ -52,6 +84,50 @@ h1 {
   width: min(1400px, 94%);
   margin: 0 auto;
   padding: 40px 0 70px;
+}
+
+.campus-brand {
+  width: min(1400px, 94%);
+  margin: 0 auto;
+  padding: 22px 0 18px;
+  border-bottom: 3px solid var(--campus-pink);
+  border-image: linear-gradient(
+    90deg,
+    var(--campus-pink) 0% 72%,
+    var(--campus-blue) 72% 90%,
+    var(--campus-orange) 90% 100%
+  ) 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.campus-brand-copy {
+  flex: 1 1 360px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.campus-brand-logo {
+  display: block;
+  width: 300px;
+  max-width: 100%;
+  height: auto;
+  margin-left: auto;
+}
+
+.campus-brand-name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.campus-brand-product {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .app-navigation {
@@ -139,14 +215,14 @@ button:hover,
 
   padding: 12px 18px;
 
-  border: 1px solid #3f6fa8;
+  border: 1px solid var(--action);
 
-  background: #244c7a;
-  color: white;
+  background: var(--action);
+  color: var(--action-text);
 }
 
 .primary-button:hover {
-  background: #2b5b91;
+  background: var(--action-hover);
 }
 
 .secondary-button {
@@ -215,7 +291,7 @@ button:hover,
 
 .stat-card:hover {
   transform: translateY(-2px);
-  border-color: #4e5b6d;
+  border-color: var(--accent);
 }
 
 .stat-label {
@@ -261,7 +337,6 @@ button:hover,
   background: var(--panel);
   color: var(--text);
 
-  outline: none;
 }
 
 .search-form select {
@@ -274,7 +349,6 @@ button:hover,
   background: var(--panel);
   color: var(--text);
 
-  outline: none;
 }
 
 .search-form input:focus,
@@ -327,7 +401,7 @@ table {
 }
 
 thead {
-  background: #1b1f27;
+  background: var(--panel-soft);
 }
 
 th,
@@ -348,7 +422,7 @@ th {
 }
 
 td {
-  border-bottom: 1px solid #242a34;
+  border-bottom: 1px solid var(--border);
 }
 
 tbody tr {
@@ -356,7 +430,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: #1d222b;
+  background: #292431;
 }
 
 tbody tr:last-child td {
@@ -404,16 +478,6 @@ tbody tr:last-child td {
 .badge-large {
   padding: 9px 14px;
   font-size: 14px;
-}
-
-.badge-proposed {
-  background: #2f2b47;
-  color: #c8b7ff;
-}
-
-.badge-sent {
-  background: #26354d;
-  color: #9bc1ff;
 }
 
 .badge-received {
@@ -767,6 +831,20 @@ tbody tr:last-child td {
   line-height: 1.55;
 }
 
+.email-html-view {
+  margin-top: 16px;
+}
+
+.email-html-frame {
+  display: block;
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
 .email-card {
   padding: 18px 20px;
 
@@ -876,7 +954,6 @@ tbody tr:last-child td {
 
   font: inherit;
 
-  outline: none;
 }
 
 .form-group input:focus,
@@ -1000,14 +1077,16 @@ tbody tr:last-child td {
   grid-template-columns:
     repeat(
       auto-fit,
-      minmax(300px, 1fr)
+      minmax(min(100%, 300px), 1fr)
     );
 
   gap: 18px;
 }
 
 .connector-card {
+  min-width: 0;
   min-height: 250px;
+  overflow-wrap: anywhere;
 
   padding: 22px;
 
@@ -1017,13 +1096,58 @@ tbody tr:last-child td {
   border-radius: 16px;
 }
 
+.offer-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.documents-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.document-page {
+  overflow-wrap: anywhere;
+}
+
+.documents-list .detail-card,
+.document-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.document-text {
+  white-space: pre-wrap;
+}
+
+.document-panel {
+  margin-top: 24px;
+}
+
+.document-alert {
+  color: #ff9ba5;
+}
+
 .connector-header {
   display: flex;
+  flex-wrap: wrap;
 
   justify-content: space-between;
   align-items: flex-start;
 
-  gap: 20px;
+  gap: 12px;
+}
+
+.connector-header > div {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .connector-card h2 {
@@ -1238,4 +1362,86 @@ tbody tr:last-child td {
   .detail-header-actions {
     flex-wrap: wrap;
   }
+}
+.login-sync {
+  margin: 16px auto;
+  padding: 14px 18px;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.login-sync[hidden],
+.login-sync-idle .login-sync-spinner {
+  display: none;
+}
+
+.login-sync-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: login-sync-spin 1s linear infinite;
+}
+
+@keyframes login-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-sync-spinner { animation: none; }
+}
+
+/* Crédit commun, après le contenu et au bas des pages courtes. */
+.app-footer {
+  width: min(1400px, 94%);
+  margin: auto auto 0;
+  padding: 18px 0 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.olidev-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.olidev-credit img {
+  display: block;
+  width: 128px;
+  height: auto;
+  border-radius: 6px;
+}
+
+.olidev-credit:hover .olidev-credit-name {
+  text-decoration: underline;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

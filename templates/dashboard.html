@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Tableau de bord — Job Tracker{% endblock %}
+{% block content %}
+<div class="page">
+    <header class="header">
+        <div><p class="eyebrow">INDICATEURS</p><h1>Tableau de bord</h1>
+            <p class="subtitle">{{ 'Chiffres agrégés des apprenants du campus' if dashboard.scope == 'campus' else 'Mes chiffres personnels' }} — aucune candidature détaillée affichée.</p>
+        </div>
+        <div class="header-actions">
+            {% if dashboard.can_view_campus %}
+                <a class="secondary-button" href="{{ url_for('dashboard.dashboard_page', scope='personal') }}">Mes chiffres</a>
+                <a class="secondary-button" href="{{ url_for('dashboard.dashboard_page', scope='campus') }}">Vue campus</a>
+            {% endif %}
+            {% if dashboard.can_manage_promotions %}
+                <a class="primary-button" href="{{ url_for('admin.users_page') }}#promotions-title">+ Ajouter une formation / promotion</a>
+            {% endif %}
+        </div>
+    </header>
+    <section class="detail-card" aria-label="Filtres des indicateurs">
+        <form method="get" action="{{ url_for('dashboard.dashboard_page') }}" class="form-grid">
+            <input type="hidden" name="scope" value="{{ dashboard.scope }}">
+            <div class="form-group">
+                <label for="dashboard-promotion">Promotion</label>
+                <select id="dashboard-promotion" name="promotion">
+                    <option value="">{{ 'Toutes les promotions' if dashboard.scope == 'campus' else 'Mon périmètre' }}</option>
+                    {% if dashboard.allow_unassigned %}<option value="unassigned" {% if dashboard.promotion == 'unassigned' %}selected{% endif %}>Sans promotion renseignée</option>{% endif %}
+                    {% for promotion in dashboard.promotions %}
+                        <option value="{{ promotion.id }}" {% if dashboard.promotion == promotion.id|string %}selected{% endif %}>{{ promotion.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="dashboard-months">Historique affiché</label>
+                <select id="dashboard-months" name="months">
+                    {% for value in [6, 12] %}<option value="{{ value }}" {% if dashboard.months == value %}selected{% endif %}>{{ value }} derniers mois</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-actions"><button class="secondary-button" type="submit">Actualiser les chiffres</button></div>
+        </form>
+    </section>
+    <section aria-labelledby="current-counts-title">
+        <h2 id="current-counts-title">Statuts actuels — toutes dates</h2>
+        <div class="stats">
+            <article class="stat-card"><span class="stat-label">Total des candidatures</span><strong>{{ dashboard.total }}</strong></article>
+            {% for status in status_order %}
+                <article class="stat-card"><span class="stat-label">{{ status_labels[status] }}</span><strong>{{ dashboard.counts[status] }}</strong></article>
+            {% endfor %}
+            <article class="stat-card"><span class="stat-label">{{ 'Apprenants dans ce périmètre' if dashboard.scope == 'campus' else 'Compte personnel' }}</span><strong>{{ dashboard.accounts }}</strong></article>
+        </div>
+    </section>
+    {% if dashboard.scope == 'campus' %}
+    <section aria-labelledby="learners-statistics-title">
+        <h2 id="learners-statistics-title">Statistiques par apprenant — toutes dates</h2>
+        <div class="table-card"><div class="table-wrapper">
+            <table>
+                <caption>Apprenants du périmètre sélectionné : {{ dashboard.learners|length }}</caption>
+                <thead><tr><th scope="col">Apprenant</th><th scope="col">Promotion</th><th scope="col">Compte</th><th scope="col">Total</th>{% for status in status_order %}<th scope="col">{{ status_labels[status] }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                    {% for learner in dashboard.learners %}
+                    <tr>
+                        <th scope="row">{{ learner.email }}</th>
+                        <td>{{ learner.promotion or 'Non renseignée' }}</td>
+                        <td>{{ 'Actif' if learner.active else 'Désactivé' }}</td>
+                        <td>{{ learner.total }}</td>
+                        {% for status in status_order %}<td>{{ learner.counts[status] }}</td>{% endfor %}
+                    </tr>
+                    {% else %}<tr><td colspan="{{ 4 + status_order|length }}">Aucun apprenant dans ce périmètre.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div></div>
+    </section>
+    {% endif %}
+    <section aria-labelledby="evolution-title">
+        <h2 id="evolution-title">Évolution mensuelle</h2>
+        <p>Les premières détections utilisent les dates enregistrées. Les changements de statut sont suivis depuis le {{ history_started_at }} UTC ; les changements antérieurs ne sont pas reconstitués.</p>
+        <p>Un changement est compté chaque fois qu'une candidature change de statut affiché. Une même candidature peut donc compter plusieurs changements. Les chiffres portent sur les candidatures conservées dans le périmètre choisi.</p>
+        <div class="table-card"><div class="table-wrapper">
+            <table>
+                <caption>{{ dashboard.months }} derniers mois — chiffres en UTC</caption>
+                <thead><tr><th scope="col">Mois</th><th scope="col">Premières détections</th><th scope="col">Changements enregistrés</th>{% for status in status_order %}<th scope="col">Vers « {{ status_labels[status] }} »</th>{% endfor %}</tr></thead>
+                <tbody>{% for month in dashboard.timeline %}<tr><th scope="row">{{ month.month }}</th><td>{{ month.new }}</td><td>{{ month.changes }}</td>{% for status in status_order %}<td>{{ month.counts[status] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+            </table>
+        </div></div>
+    </section>
+</div>
+{% endblock %}

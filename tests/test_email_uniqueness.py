@@ -6,7 +6,7 @@ from app.accounts import create_user
 from app.database import get_connection
 from app.owned_applications import create_user_application
 from app.owned_importer import import_user_emails
-from migrate_email_uniqueness import has_composite_unique, migrate
+from migrate.migrate_email_uniqueness import has_composite_unique, migrate
 from tests.helpers import OfflineCase, fake_email
 
 
@@ -19,14 +19,19 @@ class EmailUniquenessTests(OfflineCase):
         self.bob = create_user("bob@example.invalid", "MotDePasseBob2026!")
 
     def test_migration_preserves_existing_emails(self):
-        message = fake_email("<historical@example.invalid>")
+        message = fake_email(
+            "<historical@example.invalid>",
+            in_reply_to="<parent@example.invalid>",
+            references="<root@example.invalid> <parent@example.invalid>",
+            html_body="<p>Archive HTML conservée</p>",
+        )
 
         import_user_emails(self.alice, [message])
 
         with get_connection() as connection:
             before = connection.execute(
                 """
-                SELECT id, user_id, message_id, body
+                SELECT id, user_id, message_id, body, in_reply_to, references_header, html_body
                 FROM emails
                 """
             ).fetchone()
@@ -41,7 +46,7 @@ class EmailUniquenessTests(OfflineCase):
         with get_connection() as connection:
             after = connection.execute(
                 """
-                SELECT id, user_id, message_id, body
+                SELECT id, user_id, message_id, body, in_reply_to, references_header, html_body
                 FROM emails
                 """
             ).fetchone()
@@ -49,6 +54,15 @@ class EmailUniquenessTests(OfflineCase):
             assert after is not None
 
             self.assertEqual(tuple(after), before_values)
+
+    def test_legacy_schema_without_html_migrates_to_empty_html(self):
+        import_user_emails(self.alice, [fake_email()])
+        with get_connection() as connection:
+            connection.execute("ALTER TABLE emails DROP COLUMN html_body")
+            self.assertEqual(migrate(connection), 1)
+            row = connection.execute("SELECT body,html_body FROM emails").fetchone()
+        self.assertEqual(row["html_body"], "")
+        self.assertEqual(row["body"], fake_email().body)
 
     def test_two_users_can_store_same_message_id(self):
         with get_connection() as connection:
@@ -107,7 +121,7 @@ class EmailUniquenessTests(OfflineCase):
                         alice_application,
                         "Fixture",
                         "2026-10-28T12:00:00+00:00",
-                        "SENT",
+                        "RECEIVED",
                         10,
                     ),
                 )
@@ -141,7 +155,7 @@ class EmailUniquenessTests(OfflineCase):
                     "<unowned@example.invalid>",
                     "Fixture",
                     "2026-10-28T12:00:00+00:00",
-                    "SENT",
+                    "RECEIVED",
                     10,
                 ),
             )

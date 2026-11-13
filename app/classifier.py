@@ -276,10 +276,10 @@ def detect_status(subject: str, body: str) -> str:
         return "INTERVIEW"
 
     # ------------------------------------------------------------------
-    # CANDIDATURE ENVOYÉE
+    # CONFIRMATION DE DÉPÔT : CANDIDATURE REÇUE
     # ------------------------------------------------------------------
 
-    sent_subject = [
+    submission_subject = [
         "votre candidature a été envoyée",
         "votre candidature a ete envoyee",
         # English
@@ -289,8 +289,8 @@ def detect_status(subject: str, body: str) -> str:
         "your application was submitted",
     ]
 
-    if contains_any(subject_text, sent_subject):
-        return "SENT"
+    if contains_any(subject_text, submission_subject):
+        return "RECEIVED"
 
     # ------------------------------------------------------------------
     # CANDIDATURE REÇUE

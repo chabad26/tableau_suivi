@@ -39,6 +39,7 @@ def normalize_email_body(body: str) -> str:
 
 
 def clean_text(text: str) -> str:
+    text = re.sub(r"[\u200b\ufeff]", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -244,10 +245,12 @@ def clean_job_title(title: str) -> str:
 
     cut_patterns = [
         r"\s+et vous contact",
+        r"\s+et (?:vous|nous)\b",
         r"\s+et nous",
         r"\s+nous vous",
         r"\s+merci de",
         r"\s+pour rejoindre",
+        r"\s+(?:référence|reference)\b",
     ]
 
     for pattern in cut_patterns:
@@ -300,6 +303,29 @@ def job_title_score(title: str) -> int:
         score += 2
 
     useful_words = {
+        "analyste",
+        "analyst",
+        "consultant",
+        "consultante",
+        "auditeur",
+        "auditrice",
+        "chargé",
+        "charge",
+        "chargée",
+        "chargee",
+        "responsable",
+        "gestionnaire",
+        "juriste",
+        "comptable",
+        "commercial",
+        "commerciale",
+        "manager",
+        "technicienne",
+        "administratrice",
+        "ingénieure",
+        "ingenieure",
+        "développeuse",
+        "developpeuse",
         "développeur",
         "developpeur",
         "developer",
@@ -343,6 +369,14 @@ def extract_job_title(subject: str, body: str = "") -> str:
     body = normalize_email_body(body)
 
     subject_patterns = [
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*:\s*(.{3,120})$",
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*\((.{3,120})\)\s*$",
+        r"candidature\s+(?:à|a)\s+l['’]offre\s*[\"«“](.{3,120}?)[\"»”]",
+        r"vous avez reçu une réponse\s+.+?\s+pour\s+[\"«“](.{3,120}?)[\"»”]",
+        (
+            r"votre candidature de\s+(.{3,120}?)\s+"
+            r"(?:n['’]a pas été retenue|n['’]est pas retenue)"
+        ),
         r"votre candidature\s*:\s*(.+)$",
         (
             r"candidature au poste de\s+(.+?)"
@@ -374,7 +408,45 @@ def extract_job_title(subject: str, body: str = "") -> str:
             if title:
                 return title
 
+    # Récapitulatif d'envoi : entreprise, titre, entreprise, ville, lien.
+    # Le nom de l'employeur vient du sujet, sans supposer un nom ou un métier.
+    receipt_prefix = r"votre candidature a (?:été envoyée à|ete envoyee a)\s+"
+    receipt = re.search(receipt_prefix + r"(.+)$", subject, flags=re.IGNORECASE)
+    if receipt and receipt.group(1).strip(" .!?"):
+        employer = re.escape(receipt.group(1).strip(" .!?"))
+        match = re.search(
+            receipt_prefix + employer + r"\s+(.{3,120}?)\s+" + employer + r"(?=\s|$)",
+            body,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            title = clean_job_title(match.group(1))
+            has_gender_marker = re.search(r"\b(?:h\s*/\s*f|f\s*/\s*h)\b", title, re.I)
+            if (job_title_score(title) >= 4 or has_gender_marker) and not re.search(
+                r"https?://|voir l['’]offre|autres offres|découvrez|decouvrez",
+                title,
+                flags=re.IGNORECASE,
+            ):
+                return title
+
     body_patterns = [
+        (
+            r"vous avez (?:envoyé|envoye) une candidature\s+(?:à|a)\s+.{1,100}?\s*:\s*"
+            r"[\"«“](.{3,120}?)[\"»”]"
+        ),
+        (
+            r"votre candidature est (?:bien\s+)?enregistr(?:ée|ee)"
+            r"\s*[.!:]?\s*[\"«“](.{3,120}?)[\"»”]"
+        ),
+        (
+            r"(?:merci\s+d['’]avoir|vous avez)\s+postul(?:é|e)(?:e)?\s+"
+            r"(?:à|a)\s+l['’]offre\s+(?:de\s+)?"
+            r"(.{3,120}?)(?:[.!;]|\s+(?:chez|et vous|et nous|référence|reference)\b|$)"
+        ),
+        (
+            r"(?:candidature\s+(?:pour le|au)\s+poste de|poste de)\s+"
+            r"(.{3,120}?)(?=\s+et (?:vous|nous)\b)"
+        ),
         r"intitulé du poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",
         r"intitule du poste\s*:\s*(.{3,120}?)(?:\.|\||reference|$)",
         r"poste\s*:\s*(.{3,120}?)(?:\.|\||référence|reference|$)",

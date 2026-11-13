@@ -46,7 +46,14 @@ data/*.worker.lock
 *.sqlite3
 backups/
 
+# Documents privés des apprenants (hors fichiers statiques)
+/data/documents/
+/documents/
+
 # Database locale
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+
+# Démonstration locale (données hors dépôt)
+.demo-campus/

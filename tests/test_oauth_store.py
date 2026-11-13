@@ -138,3 +138,26 @@ class OAuthStoreTests(OfflineCase):
             write_oauth_cache(self.alice, self.account_id, "gmail", '{"version": 2}')
 
         self.assertEqual(target.read_text(encoding="utf-8"), "ne-pas-ecraser")
+
+    def test_reassigned_account_cannot_reuse_previous_owners_cache(self):
+        write_oauth_cache(self.alice, self.account_id, "gmail", '{"fixture": "alice"}')
+        with get_connection() as connection:
+            connection.execute(
+                "UPDATE imap_accounts SET user_id = ? WHERE id = ?",
+                (self.bob, self.account_id),
+            )
+        self.assertIsNone(read_oauth_cache(self.bob, self.account_id, "gmail"))
+        with self.assertRaises(ValueError):
+            read_oauth_cache(self.alice, self.account_id, "gmail")
+
+    def test_symbolic_parent_directory_is_rejected(self):
+        path = oauth_token_path(self.alice, self.account_id, "gmail")
+        target = self.root / "outside"
+        target.mkdir()
+        path.parent.parent.mkdir(parents=True)
+        path.parent.symlink_to(target, target_is_directory=True)
+        with self.assertRaises(RuntimeError):
+            write_oauth_cache(self.alice, self.account_id, "gmail", '{"fixture": 1}')
+        with self.assertRaises(RuntimeError):
+            read_oauth_cache(self.alice, self.account_id, "gmail")
+        self.assertEqual(list(target.iterdir()), [])

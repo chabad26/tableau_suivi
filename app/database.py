@@ -5,6 +5,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
+from app.application_history import init_application_history
 from app.extractor import clean_job_title, company_key, job_title_score
 from app.models import DetectedEmail
 from app.settings import DATABASE_PATH
@@ -57,6 +58,8 @@ def ensure_column(
 
 def init_database() -> None:
     with get_connection() as connection:
+        # Schéma, déclencheurs et conversion des statuts forment un seul ensemble.
+        connection.execute("BEGIN IMMEDIATE")
         connection.execute("""
             CREATE TABLE IF NOT EXISTS applications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,12 +168,42 @@ def init_database() -> None:
         ensure_column(connection, "applications", "manual_status", "TEXT")
 
         ensure_column(connection, "applications", "manual_note", "TEXT")
+        ensure_column(
+            connection, "applications", "offer_text", "TEXT NOT NULL DEFAULT ''"
+        )
+        ensure_column(
+            connection, "applications", "offer_url", "TEXT NOT NULL DEFAULT ''"
+        )
 
         ensure_column(
             connection, "applications", "manual_override", "INTEGER NOT NULL DEFAULT 0"
         )
 
         ensure_column(connection, "emails", "body", "TEXT")
+        ensure_column(connection, "emails", "html_body", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "emails", "in_reply_to", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(
+            connection, "emails", "references_header", "TEXT NOT NULL DEFAULT ''"
+        )
+
+        # Retrait du statut historique : pas de perte de candidature ni de faux
+        # changement dans le journal lors du regroupement avec « Reçue ».
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='application_status_history'"
+        ).fetchone() and any(
+            row["name"] == "user_id"
+            for row in connection.execute("PRAGMA table_info(applications)")
+        ):
+            init_application_history(connection)
+        connection.execute(
+            "UPDATE applications SET current_status='RECEIVED' WHERE current_status='SENT'"
+        )
+        connection.execute(
+            "UPDATE applications SET manual_status='RECEIVED' WHERE manual_status='SENT'"
+        )
+        connection.execute(
+            "UPDATE emails SET detected_status='RECEIVED' WHERE detected_status='SENT'"
+        )
 
         # Répare les anciennes références orphelines sans supprimer les messages.
         connection.execute("""

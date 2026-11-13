@@ -3,6 +3,9 @@
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from app.email_rendering import render_email_body
+from app.job_titles import suggest_job_title
+from app.offers import OfferInputError
 from app.owned_applications import (
     create_user_application,
     delete_user_application,
@@ -10,6 +13,7 @@ from app.owned_applications import (
     get_user_application_emails,
     get_user_applications,
     update_user_application,
+    update_user_application_offer,
 )
 from app.presentation import (
     application_statistics,
@@ -66,6 +70,14 @@ def index():
 @applications_bp.get("/application/<int:application_id>")
 @login_required
 def application_detail(application_id: int):
+    return _render_application(application_id)
+
+
+def _render_application(
+    application_id: int,
+    offer_values: dict[str, str] | None = None,
+    offer_error: str | None = None,
+):
     user_id = owner_id()
 
     application = get_user_application(user_id, application_id)
@@ -74,6 +86,17 @@ def application_detail(application_id: int):
         abort(404)
 
     emails = get_user_application_emails(user_id, application_id)
+    suggestion = suggest_job_title(
+        str(application["offer_text"] or ""),
+        ((str(email["subject"] or ""), str(email["body"] or "")) for email in emails),
+        company=str(application["company"] or ""),
+    )
+    if (
+        suggestion
+        and suggestion.title.strip().casefold()
+        == str(application["job_title"] or "").strip().casefold()
+    ):
+        suggestion = None
 
     formatted_emails = []
 
@@ -81,6 +104,9 @@ def application_detail(application_id: int):
         item = dict(email)
 
         item["received_at_display"] = format_datetime(email["received_at"])
+        item.update(
+            render_email_body(str(email["body"] or ""), str(email["html_body"] or ""))
+        )
 
         formatted_emails.append(item)
 
@@ -117,6 +143,14 @@ def application_detail(application_id: int):
         status_labels=STATUS_LABELS,
         first_seen=first_seen,
         last_update=last_update,
+        offer_values=offer_values
+        if offer_values is not None
+        else {
+            "offer_url": str(application["offer_url"]),
+            "offer_text": str(application["offer_text"]),
+        },
+        offer_error=offer_error,
+        job_title_suggestion=suggestion,
     )
 
 
@@ -134,19 +168,60 @@ def create_application_web():
     source = request.form.get("source", "").strip()
     status = request.form.get("status", "").strip()
     note = request.form.get("note", "").strip()
+    offer_text = request.form.get("offer_text", "")
+    offer_url = request.form.get("offer_url", "")
 
     if not company or status not in STATUS_LABELS:
         abort(400)
 
-    application_id = create_user_application(
-        user_id=owner_id(),
-        company=company,
-        job_title=job_title,
-        source=source,
-        status=status,
-        note=note,
+    try:
+        application_id = create_user_application(
+            user_id=owner_id(),
+            company=company,
+            job_title=job_title,
+            source=source,
+            status=status,
+            note=note,
+            offer_text=offer_text,
+            offer_url=offer_url,
+        )
+    except OfferInputError as error:
+        return render_template(
+            "new_application.html",
+            status_labels=STATUS_LABELS,
+            values={
+                "company": company,
+                "job_title": job_title,
+                "source": source,
+                "status": status,
+                "note": note,
+                "offer_text": offer_text,
+                "offer_url": offer_url,
+            },
+            error=str(error),
+        ), 400
+
+    return redirect(
+        url_for("applications.application_detail", application_id=application_id),
+        code=303,
     )
 
+
+@applications_bp.post("/application/<int:application_id>/offer")
+@login_required
+def edit_offer_web(application_id: int):
+    values = {
+        "offer_text": request.form.get("offer_text", ""),
+        "offer_url": request.form.get("offer_url", ""),
+    }
+    if get_user_application(owner_id(), application_id) is None:
+        abort(404)
+    try:
+        updated = update_user_application_offer(owner_id(), application_id, **values)
+    except OfferInputError as error:
+        return _render_application(application_id, values, str(error)), 400
+    if not updated:
+        abort(404)
     return redirect(
         url_for("applications.application_detail", application_id=application_id),
         code=303,

@@ -4,9 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Job Tracker{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="icon" type="image/vnd.microsoft.icon" sizes="16x16 32x32 48x48" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='campus-3') }}">
 </head>
 <body>
+<header class="campus-brand" aria-label="Job Tracker Campus">
+    <div class="campus-brand-copy">
+        <span class="campus-brand-name">Le Campus Numérique</span>
+        <span class="campus-brand-product">Job Tracker · Suivi des candidatures</span>
+    </div>
+    <img class="campus-brand-logo"
+         src="{{ url_for('static', filename='logo-campus-header-300x60.png') }}"
+         alt="Le Campus Numérique In The Alps" width="300" height="60">
+</header>
+{% if config.get('DEMO_MODE') %}
+<p role="status">Démonstration hors ligne — données et messageries fictives.</p>
+{% endif %}
 <nav class="app-navigation" aria-label="Navigation principale">
 
     {% if current_user.is_authenticated %}
@@ -24,6 +38,13 @@
         >
             📋 Mes candidatures
         </a>
+
+        {% if current_user.role in ['student', 'admin'] %}<a class="secondary-button" href="{{ url_for('dashboard.dashboard_page') }}">Tableau de bord</a>{% endif %}
+        {% if current_user.role in ['student', 'admin'] %}<a class="secondary-button" href="{{ url_for('documents.list_page') }}">CV et lettres</a>{% endif %}
+
+        {% if current_user.role == 'admin' %}
+            <a class="secondary-button" href="{{ url_for('admin.users_page') }}">Administration</a>
+        {% endif %}
 
         <form
             method="post"
@@ -52,7 +73,26 @@
     {% endif %}
 
 </nav>
+{% if current_user.is_authenticated and session.get('login_sync_jobs') %}
+<aside class="login-sync" id="login-sync" role="status" aria-live="polite"
+       data-status-url="{{ url_for('jobs.login_sync_status') }}"
+       data-dashboard-url="{{ url_for('applications.index') }}"
+       data-metrics-url="{{ url_for('dashboard.dashboard_page') }}">
+    <span class="login-sync-spinner" aria-hidden="true"></span>
+    <span data-sync-message>Mise à jour de tes candidatures en cours… Tu peux continuer à naviguer.</span>
+    <a class="back-link" href="{{ url_for('jobs.jobs_page') }}">Voir les travaux</a>
+</aside>
+<script src="{{ url_for('static', filename='login-sync.js') }}" defer></script>
+{% endif %}
 {% block content %}{% endblock %}
+<footer class="app-footer">
+    <span>Offert par</span>
+    <a class="olidev-credit" href="https://www.olidev.ovh" target="_blank" rel="noopener noreferrer">
+        <img src="{{ url_for('static', filename='logo-olidev.jpg') }}"
+             alt="Olidev" width="2000" height="952">
+        <span class="visually-hidden"> (nouvel onglet)</span>
+    </a>
+</footer>
 {% block scripts %}{% endblock %}
 </body>
 </html>

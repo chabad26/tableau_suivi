@@ -2,23 +2,24 @@
 {% block title %}Travaux — Job Tracker{% endblock %}
 {% block content %}
 <div class="page">
-<h1>Scans et réanalyses</h1>
+<h1>Mes travaux</h1>
 {% include 'partials/flash_messages.html' %}
 <p>Les travaux sont exécutés dans l'ordre. Une demande identique déjà en attente n'est pas ajoutée deux fois.</p>
-<p>Si un travail reste en attente, lancer <code>.venv/bin/python worker.py</code> dans un terminal. Pour une première connexion ou une reconnexion, suivre les instructions OAuth dans ce terminal.</p>
+<p>Les scans, les tests de connexion et les réanalyses sont exécutés en arrière-plan. Actualisez cette page pour voir leur résultat.</p>
 <div class="header-actions">
     <a class="secondary-button" href="{{ url_for('jobs.jobs_page') }}">↻ Actualiser</a>
-    <a class="secondary-button" href="{{ url_for('connectors.connectors_page') }}">⚙ Connecteurs</a>
+    <a class="secondary-button" href="{{ url_for('applications.index') }}">Mes candidatures</a>
 </div>
 {% set states = {'queued': 'En attente', 'running': 'En cours', 'succeeded': 'Terminé', 'failed': 'Échec'} %}
-{% set kinds = {'scan': 'Scan toutes sources', 'reclassify': 'Réanalyse toutes sources', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
+{% set kinds = {'scan': 'Scan de mes boîtes', 'reclassify': 'Réanalyse de mes emails archivés', 'test:gmail': 'Test Gmail', 'test:microsoft': 'Test Microsoft', 'reconnect:gmail': 'Reconnexion Gmail', 'reconnect:microsoft': 'Reconnexion Microsoft'} %}
 {% for job in jobs %}
 <section class="card">
-<h2>{{ kinds.get(job.kind, job.kind) }} — {{ states[job.state] }}</h2>
+<h2>{% if job.kind.startswith("test:imap:") %}Test de connexion — boîte n° {{ job.kind.rsplit(":", 1)[1] }}{% else %}{{ kinds.get(job.kind, job.kind) }}{% endif %} — {{ states[job.state] }}</h2>
 <p>Demandé le {{ job.created_at }} UTC</p>
 {% if job.result %}
+{% if job.result.connected %}<p>Connexion, authentification et accès au dossier vérifiés. Aucun email importé.</p>{% endif %}
 <ul>
-{% for key, label in [('detected', 'Emails détectés'), ('added', 'Emails ajoutés'), ('found', 'Emails réanalysés'), ('changed', 'Statuts modifiés'), ('applications_updated', 'Statuts des candidatures actualisés'), ('missing', 'Emails sans corps récupérable')] %}
+{% for key, label in [('scanned_accounts', 'Boîtes analysées'), ('checkpoints_saved', 'Points de reprise enregistrés'), ('scanned', 'Emails archivés parcourus'), ('detected', 'Emails détectés'), ('added', 'Emails ajoutés'), ('expired', 'Candidatures passées en sans réponse'), ('found', 'Emails réanalysés'), ('changed', 'Statuts modifiés'), ('applications_updated', 'Candidatures actualisées'), ('missing', 'Emails sans contenu archivé')] %}
 {% if key in job.result %}<li>{{ label }} : {{ job.result[key] }}</li>{% endif %}
 {% endfor %}
 </ul>

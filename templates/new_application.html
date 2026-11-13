@@ -3,6 +3,7 @@
 {% block title %}Nouvelle candidature{% endblock %}
 
 {% block content %}
+{% set values = values|default({}) %}
 <div class="page">
 
     <div class="detail-topbar">
@@ -37,6 +38,7 @@
         </div>
 
 
+        {% if error %}<p role="alert">{{ error }}</p>{% endif %}
         <form
             method="post"
             action="{{ url_for('applications.create_application_web') }}"
@@ -55,6 +57,7 @@
                     <input
                         id="company"
                         name="company"
+                        value="{{ values.get('company', '') }}"
                         type="text"
                         required
                         autofocus
@@ -72,6 +75,7 @@
                     <input
                         id="job_title"
                         name="job_title"
+                        value="{{ values.get('job_title', '') }}"
                         type="text"
                     >
 
@@ -87,6 +91,7 @@
                     <input
                         id="source"
                         name="source"
+                        value="{{ values.get('source', '') }}"
                         type="text"
                         placeholder="Centre de formation"
                     >
@@ -112,7 +117,7 @@
 
                         <option
                             value="{{ value }}"
-                            {% if value == "SENT" %}
+                            {% if value == values.get('status', 'RECEIVED') %}
                                 selected
                             {% endif %}
                         >
@@ -137,10 +142,15 @@
                     name="note"
                     rows="4"
                     placeholder="Ex : proposition du campus, contact direct, candidature spontanée..."
-                ></textarea>
+                >{{ values.get('note', '') }}</textarea>
 
             </div>
 
+
+            <h2>Offre d'emploi</h2>
+            {% with offer_url=values.get('offer_url', ''), offer_text=values.get('offer_text', '') %}
+                {% include 'partials/offer_fields.html' %}
+            {% endwith %}
 
             <div class="form-actions">
 

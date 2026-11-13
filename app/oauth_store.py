@@ -51,7 +51,15 @@ def oauth_account_directory(user_id: int, account_id: int, provider: str) -> Pat
     if str(account["auth_method"] or "").casefold() != "oauth2":
         raise ValueError("Ce compte n'utilise pas OAuth2.")
 
-    return database.DATABASE_PATH.parent / "oauth" / "accounts" / str(account_id)
+    # Un compte réattribué ne doit pas retrouver le cache de l'ancien propriétaire.
+    return (
+        database.DATABASE_PATH.parent
+        / "oauth"
+        / "users"
+        / str(user_id)
+        / "accounts"
+        / str(account_id)
+    )
 
 
 def oauth_token_path(user_id: int, account_id: int, provider: str) -> Path:
@@ -67,12 +75,19 @@ def oauth_token_path(user_id: int, account_id: int, provider: str) -> Path:
 def ensure_private_directory(directory: Path) -> None:
     """Crée un répertoire privé pour les secrets."""
 
+    reject_symbolic_directories(directory)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     if directory.is_symlink():
         raise RuntimeError("Répertoire OAuth symbolique interdit.")
 
     os.chmod(directory, 0o700)
+
+
+def reject_symbolic_directories(directory: Path) -> None:
+    for parent in (directory, *directory.parents):
+        if parent.is_symlink():
+            raise RuntimeError("Répertoire OAuth symbolique interdit.")
 
 
 def write_oauth_cache(
@@ -132,6 +147,8 @@ def read_oauth_cache(user_id: int, account_id: int, provider: str) -> str | None
     """Lit un cache privé sans suivre de lien symbolique."""
 
     path = oauth_token_path(user_id, account_id, provider)
+
+    reject_symbolic_directories(path.parent)
 
     if not path.exists():
         return None

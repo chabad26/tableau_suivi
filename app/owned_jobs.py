@@ -1,15 +1,18 @@
 """File de travaux multi-utilisateur."""
 
 import json
+import re
 import sqlite3
 from dataclasses import asdict
 from uuid import uuid4
 
+from app.connectors.gmail import GmailAuthorizationError
 from app.database import get_connection
 from app.owned_applications import require_user_id
 from app.owned_imap import save_user_imap_checkpoint
+from app.owned_scanner import ImapConnectionTestError
 
-ALLOWED_KINDS = frozenset({"scan"})
+ALLOWED_KINDS = frozenset({"scan", "reclassify"})
 
 
 def check_active_user(connection: sqlite3.Connection, user_id: int) -> None:
@@ -34,13 +37,22 @@ def enqueue_user_job(user_id: int, kind: str) -> str:
 
     user_id = require_user_id(user_id)
 
-    if kind not in ALLOWED_KINDS:
+    test_match = re.fullmatch(r"test:imap:([1-9][0-9]*)", kind)
+    if kind not in ALLOWED_KINDS and test_match is None:
         raise ValueError("Type de travail non autorisé.")
 
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
 
         check_active_user(connection, user_id)
+        if test_match is not None:
+            account_id = int(test_match.group(1))
+            account = connection.execute(
+                "SELECT 1 FROM imap_accounts WHERE id=? AND user_id=? AND enabled=1",
+                (account_id, user_id),
+            ).fetchone()
+            if account is None:
+                raise ValueError("Compte IMAP introuvable ou désactivé.")
 
         # Une même tâche ne doit pas être lancée deux fois
         # simultanément par le même utilisateur.
@@ -122,14 +134,39 @@ def execute_user_job(user_id: int, kind: str) -> dict:
 
     user_id = require_user_id(user_id)
 
+    test_match = re.fullmatch(r"test:imap:([1-9][0-9]*)", kind)
+    if test_match is not None:
+        from app.owned_scanner import test_user_imap_connection
+
+        return test_user_imap_connection(user_id, int(test_match.group(1)))
+
+    if kind == "reclassify":
+        from app.maintenance import expire_stale_applications
+        from app.owned_reclassifier import reclassify_user_emails
+
+        result = reclassify_user_emails(user_id)
+        # La réanalyse ne doit pas rétablir un ancien statut d'attente lorsque
+        # le scan réseau suivant est indisponible.
+        return {**asdict(result), "expired": expire_stale_applications(user_id=user_id)}
+
     if kind != "scan":
         raise ValueError("Type de travail non autorisé.")
 
+    from app.maintenance import expire_stale_applications
     from app.owned_importer import import_user_emails
     from app.owned_scanner import scan_user_imap
     from app.settings import API_START_DATE
 
     scan_result = scan_user_imap(user_id=user_id, since=API_START_DATE)
+
+    print(
+        f"📊 Scan utilisateur {user_id} : "
+        f"{scan_result.scanned_accounts} compte(s) analysé(s), "
+        f"{scan_result.skipped_accounts} ignoré(s), "
+        f"{len(scan_result.errors)} erreur(s)."
+    )
+    for error in scan_result.errors:
+        print(f"⚠️ {error}")
 
     # Pas de faux succès si aucune boîte n'a été analysée.
     if scan_result.scanned_accounts == 0:
@@ -172,6 +209,8 @@ def execute_user_job(user_id: int, kind: str) -> dict:
                 expected_folder=account.folder,
                 expected_provider=account.provider,
                 expected_auth_method=account.auth_method,
+                expected_port=account.port,
+                expected_use_ssl=account.use_ssl,
             )
 
         except Exception:
@@ -181,6 +220,13 @@ def execute_user_job(user_id: int, kind: str) -> dict:
             checkpoint_errors.append(
                 f"Checkpoint refusé pour le compte {account.account_id}."
             )
+            print(f"⚠️ Checkpoint refusé : compte {account.account_id}")
+
+    print(
+        f"📬 Import terminé : {len(scan_result.emails)} "
+        f"email(s) détecté(s), "
+        f"{len(checkpoint_errors)} erreur(s) de checkpoint."
+    )
 
     # L'import peut avoir réussi alors qu'une boîte
     # a rencontré une erreur. On conserve les emails,
@@ -192,8 +238,11 @@ def execute_user_job(user_id: int, kind: str) -> dict:
             f"{len(checkpoint_errors)} erreur(s) de checkpoint."
         )
 
+    expired = expire_stale_applications(user_id=user_id)
+
     return {
         **asdict(import_result),
+        "expired": expired,
         "scanned_accounts": scan_result.scanned_accounts,
         "skipped_accounts": scan_result.skipped_accounts,
         "checkpoints_saved": len(scan_result.account_scans),
@@ -227,7 +276,11 @@ def claim_next_user_job() -> tuple[str, int, str] | None:
             WHERE j.state = 'queued'
               AND j.user_id IS NOT NULL
               AND u.active = 1
-              AND j.kind = 'scan'
+              AND (j.kind IN ('scan', 'reclassify') OR EXISTS (
+                  SELECT 1 FROM imap_accounts AS a
+                  WHERE a.user_id = j.user_id AND a.enabled = 1
+                    AND j.kind = 'test:imap:' || a.id
+              ))
             ORDER BY j.created_at, j.rowid
             LIMIT 1
             """
@@ -311,17 +364,16 @@ def run_next_user_job() -> bool:
         result = execute_user_job(user_id, kind)
 
     except Exception as exception:
-        print(f"❌ Job {job_id} : {type(exception).__name__}: {exception}")
-
-        finish_user_job(
-            job_id,
-            user_id,
-            state="failed",
-            error=(
-                f"Échec ({type(exception).__name__}). "
-                "Vérifier les connecteurs puis relancer."
-            ),
+        # Seuls les diagnostics construits à partir de messages fixes sont exposés.
+        # Une exception inattendue peut contenir un secret ou une réponse serveur.
+        error = (
+            str(exception)
+            if isinstance(exception, (GmailAuthorizationError, ImapConnectionTestError))
+            else f"Échec ({type(exception).__name__}). Vérifier les connecteurs puis relancer."
         )
+        print(f"❌ Job {job_id} ({kind}) : {error}")
+
+        finish_user_job(job_id, user_id, state="failed", error=error)
 
     else:
         finish_user_job(job_id, user_id, state="succeeded", result=result)

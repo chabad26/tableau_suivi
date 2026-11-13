@@ -13,6 +13,9 @@ class DetectedEmail:
     status: str
     reasons: list[str]
     body: str = ""
+    in_reply_to: str = ""
+    references: str = ""
+    html_body: str = ""
 
 
 @dataclass

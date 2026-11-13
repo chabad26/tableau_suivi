@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from dataclasses import replace
 from unittest.mock import patch
 
@@ -36,7 +37,7 @@ class ConnectionTests(OfflineCase):
                     "Test",
                     "2026-10-28T08:00:00+00:00",
                     "2026-10-28T08:00:00+00:00",
-                    "SENT",
+                    "RECEIVED",
                 ),
             )
 
@@ -73,7 +74,7 @@ class ConnectionTests(OfflineCase):
                         "Test",
                         "2026-10-28T08:00:00+00:00",
                         "2026-10-28T08:00:00+00:00",
-                        "SENT",
+                        "RECEIVED",
                     ),
                 )
 
@@ -188,7 +189,7 @@ class EvolutionTests(OfflineCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 connection.execute("UPDATE emails SET application_id = 999")
         # Simule une ancienne écriture effectuée sans intégrité activée.
-        with sqlite3.connect(database.DATABASE_PATH) as connection:
+        with closing(sqlite3.connect(database.DATABASE_PATH)) as connection, connection:
             connection.execute("DROP TRIGGER emails_application_update")
             connection.execute("UPDATE emails SET application_id = 999")
         database.init_database()

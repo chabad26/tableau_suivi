@@ -292,7 +292,7 @@ def main() -> None:
         print("Aucune donnée n'a été modifiée.")
         print()
         print("Pour appliquer la migration :")
-        print(f"python migrate_legacy_data.py --email {email} --apply")
+        print(f"python -m migrate.migrate_legacy_data --email {email} --apply")
         return
 
     if counts["applications"] == 0 and counts["emails"] == 0:

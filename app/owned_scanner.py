@@ -4,12 +4,30 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.accounts import get_user
+from app.connectors.gmail import GmailAuthorizationError
 from app.connectors.imap import ImapAccount, ImapScanBatch, scan_imap_account
 from app.connectors.imap_auth import authenticate_owned_imap
 from app.models import DetectedEmail
 from app.owned_applications import require_user_id
 from app.owned_imap import get_enabled_user_imap_accounts, get_user_imap_account
 from app.secrets import get_imap_password
+
+
+class ImapAccountConfigurationError(ValueError):
+    """Erreur de configuration dont le message fixe peut être affiché."""
+
+
+class ImapConnectionTestError(RuntimeError):
+    """Étape en échec, sans inclure la réponse du serveur ou les secrets."""
+
+    MESSAGES = {
+        "connection": "Connexion au serveur IMAP impossible. Vérifier le réseau et la configuration TLS.",
+        "authentication": "Authentification IMAP ou contrôle OAuth impossible. Vérifier l'autorisation du compte.",
+        "folder": "Accès au dossier IMAP impossible. Vérifier le dossier configuré.",
+    }
+
+    def __init__(self, stage: str):
+        super().__init__(self.MESSAGES[stage])
 
 
 @dataclass
@@ -34,32 +52,32 @@ def build_user_imap_account(user_id: int, account_id: int) -> ImapAccount:
     row = get_user_imap_account(user_id, account_id)
 
     if row is None:
-        raise ValueError("Compte IMAP introuvable.")
+        raise ImapAccountConfigurationError("Compte IMAP introuvable.")
 
     if not bool(row["enabled"]):
-        raise ValueError("Compte IMAP désactivé.")
+        raise ImapAccountConfigurationError("Compte IMAP désactivé.")
 
     auth_method = str(row["auth_method"] or "password").casefold()
     provider = str(row["provider"] or "imap").casefold()
 
     if auth_method == "oauth2":
         if provider not in {"gmail", "microsoft"}:
-            raise ValueError("Fournisseur OAuth inconnu.")
+            raise ImapAccountConfigurationError("Fournisseur OAuth inconnu.")
 
         # OAuth n'utilise pas le mot de passe du keyring.
         password = None
 
     elif auth_method == "password":
         if provider in {"gmail", "microsoft"}:
-            raise ValueError("Ce fournisseur nécessite OAuth2.")
+            raise ImapAccountConfigurationError("Ce fournisseur nécessite OAuth2.")
 
         password = get_imap_password(account_id)
 
         if not password:
-            raise ValueError("Mot de passe IMAP absent.")
+            raise ImapAccountConfigurationError("Mot de passe IMAP absent.")
 
     else:
-        raise ValueError("Méthode d'authentification inconnue.")
+        raise ImapAccountConfigurationError("Méthode d'authentification inconnue.")
 
     uid_validity = int(row["uid_validity"]) if row["uid_validity"] is not None else None
 
@@ -113,11 +131,19 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
         try:
             account = build_user_imap_account(user_id, account_id)
 
-        except ValueError as error:
+        except ImapAccountConfigurationError as error:
             result.skipped_accounts += 1
 
             result.errors.append(f"Compte {account_id} : {error}")
 
+            continue
+
+        except Exception as error:
+            result.skipped_accounts += 1
+            result.errors.append(
+                f"Compte {account_id} : configuration inaccessible "
+                f"({type(error).__name__})"
+            )
             continue
 
         try:
@@ -133,6 +159,10 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
                 ),
             )
 
+        except GmailAuthorizationError as error:
+            result.errors.append(f"Compte {account_id} : {error}")
+            continue
+
         except Exception as error:
             result.errors.append(
                 f"Compte {account_id} : échec du scan ({type(error).__name__})"
@@ -142,8 +172,52 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
 
         result.emails.extend(batch.emails)
 
+        if batch.failed_uids:
+            result.errors.append(
+                f"Compte {account_id} : {batch.failed_uids} UID non lu(s)."
+            )
+
         result.account_scans.append(UserAccountScan(account=account, batch=batch))
 
         result.scanned_accounts += 1
 
     return result
+
+
+def test_user_imap_connection(user_id: int, account_id: int) -> dict:
+    """Teste connexion, authentification et dossier, sans lire ni importer d'email."""
+    from app.connectors.imap import connect_imap
+    from app.owned_imap import update_user_imap_health
+
+    user_id = require_user_id(user_id)
+    user = get_user(user_id)
+    if user is None or not user.active:
+        raise ValueError("Utilisateur inexistant ou désactivé.")
+    account = build_user_imap_account(user_id, account_id)
+    connection = None
+    stage = "connection"
+    try:
+        connection = connect_imap(account)
+        stage = "authentication"
+        authenticate_owned_imap(
+            connection, user_id, account_id, account.username, account.password
+        )
+        stage = "folder"
+        status, _ = connection.select(account.folder, readonly=True)
+        if status != "OK":
+            raise RuntimeError("Dossier IMAP inaccessible.")
+    except GmailAuthorizationError as error:
+        update_user_imap_health(user_id, account_id, "error", str(error))
+        raise
+    except Exception:
+        error = ImapConnectionTestError(stage)
+        update_user_imap_health(user_id, account_id, "error", str(error))
+        raise error from None
+    finally:
+        if connection is not None:
+            try:
+                connection.logout()
+            except Exception:
+                pass
+    update_user_imap_health(user_id, account_id, "connected", None)
+    return {"account_id": account_id, "connected": True}

@@ -1,0 +1,404 @@
+"""Pipeline réel scan/détection/import/checkpoint, transport IMAP fictif."""
+
+import sqlite3
+from datetime import datetime, timedelta, timezone
+from email import message_from_bytes
+from email.message import EmailMessage
+from unittest.mock import patch
+
+from app.database import get_connection
+from app.offline_imap import FakeImap
+from app.owned_applications import get_user_application_emails, get_user_applications
+from app.owned_imap import get_user_imap_accounts
+from app.owned_jobs import execute_user_job
+from tests.helpers import OfflineCase
+
+
+class SyncIntegrationTests(OfflineCase):
+    def test_scan_archives_html_without_changing_plain_analysis(self):
+        server = self.servers[self.alice_account]
+        original = message_from_bytes(server.messages[1])
+        message = EmailMessage()
+        for name in ("From", "To", "Date", "Subject", "Message-ID"):
+            if original[name]:
+                message[name] = original[name]
+        payload = original.get_payload(decode=True)
+        assert isinstance(payload, bytes)
+        plain = payload.decode(original.get_content_charset() or "utf-8")
+        message.set_content(plain)
+        message.add_alternative(
+            "<p>Votre candidature <strong>reçue</strong></p>", subtype="html"
+        )
+        server.messages[1] = message.as_bytes()
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(result["added"], 3)
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT body,html_body FROM emails WHERE user_id=? AND message_id=?",
+                (self.alice, str(message["Message-ID"])),
+            ).fetchone()
+        self.assertIsNotNone(row)
+        self.assertIn("<strong>reçue</strong>", row["html_body"])
+        self.assertNotIn("<strong>", row["body"])
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 777))
+
+    def test_scan_preserves_thread_headers_in_archived_email(self):
+        server = self.servers[self.alice_account]
+        message = message_from_bytes(server.messages[1])
+        message["In-Reply-To"] = "<parent@example.invalid>"
+        message["References"] = "<root@example.invalid> <parent@example.invalid>"
+        server.messages[1] = message.as_bytes()
+        execute_user_job(self.alice, "scan")
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT in_reply_to,references_header FROM emails WHERE user_id=? AND message_id=?",
+                (self.alice, str(message["Message-ID"])),
+            ).fetchone()
+        self.assertEqual(
+            tuple(row),
+            (
+                "<parent@example.invalid>",
+                "<root@example.invalid> <parent@example.invalid>",
+            ),
+        )
+
+    def setUp(self):
+        super().setUp()
+        self.alice = self.create_test_user("alice@example.invalid")
+        self.bob = self.create_test_user("bob@example.invalid")
+        self.alice_account = self.account(self.alice, "alice@mail.invalid")
+        self.bob_account = self.account(self.bob, "bob@mail.invalid")
+        self.servers = {
+            self.alice_account: FakeImap("alice@mail.invalid"),
+            self.bob_account: FakeImap("bob@mail.invalid"),
+        }
+        self.stack.enter_context(
+            patch("app.owned_scanner.get_imap_password", return_value="fixture-only")
+        )
+        self.connect = self.stack.enter_context(
+            patch(
+                "app.connectors.imap.connect_imap",
+                side_effect=lambda account: self.servers[account.account_id],
+            )
+        )
+        self.global_auth = self.stack.enter_context(
+            patch(
+                "app.connectors.imap.authenticate_imap",
+                side_effect=AssertionError("Authentification globale interdite"),
+            )
+        )
+
+    def account(self, user_id, email):
+        with get_connection() as connection:
+            cursor = connection.execute(
+                "INSERT INTO imap_accounts (email, host, username, provider, user_id) VALUES (?, ?, ?, 'ovh', ?)",
+                (email, "imap.demo.invalid", email, user_id),
+            )
+            assert cursor.lastrowid is not None
+            return cursor.lastrowid
+
+    def checkpoint(self, account_id):
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT last_uid, uid_validity FROM imap_accounts WHERE id = ?",
+                (account_id,),
+            ).fetchone()
+        return tuple(row)
+
+    def test_complete_pipeline_and_isolation(self):
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(result["added"], 3)
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 777))
+        self.assertEqual(self.checkpoint(self.bob_account), (0, None))
+        applications = get_user_applications(self.alice)
+        self.assertTrue(applications)
+        self.assertEqual(
+            sum(
+                len(get_user_application_emails(self.alice, row["id"]))
+                for row in applications
+            ),
+            3,
+        )
+        self.assertEqual(get_user_applications(self.bob), [])
+        self.assertEqual(
+            [row["id"] for row in get_user_imap_accounts(self.alice)],
+            [self.alice_account],
+        )
+        self.assertEqual(self.servers[self.bob_account].fetched, [])
+        for row in applications:
+            self.assertEqual(get_user_application_emails(self.bob, row["id"]), [])
+        execute_user_job(self.bob, "scan")
+        self.assertTrue(get_user_applications(self.bob))
+        self.global_auth.assert_not_called()
+
+    def test_empty_scan_expires_only_owners_stale_waiting_applications(self):
+        now = datetime.now(timezone.utc)
+        old = (now - timedelta(days=31)).isoformat()
+        self.servers[self.alice_account].messages = {}
+        cases = [
+            (self.alice, "RECEIVED", old, 0, "EXPIRED"),
+            (self.alice, "RECEIVED", old, 0, "EXPIRED"),
+            (self.alice, "OTHER", old, 0, "EXPIRED"),
+            (self.alice, "RECEIVED", now.isoformat(), 0, "RECEIVED"),
+            (self.alice, "RECEIVED", old, 1, "EXPIRED"),
+            (self.alice, "RECEIVED", old, 1, "EXPIRED"),
+            (self.alice, "RECEIVED", now.isoformat(), 1, "RECEIVED"),
+            (self.alice, "INTERVIEW", old, 1, "INTERVIEW"),
+            (self.alice, "REJECTED", old, 1, "REJECTED"),
+            (self.alice, "INTERVIEW", old, 0, "INTERVIEW"),
+            (self.alice, "REJECTED", old, 0, "REJECTED"),
+            (self.bob, "RECEIVED", old, 0, "RECEIVED"),
+            (None, "RECEIVED", old, 0, "RECEIVED"),
+        ]
+        ids = []
+        with get_connection() as connection:
+            for owner, status, date, manual, expected in cases:
+                cursor = connection.execute(
+                    "INSERT INTO applications (user_id, company, job_title, source, first_seen, last_update, current_status, manual_override) VALUES (?, 'Fixture', '', 'test', ?, ?, ?, ?)",
+                    (owner, date, date, status, manual),
+                )
+                ids.append(cursor.lastrowid)
+                if manual:
+                    connection.execute(
+                        "UPDATE applications SET manual_status=?, manual_note='Note conservée', job_title='Poste corrigé', current_status='OTHER' WHERE id=?",
+                        (status, cursor.lastrowid),
+                    )
+        with patch("app.maintenance.APPLICATION_EXPIRY_DAYS", 30):
+            result = execute_user_job(self.alice, "scan")
+            self.assertEqual(result["added"], 0)
+            self.assertEqual(result["expired"], 5)
+            self.assertEqual(execute_user_job(self.alice, "scan")["expired"], 0)
+        with get_connection() as connection:
+            for application_id, (_, _, date, manual, expected) in zip(ids, cases):
+                row = connection.execute(
+                    "SELECT * FROM applications WHERE id=?", (application_id,)
+                ).fetchone()
+                self.assertEqual(
+                    row["manual_status"] if manual else row["current_status"], expected
+                )
+                if manual:
+                    self.assertEqual(row["manual_override"], 1)
+                    self.assertEqual(row["manual_note"], "Note conservée")
+                    self.assertEqual(row["job_title"], "Poste corrigé")
+                    self.assertEqual(row["current_status"], "OTHER")
+                self.assertEqual(row["last_update"], date)
+
+    def test_sqlite_failure_rolls_back_and_does_not_advance_checkpoint(self):
+        with get_connection() as connection:
+            connection.execute(
+                "CREATE TRIGGER fail_email BEFORE INSERT ON emails WHEN NEW.message_id LIKE '%-2@demo.invalid>' BEGIN SELECT RAISE(ABORT, 'fixture failure'); END"
+            )
+        with self.assertRaises(sqlite3.IntegrityError):
+            execute_user_job(self.alice, "scan")
+        self.assertEqual(get_user_applications(self.alice), [])
+        self.assertEqual(self.checkpoint(self.alice_account), (0, None))
+        with get_connection() as connection:
+            self.assertEqual(
+                connection.execute("SELECT COUNT(*) FROM emails").fetchone()[0], 0
+            )
+
+    def test_uid_failure_is_reported_then_retried_without_duplicates(self):
+        server = self.servers[self.alice_account]
+        server.failed_uids = {2}
+        with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+            execute_user_job(self.alice, "scan")
+        self.assertEqual(self.checkpoint(self.alice_account), (1, 777))
+        server.failed_uids.clear()
+        server.fetched.clear()
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(server.fetched, [2, 3])
+        self.assertEqual(result["added"], 1)
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 777))
+        with get_connection() as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM emails WHERE user_id = ?", (self.alice,)
+                ).fetchone()[0],
+                3,
+            )
+
+    def test_repeated_full_import_does_not_duplicate(self):
+        execute_user_job(self.alice, "scan")
+        with get_connection() as connection:
+            connection.execute(
+                "UPDATE imap_accounts SET last_uid = 0 WHERE id = ?",
+                (self.alice_account,),
+            )
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(result["added"], 0)
+        self.assertEqual(result["skipped"], 3)
+
+    def test_disabled_or_reassigned_or_changed_account_refuses_checkpoint(self):
+        from app.owned_importer import import_user_emails
+
+        for assignment, value in [
+            ("enabled", 0),
+            ("user_id", self.bob),
+            ("port", 1993),
+            ("use_ssl", 0),
+            ("last_uid", 99),
+        ]:
+            with self.subTest(field=assignment):
+                with get_connection() as connection:
+                    connection.execute(
+                        "UPDATE imap_accounts SET enabled=1, user_id=?, port=993, use_ssl=1, last_uid=0, uid_validity=NULL WHERE id=?",
+                        (self.alice, self.alice_account),
+                    )
+
+                def changed_import(*args, **kwargs):
+                    result = import_user_emails(*args, **kwargs)
+                    with get_connection() as connection:
+                        connection.execute(
+                            f"UPDATE imap_accounts SET {assignment} = ? WHERE id = ?",
+                            (value, self.alice_account),
+                        )
+                    return result
+
+                with patch(
+                    "app.owned_importer.import_user_emails", side_effect=changed_import
+                ):
+                    with self.assertRaisesRegex(
+                        RuntimeError, "Synchronisation partielle"
+                    ):
+                        execute_user_job(self.alice, "scan")
+                expected = 99 if assignment == "last_uid" else 0
+                self.assertEqual(self.checkpoint(self.alice_account), (expected, None))
+
+    def test_partial_mailbox_failure_preserves_other_imports(self):
+        extra = self.account(self.alice, "second@mail.invalid")
+        self.servers[extra] = FakeImap("second@mail.invalid", unavailable=True)
+        with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+            execute_user_job(self.alice, "scan")
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 777))
+        self.assertEqual(self.checkpoint(extra), (0, None))
+        with get_connection() as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM emails WHERE user_id = ?", (self.alice,)
+                ).fetchone()[0],
+                3,
+            )
+
+    def test_missing_uidvalidity_imports_but_never_saves_checkpoint(self):
+        self.servers[self.alice_account].uid_validity = None
+        with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+            execute_user_job(self.alice, "scan")
+        self.assertEqual(self.checkpoint(self.alice_account), (0, None))
+        self.assertTrue(get_user_applications(self.alice))
+
+    def test_uidvalidity_change_rescans_without_duplicates(self):
+        execute_user_job(self.alice, "scan")
+        server = self.servers[self.alice_account]
+        server.uid_validity = 999
+        server.fetched.clear()
+        result = execute_user_job(self.alice, "scan")
+        self.assertEqual(server.fetched, [1, 2, 3])
+        self.assertEqual(result["added"], 0)
+        self.assertEqual(self.checkpoint(self.alice_account), (3, 999))
+
+    def test_uid_exception_does_not_leak_secret_to_logs(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.connectors.imap.get_message_body",
+                side_effect=RuntimeError("FIXTURE-SECRET"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+                execute_user_job(self.alice, "scan")
+        self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+        self.assertEqual(self.checkpoint(self.alice_account), (0, 777))
+
+    def test_scan_and_import_diagnostics_are_visible(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Scan utilisateur {self.alice} : 1 compte(s) analysé(s)", output.getvalue()
+        )
+        self.assertIn(
+            "Import terminé : 3 email(s) détecté(s), 0 erreur(s) de checkpoint.",
+            output.getvalue(),
+        )
+
+    def test_checkpoint_refusal_is_visible(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch("app.owned_jobs.save_user_imap_checkpoint", return_value=False),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Synchronisation partielle"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Checkpoint refusé : compte {self.alice_account}", output.getvalue()
+        )
+        self.assertIn("1 erreur(s) de checkpoint.", output.getvalue())
+
+    def test_sqlite_failure_never_logs_import_completed(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.owned_importer.import_user_emails",
+                side_effect=sqlite3.OperationalError("FIXTURE-SECRET"),
+            ),
+        ):
+            with self.assertRaises(sqlite3.OperationalError):
+                execute_user_job(self.alice, "scan")
+        self.assertIn("Scan utilisateur", output.getvalue())
+        self.assertNotIn("Import terminé", output.getvalue())
+        self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+
+    def test_unexpected_configuration_error_never_exposes_secret(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch(
+                "app.owned_scanner.get_imap_password",
+                side_effect=ValueError("FIXTURE-SECRET"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Aucun compte IMAP"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Compte {self.alice_account} : configuration inaccessible (ValueError)",
+            output.getvalue(),
+        )
+        self.assertIn(
+            "0 compte(s) analysé(s), 1 ignoré(s), 1 erreur(s).", output.getvalue()
+        )
+        self.assertNotIn("FIXTURE-SECRET", output.getvalue())
+        self.assertNotIn("Import terminé", output.getvalue())
+
+    def test_known_configuration_error_remains_understandable(self):
+        import contextlib
+        import io
+
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            patch("app.owned_scanner.get_imap_password", return_value=None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Aucun compte IMAP"):
+                execute_user_job(self.alice, "scan")
+        self.assertIn(
+            f"Compte {self.alice_account} : Mot de passe IMAP absent.",
+            output.getvalue(),
+        )
