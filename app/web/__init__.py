@@ -56,10 +56,20 @@ def create_app() -> Flask:
 
     register_blueprints(app)
 
+    @app.get("/favicon.ico")
+    def favicon():
+        return app.send_static_file("favicon.ico")
+
     @app.before_request
     def protect_routes():
         # Fichiers statiques et authentification.
-        if request.endpoint in {"static", "auth.login", "auth.logout", "auth.account"}:
+        if request.endpoint in {
+            "static",
+            "favicon",
+            "auth.login",
+            "auth.logout",
+            "auth.account",
+        }:
             return None
 
         # Toutes les autres routes nécessitent une session.
