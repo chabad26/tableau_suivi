@@ -1,10 +1,7 @@
 import html
 import re
 import unicodedata
-from datetime import datetime, timezone
-from email.header import decode_header, make_header
 from email.message import Message
-from email.utils import parsedate_to_datetime
 
 POSITIVE_KEYWORDS = [
     "votre candidature",
@@ -66,19 +63,6 @@ NEGATIVE_KEYWORDS = [
 ]
 
 
-BLACKLIST_SENDERS = ["locservice", "locservice.fr"]
-
-
-def decode_text(value: str | None) -> str:
-    if not value:
-        return ""
-
-    try:
-        return str(make_header(decode_header(value)))
-    except Exception:
-        return str(value)
-
-
 def normalize(text: str | None) -> str:
     if not text:
         return ""
@@ -125,28 +109,6 @@ def normalize(text: str | None) -> str:
     text = re.sub(r"\s+", " ", text)
 
     return text.strip().casefold()
-
-
-def parse_date(value: str | None) -> datetime | None:
-    if not value:
-        return None
-
-    try:
-        date = parsedate_to_datetime(value)
-
-        if date.tzinfo is None:
-            date = date.replace(tzinfo=timezone.utc)
-
-        return date
-
-    except Exception:
-        return None
-
-
-def is_blacklisted_sender(sender: str) -> bool:
-    sender = normalize(sender)
-
-    return any(blocked in sender for blocked in BLACKLIST_SENDERS)
 
 
 def contains_any(text: str, keywords: list[str]) -> bool:

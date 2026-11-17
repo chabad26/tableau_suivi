@@ -20,12 +20,9 @@ class SyncRouteTests(OfflineCase):
         self.bob = self.create_test_user("bob@example.invalid")
 
     def test_scan_ignores_supplied_owner_and_deduplicates(self):
-        with patch(
-            "app.jobs.enqueue", side_effect=AssertionError("Chemin global interdit")
-        ):
-            for _ in range(2):
-                response = self.client.post("/scan", data={"user_id": self.bob})
-                self.assertEqual(response.status_code, 303)
+        for _ in range(2):
+            response = self.client.post("/scan", data={"user_id": self.bob})
+            self.assertEqual(response.status_code, 303)
         self.assertEqual(len(list_user_jobs(self.alice)), 1)
         self.assertEqual(list_user_jobs(self.bob), [])
 

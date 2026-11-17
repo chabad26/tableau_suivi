@@ -2,9 +2,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from app import database
-from app.connectors.imap import ImapAccount, scan_imap, scan_imap_account
-from app.settings import API_START_DATE
+from app.connectors.imap import ImapAccount, scan_imap_account
 from tests.helpers import OfflineCase
 
 
@@ -27,11 +25,11 @@ def fake_account(*, last_uid: int = 100, uid_validity: int | None = 777) -> Imap
 
 
 class ImapConnectorTests(OfflineCase):
-    def test_scan_without_accounts_returns_empty_list(self):
-        with patch("app.connectors.imap.get_enabled_imap_accounts", return_value=[]):
-            emails = scan_imap(API_START_DATE)
-
-        self.assertEqual(emails, [])
+    def test_scan_requires_explicit_authentication_before_connecting(self):
+        with patch("app.connectors.imap.connect_imap") as connect:
+            with self.assertRaises(TypeError):
+                scan_imap_account(fake_account(), datetime.now(timezone.utc))
+            connect.assert_not_called()
 
     def test_incremental_scan_retries_after_failed_uid(self):
         connection = MagicMock()
@@ -72,7 +70,6 @@ class ImapConnectorTests(OfflineCase):
 
         with (
             patch("app.connectors.imap.connect_imap", return_value=connection),
-            patch("app.connectors.imap.authenticate_imap"),
             patch("app.connectors.imap.should_analyze_email", return_value=True),
             patch(
                 "app.connectors.imap.score_message",
@@ -83,17 +80,18 @@ class ImapConnectorTests(OfflineCase):
                 ),
             ),
             patch("app.connectors.imap.detect_status", return_value="RECEIVED"),
-            patch("app.connectors.imap.update_imap_sync_state") as update_sync,
         ):
-            emails = scan_imap_account(account, since)
+            batch = scan_imap_account(account, since, authenticator=lambda conn: None)
 
-        self.assertEqual(len(emails), 3)
+        self.assertEqual(len(batch.emails), 3)
 
         connection.uid.assert_any_call("search", None, "UID", "101:*")
 
         connection.uid.assert_any_call("fetch", "101", "(BODY.PEEK[])")
 
-        update_sync.assert_called_once_with(1, 102, 777)
+        self.assertEqual(
+            (batch.last_uid, batch.uid_validity, batch.failed_uids), (102, 777, 1)
+        )
 
     def test_uidvalidity_change_forces_date_scan(self):
 
@@ -106,21 +104,33 @@ class ImapConnectorTests(OfflineCase):
         connection.uid.return_value = ("OK", [b""])
 
         account = fake_account(last_uid=450, uid_validity=777)
+        from app.database import get_connection
+
+        with get_connection() as db:
+            db.execute(
+                "INSERT INTO imap_accounts(id,email,host,username,last_uid,uid_validity) VALUES(1,'fixture@example.invalid','imap.example.invalid','fixture@example.invalid',450,777)"
+            )
 
         since = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
-        with (
-            patch("app.connectors.imap.connect_imap", return_value=connection),
-            patch("app.connectors.imap.authenticate_imap"),
-            patch("app.connectors.imap.update_imap_sync_state") as update_sync,
-        ):
-            emails = scan_imap_account(account, since)
+        with patch("app.connectors.imap.connect_imap", return_value=connection):
+            batch = scan_imap_account(account, since, authenticator=lambda conn: None)
 
-        self.assertEqual(emails, [])
+        self.assertEqual(batch.emails, [])
 
         connection.uid.assert_called_once_with("search", None, "SINCE", "01-Oct-2026")
 
-        update_sync.assert_called_once_with(1, 0, 999)
+        self.assertEqual((batch.last_uid, batch.uid_validity), (0, 999))
+        connection.select.assert_called_once_with("INBOX", readonly=True)
+        with get_connection() as db:
+            self.assertEqual(
+                tuple(
+                    db.execute(
+                        "SELECT last_uid,uid_validity FROM imap_accounts WHERE id=1"
+                    ).fetchone()
+                ),
+                (450, 777),
+            )
 
 
 class TransportSecurityTests(unittest.TestCase):

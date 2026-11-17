@@ -8,7 +8,3 @@ STATUS_LABELS = {
 }
 
 STATUS_ORDER = list(STATUS_LABELS)
-
-
-def get_status_label(status: str) -> str:
-    return STATUS_LABELS.get(status, status)

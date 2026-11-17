@@ -1,4 +1,4 @@
-"""Subset of MSAL 1.38.0 used by the Microsoft connector and test script.
+"""Subset of MSAL 1.38.0 used by the personal Microsoft connector.
 
 OAuth responses and account records remain extensible dictionaries.
 These declarations affect static analysis only.
@@ -34,6 +34,3 @@ class PublicClientApplication:
         auth_scheme: Any = ...,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
-    def acquire_token_interactive(
-        self, scopes: list[str], **kwargs: Any
-    ) -> dict[str, Any]: ...

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.mail_providers import detect_provider_smart, get_mx_hosts
+from app.mail_providers import detect_provider_smart
 
 
 class MXProviderTests(unittest.TestCase):

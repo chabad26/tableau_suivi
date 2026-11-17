@@ -5,7 +5,7 @@ import sqlite3
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app.mail_providers import MAIL_PROVIDERS, detect_provider_smart, get_provider
+from app.mail_providers import MAIL_PROVIDERS, detect_provider_smart
 from app.oauth_store import oauth_token_path
 from app.owned_imap import (
     ImapConfigurationConflict,

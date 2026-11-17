@@ -1,5 +1,7 @@
 # Configuration, réanalyse et travaux en arrière-plan
 
+> Compte rendu historique : les API et résultats décrits correspondent à cette étape passée. Pour le nettoyage du 17 novembre 2026 et les interfaces actuelles, voir [le bilan de maintenance](docs/NETTOYAGE.md).
+
 ## Configuration unique
 
 Le fichier `.env` à la racine du projet est chargé au démarrage, même quand une commande est exécutée depuis un autre dossier. Les variables déjà exportées dans le processus ont priorité. Redémarrer Flask **et** le worker après un changement.

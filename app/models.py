@@ -16,14 +16,3 @@ class DetectedEmail:
     in_reply_to: str = ""
     references: str = ""
     html_body: str = ""
-
-
-@dataclass
-class Application:
-    id: int | None
-    company: str
-    job_title: str
-    source: str
-    first_seen: datetime
-    last_update: datetime
-    current_status: str

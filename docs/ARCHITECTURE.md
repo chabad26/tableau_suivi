@@ -34,7 +34,9 @@ Le thread HTTP ne réalise pas le scan. Le worker traite un job à la fois. Une 
 | `app/database.py`, `app/ownership.py` | Schéma SQLite et migrations additives |
 | `demo.py`, `app/offline_imap.py` | Lanceur isolé et serveur IMAP en mémoire |
 
-Les modules historiques globaux restent dans le dépôt pour les données et outils existants. Ils ne sont appelés ni par les nouvelles routes de scan ni par le nouveau worker. `app.jobs.init_jobs` reste utilisé pour créer le schéma, sans lancer de job.
+Le parcours mono-utilisateur a été supprimé : aucun import, réanalyse, scan ou traitement de file global n'est conservé. `app.jobs.init_jobs` ne contient que le schéma de la file ; son exécution passe par `owned_jobs`. `app/database.py` est limité au schéma et aux connexions ; les opérations métier résident dans les modules personnels. Les scripts de `migrate/` restent disponibles pour les anciennes données, sans réactiver d'ancien flux OAuth partagé.
+
+Le transport `scan_imap_account` exige un authentificateur explicite et retourne toujours un `ImapScanBatch`. Il ne connaît ni la base SQLite ni le gestionnaire de secrets. Les checkpoints sont enregistrés par le parcours personnel après import. Les anciennes URL d'export restent des réponses 503 sans accès aux données, sans code CSV/XLSX ni dépendance Excel.
 
 ## Routes intégrées
 

@@ -1,5 +1,7 @@
 # Intégrer la finalisation Campus, les connecteurs, la réanalyse et le backoffice
 
+> Compte rendu historique : les API et résultats décrits correspondent à cette étape passée. Pour le nettoyage du 17 novembre 2026 et les interfaces actuelles, voir [le bilan de maintenance](NETTOYAGE.md).
+
 ## Proposition de PR
 
 Base : `main` · branche : `integration/campus-finalisation`.

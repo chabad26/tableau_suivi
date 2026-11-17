@@ -7,10 +7,9 @@ from app.settings import APPLICATION_EXPIRY_DAYS
 EXPIRABLE_STATUSES = {"RECEIVED", "OTHER"}
 
 
-def expire_stale_applications(user_id: int | None = None) -> int:
-    """Expire les candidatures en attente, éventuellement pour un seul propriétaire."""
-    if user_id is not None:
-        user_id = require_user_id(user_id)
+def expire_stale_applications(user_id: int) -> int:
+    """Expire uniquement les candidatures en attente du propriétaire indiqué."""
+    user_id = require_user_id(user_id)
     cutoff = datetime.now(timezone.utc) - timedelta(days=APPLICATION_EXPIRY_DAYS)
 
     placeholders = ", ".join("?" for _ in EXPIRABLE_STATUSES)
@@ -26,13 +25,9 @@ def expire_stale_applications(user_id: int | None = None) -> int:
             WHERE (CASE WHEN manual_override = 1
                     THEN manual_status ELSE current_status END) IN ({placeholders})
               AND julianday(last_update) <= julianday(?)
-              {"AND user_id = ?" if user_id is not None else ""}
+              AND user_id = ?
             """,
-            (
-                *EXPIRABLE_STATUSES,
-                cutoff.isoformat(),
-                *((user_id,) if user_id is not None else ()),
-            ),
+            (*EXPIRABLE_STATUSES, cutoff.isoformat(), user_id),
         )
 
         connection.commit()

@@ -1,15 +1,6 @@
 import json
 
-from flask import (
-    Blueprint,
-    abort,
-    flash,
-    jsonify,
-    redirect,
-    render_template,
-    session,
-    url_for,
-)
+from flask import Blueprint, flash, jsonify, redirect, render_template, session, url_for
 from flask_login import current_user, login_required
 
 from app.owned_jobs import enqueue_user_job, get_user_job, list_user_jobs

@@ -150,8 +150,6 @@ def scan_user_imap(user_id: int, since: datetime) -> UserScanResult:
             batch = scan_imap_account(
                 account,
                 since,
-                persist_sync_state=False,
-                return_batch=True,
                 authenticator=lambda connection, aid=account_id: (
                     authenticate_owned_imap(
                         connection, user_id, aid, account.username, account.password

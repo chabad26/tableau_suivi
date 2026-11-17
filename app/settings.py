@@ -1,7 +1,7 @@
 """Configuration chargée une fois au démarrage, indépendante du dossier courant."""
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 

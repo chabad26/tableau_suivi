@@ -81,12 +81,6 @@ class SyncIntegrationTests(OfflineCase):
                 side_effect=lambda account: self.servers[account.account_id],
             )
         )
-        self.global_auth = self.stack.enter_context(
-            patch(
-                "app.connectors.imap.authenticate_imap",
-                side_effect=AssertionError("Authentification globale interdite"),
-            )
-        )
 
     def account(self, user_id, email):
         with get_connection() as connection:
@@ -129,7 +123,6 @@ class SyncIntegrationTests(OfflineCase):
             self.assertEqual(get_user_application_emails(self.bob, row["id"]), [])
         execute_user_job(self.bob, "scan")
         self.assertTrue(get_user_applications(self.bob))
-        self.global_auth.assert_not_called()
 
     def test_empty_scan_expires_only_owners_stale_waiting_applications(self):
         now = datetime.now(timezone.utc)

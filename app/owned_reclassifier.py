@@ -1,5 +1,6 @@
 """Réanalyse atomique des emails archivés d'un seul utilisateur, sans réseau."""
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from app.classifier import detect_status
@@ -13,8 +14,16 @@ from app.extractor import (
 from app.job_titles import extract_offer_job_title
 from app.maintenance import EXPIRABLE_STATUSES
 from app.owned_applications import require_user_id
-from app.reclassifier import ReclassifyResult
 from app.settings import APPLICATION_EXPIRY_DAYS
+
+
+@dataclass
+class ReclassifyResult:
+    scanned: int
+    found: int
+    changed: int
+    applications_updated: int
+    missing: int
 
 
 def _message_date(value: str) -> datetime | None:

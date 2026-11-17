@@ -13,11 +13,6 @@ class WorkerTests(OfflineCase):
             patch.object(
                 worker, "run_next_user_job", side_effect=KeyboardInterrupt
             ) as run,
-            patch(
-                "app.jobs.run_next",
-                side_effect=AssertionError("Worker historique interdit"),
-            ) as legacy,
         ):
             worker.main()
         run.assert_called_once()
-        legacy.assert_not_called()

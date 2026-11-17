@@ -1,5 +1,7 @@
 # Refactorisation du 16 septembre 2026
 
+> Compte rendu historique : les API et résultats décrits correspondent à cette étape passée. Pour le nettoyage du 17 novembre 2026 et les interfaces actuelles, voir [le bilan de maintenance](docs/NETTOYAGE.md).
+
 ## Changements effectués
 
 Les règles de classification ont été migrées dans `app/classifier.py`.

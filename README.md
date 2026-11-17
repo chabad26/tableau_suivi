@@ -1,6 +1,6 @@
 # Job Tracker Campus
 
-Application locale Python 3.14, Flask et SQLite pour suivre les candidatures des apprenants. Elle analyse les emails, extrait entreprise/poste/source et conserve un historique personnel. Évolutions campus en cours : 12 novembre 2026.
+Application locale Python 3.14, Flask et SQLite pour suivre les candidatures des apprenants. Elle analyse les emails, extrait entreprise/poste/source et conserve un historique personnel. Maintenance et nettoyage du socle Campus : 17 novembre 2026.
 
 ## Administration des comptes
 
@@ -96,6 +96,7 @@ Le statut « Envoyée » est retiré. Au prochain démarrage, les anciens statut
 .venv/bin/ruff format .
 .venv/bin/ruff check .
 npx --yes pyright
+node --test tests/*.test.cjs
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -110,6 +111,8 @@ L'unicité `(user_id, message_id)` possède une migration dédiée (`migrate/mig
 Les nouveaux caches OAuth sont séparés par **utilisateur et compte**. Les anciens fichiers sont conservés mais ne sont pas automatiquement réutilisés : une migration contrôlée ou une nouvelle autorisation sera nécessaire. Voir [les détails de sécurité](docs/SECURITE.md).
 
 ## Documentation
+
+- [Nettoyage du socle Campus : suppressions, compatibilité et vérifications](docs/NETTOYAGE.md)
 
 - [Déploiement en production : installation, services, HTTPS, sauvegarde et reprise](docs/DEPLOIEMENT_PRODUCTION.md)
 

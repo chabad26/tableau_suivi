@@ -1,7 +1,5 @@
 """Réanalyse personnelle : SQL temporaire, aucune connexion aux messageries."""
 
-import sqlite3
-from datetime import datetime, timezone
 from unittest.mock import patch
 
 from app.accounts import set_user_active
@@ -208,12 +206,8 @@ class OwnedReclassifierTests(OfflineCase):
         self.assertEqual(self.snapshot("emails", self.alice), emails)
         self.assertEqual(self.snapshot("applications", self.alice), apps)
 
-    def test_no_network_oauth_or_global_reanalysis_is_used(self):
+    def test_no_network_or_oauth_is_used(self):
         with (
-            patch(
-                "app.reclassifier.reclassify_emails",
-                side_effect=AssertionError("Chemin global interdit"),
-            ) as global_reanalysis,
             patch(
                 "app.owned_scanner.scan_user_imap",
                 side_effect=AssertionError("Réseau interdit"),
@@ -225,7 +219,6 @@ class OwnedReclassifierTests(OfflineCase):
         ):
             result = reclassify_user_emails(self.alice)
         self.assertEqual(result.found, 1)
-        global_reanalysis.assert_not_called()
         scan.assert_not_called()
         oauth.assert_not_called()
 

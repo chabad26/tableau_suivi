@@ -1,6 +1,5 @@
 from unittest.mock import patch
 
-from app.web import create_app
 from tests.helpers import OfflineCase
 
 

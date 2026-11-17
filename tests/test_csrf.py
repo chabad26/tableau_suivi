@@ -2,8 +2,8 @@
 
 import re
 
-from app import database, jobs
 from app.owned_applications import get_user_applications
+from app.owned_jobs import list_user_jobs
 from tests.helpers import OfflineCase
 
 
@@ -63,13 +63,13 @@ class CSRFTests(OfflineCase):
         self.assertEqual(len(get_user_applications(user_id)), 1)
 
     def test_invalid_token_refuses_scan(self):
-        self.authenticate()
+        user_id = self.authenticate()
 
         response = self.client.post("/scan", data={"csrf_token": "incorrect"})
 
         self.assertEqual(response.status_code, 400)
 
-        self.assertEqual(len(jobs.list_jobs()), 0)
+        self.assertEqual(len(list_user_jobs(user_id)), 0)
 
     def test_valid_token_enqueues_personal_scan(self):
         user_id = self.authenticate()
@@ -79,7 +79,7 @@ class CSRFTests(OfflineCase):
         response = self.client.post("/scan", data={"csrf_token": token})
 
         self.assertEqual(response.status_code, 303)
-        queued = jobs.list_jobs()
+        queued = list_user_jobs(user_id)
         self.assertEqual(len(queued), 1)
         self.assertEqual(queued[0]["user_id"], user_id)
 

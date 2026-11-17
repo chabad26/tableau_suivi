@@ -9,9 +9,8 @@ from unittest.mock import patch
 
 from app import database
 from app.accounts import create_user
-from app.connectors import gmail, microsoft
+from app.connectors import gmail
 from app.models import DetectedEmail
-from app.owned_applications import create_user_application
 from app.web import create_app
 
 NOW = datetime(2026, 9, 16, 12, tzinfo=timezone.utc)
@@ -45,14 +44,9 @@ class OfflineCase(unittest.TestCase):
             patch.object(database, "DATABASE_PATH", self.root / "test.db")
         )
 
-        for module, attribute, filename in (
-            (gmail, "TOKEN_FILE", "gmail-token.json"),
-            (gmail, "CREDENTIALS_FILE", "gmail-client.json"),
-            (microsoft, "TOKEN_CACHE_FILE", "microsoft-cache.json"),
-        ):
-            self.stack.enter_context(
-                patch.object(module, attribute, self.root / filename)
-            )
+        self.stack.enter_context(
+            patch.object(gmail, "CREDENTIALS_FILE", self.root / "gmail-client.json")
+        )
 
         self.stack.enter_context(
             patch(
@@ -77,13 +71,21 @@ class OfflineCase(unittest.TestCase):
         status="RECEIVED",
         date=NOW,
     ):
-        return database.create_application(
-            company=company,
-            job_title=job_title,
-            source=source,
-            status=status,
-            date=date,
-        )
+        # Fixture d'ancienne candidature sans propriétaire pour les migrations.
+        with database.get_connection() as db:
+            cursor = db.execute(
+                "INSERT INTO applications(company,job_title,source,current_status,first_seen,last_update) VALUES(?,?,?,?,?,?)",
+                (
+                    company,
+                    job_title,
+                    source,
+                    status,
+                    date.isoformat(),
+                    date.isoformat(),
+                ),
+            )
+            assert cursor.lastrowid is not None
+            return cursor.lastrowid
 
     def create_test_user(
         self,

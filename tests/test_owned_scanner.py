@@ -135,8 +135,6 @@ class OwnedScannerTests(OfflineCase):
 
         self.assertEqual(account.account_id, self.alice_account_id)
 
-        self.assertFalse(kwargs["persist_sync_state"])
-
     def test_oauth_account_uses_private_authenticator(self):
         with get_connection() as connection:
             connection.execute(
@@ -165,8 +163,6 @@ class OwnedScannerTests(OfflineCase):
         scan.assert_called_once()
 
         _, kwargs = scan.call_args
-
-        self.assertFalse(kwargs["persist_sync_state"])
 
         self.assertTrue(callable(kwargs["authenticator"]))
 

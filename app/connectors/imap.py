@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from typing import Literal, overload
 
 from app.classifier import detect_status, score_message
 from app.connectors.common import (
@@ -19,15 +18,8 @@ from app.connectors.common import (
     html_to_text,
     sanitize_header_value,
 )
-from app.connectors.imap_auth import authenticate_imap
-from app.database import (
-    get_enabled_imap_accounts,
-    update_imap_account_health,
-    update_imap_sync_state,
-)
 from app.mail_filters import should_analyze_email
 from app.models import DetectedEmail
-from app.secrets import get_imap_password
 
 
 class ImapAuthenticationError(Exception):
@@ -59,48 +51,6 @@ class ImapScanBatch:
     last_uid: int
     uid_validity: int | None
     failed_uids: int = 0
-
-
-def get_imap_accounts() -> list[ImapAccount]:
-    accounts: list[ImapAccount] = []
-
-    for row in get_enabled_imap_accounts():
-        account_id = int(row["id"])
-
-        auth_method = str(row["auth_method"] or "password").casefold()
-
-        password: str | None = None
-
-        if auth_method == "password":
-            password = get_imap_password(account_id)
-
-            if not password:
-                print(f"⚠ Mot de passe IMAP absent : {row['email']}")
-                continue
-
-        uid_validity = (
-            int(row["uid_validity"]) if row["uid_validity"] is not None else None
-        )
-
-        accounts.append(
-            ImapAccount(
-                account_id=account_id,
-                key=f"db:{account_id}",
-                label=str(row["email"]),
-                provider=str(row["provider"] or "imap"),
-                host=str(row["host"]),
-                port=int(row["port"]),
-                use_ssl=bool(row["use_ssl"]),
-                username=str(row["username"]),
-                auth_method=auth_method,
-                password=password,
-                folder=str(row["folder"] or "INBOX"),
-                last_uid=int(row["last_uid"] or 0),
-                uid_validity=uid_validity,
-            )
-        )
-
-    return accounts
 
 
 def get_message_body(message: Message) -> str:
@@ -189,83 +139,20 @@ def connect_imap(account: ImapAccount) -> imaplib.IMAP4:
     raise RuntimeError("Connexion IMAP impossible.")
 
 
-def scan_imap(since: datetime) -> list[DetectedEmail]:
-    detected: list[DetectedEmail] = []
-
-    accounts = get_imap_accounts()
-
-    for account in accounts:
-        try:
-            emails = scan_imap_account(account, since)
-
-            detected.extend(emails)
-
-            if account.account_id is not None:
-                update_imap_account_health(account.account_id, "connected", None)
-
-        except ImapAuthenticationError:
-            if account.account_id is not None:
-                update_imap_account_health(
-                    account.account_id, "auth_error", "Identifiants refusés"
-                )
-
-            print()
-            print(f"⚠ IMAP {account.label} authentification refusée")
-
-        except Exception as error:
-            if account.account_id is not None:
-                update_imap_account_health(
-                    account.account_id, "error", "Connexion ou lecture impossible"
-                )
-
-            print()
-            print(f"⚠ IMAP {account.label} indisponible ({type(error).__name__})")
-
-    return detected
-
-
-@overload
 def scan_imap_account(
     account: ImapAccount,
     since: datetime,
     *,
-    persist_sync_state: bool = True,
-    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
-    return_batch: Literal[False] = False,
-) -> list[DetectedEmail]: ...
-
-
-@overload
-def scan_imap_account(
-    account: ImapAccount,
-    since: datetime,
-    *,
-    persist_sync_state: bool = True,
-    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
-    return_batch: Literal[True],
-) -> ImapScanBatch: ...
-
-
-def scan_imap_account(
-    account: ImapAccount,
-    since: datetime,
-    *,
-    persist_sync_state: bool = True,
-    authenticator: Callable[[imaplib.IMAP4], None] | None = None,
-    return_batch: bool = False,
-) -> list[DetectedEmail] | ImapScanBatch:
+    authenticator: Callable[[imaplib.IMAP4], None],
+) -> ImapScanBatch:
+    """Lit une boîte sans modifier SQLite ; le propriétaire valide le checkpoint après import."""
     detected: list[DetectedEmail] = []
 
     connection = connect_imap(account)
 
     try:
         try:
-            if authenticator is not None:
-                authenticator(connection)
-            else:
-                authenticate_imap(
-                    connection, account.provider, account.username, account.password
-                )
+            authenticator(connection)
 
         except imaplib.IMAP4.error as error:
             raise ImapAuthenticationError("Authentification IMAP refusée.") from error
@@ -469,9 +356,6 @@ def scan_imap_account(
 
         max_uid = max(max_uid, minimum_uid)
 
-        if persist_sync_state and account.account_id is not None:
-            update_imap_sync_state(account.account_id, max_uid, current_uid_validity)
-
         print(f"  Détectés  : {len(detected)}")
 
         print(f"  Parcourus : {total_seen}")
@@ -482,46 +366,9 @@ def scan_imap_account(
         except Exception:
             pass
 
-    if return_batch:
-        return ImapScanBatch(
-            emails=detected,
-            last_uid=max_uid,
-            uid_validity=current_uid_validity,
-            failed_uids=len(failed_uids),
-        )
-
-    return detected
-
-
-def get_imap_account_config(account_id: int) -> ImapAccount | None:
-    for account in get_imap_accounts():
-        if account.account_id == account_id:
-            return account
-
-    return None
-
-
-def test_imap_account(account_id: int, since: datetime) -> list[DetectedEmail]:
-    account = get_imap_account_config(account_id)
-
-    if account is None:
-        raise ValueError("Compte IMAP introuvable.")
-
-    try:
-        emails = scan_imap_account(account, since)
-
-    except ImapAuthenticationError:
-        update_imap_account_health(account_id, "auth_error", "Identifiants refusés")
-
-        raise
-
-    except Exception:
-        update_imap_account_health(
-            account_id, "error", "Connexion ou lecture impossible"
-        )
-
-        raise
-
-    update_imap_account_health(account_id, "connected", None)
-
-    return emails
+    return ImapScanBatch(
+        emails=detected,
+        last_uid=max_uid,
+        uid_validity=current_uid_validity,
+        failed_uids=len(failed_uids),
+    )

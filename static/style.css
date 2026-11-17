@@ -368,16 +368,6 @@ button:hover,
   color: #cbd7e7;
 }
 
-.export-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.export-actions .secondary-button {
-  min-width: 120px;
-}
-
 
 /* =========================
    TABLEAU
@@ -1354,10 +1344,6 @@ tbody tr:last-child td {
     align-items: flex-start;
   }
 
-  .export-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
 
   .detail-header-actions {
     flex-wrap: wrap;
@@ -1430,9 +1416,6 @@ tbody tr:last-child td {
   border-radius: 6px;
 }
 
-.olidev-credit:hover .olidev-credit-name {
-  text-decoration: underline;
-}
 
 .visually-hidden {
   position: absolute;

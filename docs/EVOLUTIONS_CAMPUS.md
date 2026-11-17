@@ -1,6 +1,6 @@
 # Évolutions après validation du projet
 
-Demandes de référence : [`ajout.txt`](../ajout.txt). Ce suivi distingue ce qui est implémenté de ce qui reste à concevoir. Les modifications du fichier de demandes de l'utilisateur ne sont pas réécrites par l'implémentation.
+Demandes initiales de l’utilisateur, anciennement consignées dans `ajout.txt`. Ce suivi distingue ce qui est implémenté de ce qui reste à concevoir. Les modifications du fichier de demandes de l'utilisateur ne sont pas réécrites par l'implémentation.
 
 ## Ordre de traitement
 
@@ -109,3 +109,10 @@ Au prochain démarrage Web/worker, l'initialisation convertit `applications.curr
 Les tests de conversion utilisent exclusivement des bases temporaires, avec deux propriétaires, des déclencheurs historiques simulés et un échec d'écriture provoqué. Aucune base personnelle ni aucun jeton n'est modifié pendant le développement. Faire une sauvegarde avant le redémarrage de la version sur une base existante.
 
 Validation de ce retrait : **356 tests Python réussis**, avec avertissements de ressource traités comme des erreurs, dont 5 tests dédiés au retrait du statut ; **9 tests JavaScript** réussis. Les 33 tests ciblés conversion/stockage/dashboard passent également. Ruff, formatage, Pyright et `git diff --check` sont conformes. La démonstration et la synchronisation sont vérifiées hors ligne ; la conversion de la base réelle reste à effectuer lors du redémarrage après sauvegarde.
+
+
+## Nettoyage du socle — 17 novembre 2026
+
+Le parcours mono-utilisateur et ses API globales sont supprimés au profit des modules personnels déjà utilisés par le Web et le worker. Le transport IMAP exige une authentification explicite et retourne un lot sans écrire de checkpoint. Les migrations historiques et anciennes données sont conservées. Les exports restent bloqués mais leur code global et leur dépendance Excel disparaissent. Le CSRF reste actif ; Ruff contrôle les imports inutilisés et la CI exécute également les tests JavaScript. Voir [le bilan et la correspondance des tests](NETTOYAGE.md).
+
+Validation du nettoyage : **347 tests Python réussis** avec avertissements de ressource traités comme des erreurs et **9 tests JavaScript** réussis. La suite ciblée stockage/CSRF/IMAP/file/réanalyse/synchronisation/worker passe également (75 tests avant les deux contrôles ajoutés). Ruff avec F401 réactivé, formatage, Pyright et compilation conformes. Les tests obsolètes retirés sont recensés dans le bilan ; aucun échec des fonctionnalités conservées n’est ignoré.

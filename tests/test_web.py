@@ -1,5 +1,11 @@
-from app import database, jobs
-from app.owned_applications import create_user_application, get_user_application
+from app.database import get_connection
+from app.owned_applications import (
+    create_user_application,
+    get_user_application,
+    get_user_applications,
+    set_user_application_status,
+)
+from app.owned_jobs import list_user_jobs
 from app.presentation import application_statistics, format_datetime
 from tests.helpers import OfflineCase
 
@@ -94,22 +100,16 @@ class WebTests(OfflineCase):
         self.assertEqual(self.client.get("/application/new").status_code, 200)
 
     def test_unowned_imap_test_route_is_not_found(self):
-        account_id = database.create_imap_account(
-            email="test@example.invalid",
-            provider="imap",
-            host="imap.example.invalid",
-            port=993,
-            use_ssl=True,
-            username="test@example.invalid",
-            folder="INBOX",
-            auth_method="password",
-        )
+        with get_connection() as db:
+            account_id = db.execute(
+                "INSERT INTO imap_accounts(email,provider,host,username) VALUES('test@example.invalid','imap','imap.example.invalid','test@example.invalid')"
+            ).lastrowid
 
         response = self.client.post(f"/connectors/imap/{account_id}/test")
 
         self.assertEqual(response.status_code, 404)
 
-        self.assertEqual(len(jobs.list_jobs()), 0)
+        self.assertEqual(len(list_user_jobs(self.user_id)), 0)
 
     def test_scan_and_reanalysis_use_personal_queue(self):
         scan_response = self.client.post("/scan")
@@ -118,15 +118,15 @@ class WebTests(OfflineCase):
         self.assertEqual(scan_response.status_code, 303)
         self.assertEqual(reclassify_response.status_code, 303)
 
-        self.assertEqual(len(jobs.list_jobs()), 2)
-        self.assertEqual(jobs.list_jobs()[0]["user_id"], self.user_id)
+        self.assertEqual(len(list_user_jobs(self.user_id)), 2)
+        self.assertEqual(list_user_jobs(self.user_id)[0]["user_id"], self.user_id)
 
     def test_statistics_and_date_fallback(self):
-        application_id = self.application()
+        application_id = self.owned_application()
 
-        database.set_manual_status(application_id, "INTERVIEW", "")
+        set_user_application_status(self.user_id, application_id, "INTERVIEW", "")
 
-        stats = application_statistics(database.get_applications())
+        stats = application_statistics(get_user_applications(self.user_id))
 
         self.assertEqual((stats["total"], stats["INTERVIEW"]), (1, 1))
 

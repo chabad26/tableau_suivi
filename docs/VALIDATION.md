@@ -1,5 +1,7 @@
 # Validation de la branche Campus
 
+> Compte rendu historique : les API et résultats décrits correspondent à cette étape passée. Pour le nettoyage du 17 novembre 2026 et les interfaces actuelles, voir [le bilan de maintenance](NETTOYAGE.md).
+
 Contrôle local du 2 novembre 2026, Linux, Python 3.14.4, Ruff 0.16.7. Branche `feature/demo-campus-finalisation` ; base de comparaison : `main` local au démarrage du travail.
 
 ## Résultats
@@ -73,7 +75,7 @@ Les anciens jobs restent conservés et ne sont pas exécutés par le nouveau wor
 - [tests/test_demo.py](../tests/test_demo.py)
 - [tests/test_extractor.py](../tests/test_extractor.py)
 - [tests/test_imap_connector.py](../tests/test_imap_connector.py)
-- [tests/test_jobs.py](../tests/test_jobs.py)
+- Ancien `tests/test_jobs.py` : retiré lors du nettoyage ; couverture actuelle dans `tests/test_owned_jobs.py`.
 - [tests/test_oauth_store.py](../tests/test_oauth_store.py)
 - [tests/test_owned_jobs.py](../tests/test_owned_jobs.py)
 - [tests/test_owned_scanner.py](../tests/test_owned_scanner.py)
