@@ -1,6 +1,6 @@
 # Présenter la gestion des connecteurs personnels
 
-Cette évolution est intégrée dans `integration/campus-finalisation`, issue de `feature/demo-campus-finalisation` et fusionnée avec `feature/connecteurs-campus`. Les contrôles de synchronisation et le mode hors ligne sont conservés.
+Les connecteurs personnels sont intégrés au socle Campus, avec les contrôles de synchronisation et de propriétaire.
 
 ## Ouvrir la page
 
@@ -23,7 +23,7 @@ Le worker peut également traiter les scans personnels déjà en file. Pour une 
 ## Parcours de présentation
 
 1. **Mes connecteurs** affiche uniquement les boîtes de l'utilisateur connecté, leur fournisseur, serveur, dossier, type d'authentification, activation et dernier résultat connu. Un résultat ancien n'est pas présenté comme une garantie de connexion actuelle.
-2. **Ajouter une boîte mail** : détection facultative du fournisseur ou saisie manuelle. Pour une démonstration sans DNS, utiliser une adresse réservée comme `alice-mail@campus.invalid`, choisir **Autre fournisseur IMAP** et saisir `imap.campus.invalid`. Le gestionnaire de secrets système doit être disponible pour enregistrer une boîte par mot de passe.
+2. **Ajouter une boîte mail** : détection facultative du fournisseur ou saisie manuelle. Pour un fournisseur non reconnu, choisir **Autre fournisseur IMAP** et renseigner les paramètres réels de la boîte. Le gestionnaire de secrets système doit être disponible pour enregistrer une boîte par mot de passe.
 3. Choisir un fournisseur connu préremplit le serveur et le port et sélectionne l'authentification correspondante. Les formulaires indiquent TLS direct ou STARTTLS obligatoire. Les mots de passe passent au gestionnaire de secrets, jamais dans SQLite ni dans le HTML de modification.
 4. **Modifier** : laisser le mot de passe vide conserve le secret actuel, sauf changement d'identité exigeant un nouveau mot de passe. Une configuration inchangée conserve le checkpoint ; un changement de configuration réinitialise UID et UIDVALIDITY pour éviter de sauter des messages. Les emails et candidatures ne sont pas supprimés.
 5. **Désactiver / Activer** conserve la boîte, son historique et son checkpoint. Une boîte désactivée ne peut pas être testée.
@@ -88,3 +88,7 @@ Sans parent connu, un recours plus prudent utilise l'adresse d'expédition exact
 Le rapprochement entreprise/poste existant reste disponible lorsque ces indices ne suffisent pas. Aucun rapprochement ne traverse les propriétaires. Aucun ancien doublon n'est fusionné automatiquement : des statuts, notes ou intitulés manuels différents doivent être arbitrés explicitement. Les corps d'emails, boîtes d'origine et corrections manuelles sont conservés.
 
 La migration ajoute deux champs texte vides par défaut aux anciens emails (`in_reply_to`, `references_header`). Elle ne télécharge pas leurs en-têtes historiques et ne réécrit pas leurs liens. La migration administrative d'unicité des emails préserve également ces champs lors de sa reconstruction de table. Redémarrer Flask et le worker après sauvegarde de la base pour charger les nouveaux champs et le rapprochement.
+
+## Configuration des applications OAuth du Campus
+
+La création du connecteur ne suffit pas à autoriser la boîte. Le [guide Google/Microsoft](OAUTH_FOURNISSEURS.md) explique les éléments à obtenir dans les consoles fournisseur, les variables à renseigner et les autorisations personnelles. Le parcours Gmail possède une commande explicite ; pour Microsoft, la première acquisition d'un cache personnel demande encore un parcours administratif distinct.

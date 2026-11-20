@@ -19,7 +19,7 @@ Le scanner Thunderbird et l'ancien fichier `mailrecever.py` ont été supprimés
 | Flask | Routes regroupées par fonction et allégées par les modules de présentation et d'export. |
 | SQLite | Fonctions regroupées par rôle, imports centralisés. Corps des fonctions SQL et schéma conservés. |
 | Interface | Gabarit `templates/base.html`, fragment commun pour les messages Flask et script de dépliage dans `static/application.js`. CSS reformaté. |
-| Scripts | Démonstration d'extraction exécutée uniquement au lancement direct du script. Gestion des champs facultatifs dans le script Gmail. |
+| Scripts | Gestion des champs facultatifs dans le script Gmail. |
 | Dépendances | Ajout des dépendances directes utilisées par les connecteurs et fichier `requirements-dev.txt`. Les anciennes dépendances sont conservées. |
 | Qualité | Configuration Ruff/Pyright dans `pyproject.toml` et suite de tests hors ligne dans `tests/test_refactor.py`. |
 

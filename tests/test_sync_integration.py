@@ -7,10 +7,10 @@ from email.message import EmailMessage
 from unittest.mock import patch
 
 from app.database import get_connection
-from app.offline_imap import FakeImap
 from app.owned_applications import get_user_application_emails, get_user_applications
 from app.owned_imap import get_user_imap_accounts
 from app.owned_jobs import execute_user_job
+from tests.fake_imap import FakeImap
 from tests.helpers import OfflineCase
 
 
@@ -86,7 +86,7 @@ class SyncIntegrationTests(OfflineCase):
         with get_connection() as connection:
             cursor = connection.execute(
                 "INSERT INTO imap_accounts (email, host, username, provider, user_id) VALUES (?, ?, ?, 'ovh', ?)",
-                (email, "imap.demo.invalid", email, user_id),
+                (email, "imap.fixture.invalid", email, user_id),
             )
             assert cursor.lastrowid is not None
             return cursor.lastrowid
@@ -179,7 +179,7 @@ class SyncIntegrationTests(OfflineCase):
     def test_sqlite_failure_rolls_back_and_does_not_advance_checkpoint(self):
         with get_connection() as connection:
             connection.execute(
-                "CREATE TRIGGER fail_email BEFORE INSERT ON emails WHEN NEW.message_id LIKE '%-2@demo.invalid>' BEGIN SELECT RAISE(ABORT, 'fixture failure'); END"
+                "CREATE TRIGGER fail_email BEFORE INSERT ON emails WHEN NEW.message_id LIKE '%-2@fixture.invalid>' BEGIN SELECT RAISE(ABORT, 'fixture failure'); END"
             )
         with self.assertRaises(sqlite3.IntegrityError):
             execute_user_job(self.alice, "scan")

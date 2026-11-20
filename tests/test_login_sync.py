@@ -18,7 +18,7 @@ class LoginSyncTests(OfflineCase):
         self.bob = self.create_test_user("bob@example.invalid")
         with get_connection() as connection:
             connection.execute(
-                "INSERT INTO imap_accounts (email,host,username,provider,user_id) VALUES ('alice@mail.invalid','imap.demo.invalid','alice@mail.invalid','ovh',?)",
+                "INSERT INTO imap_accounts (email,host,username,provider,user_id) VALUES ('alice@mail.invalid','imap.fixture.invalid','alice@mail.invalid','ovh',?)",
                 (self.alice,),
             )
 

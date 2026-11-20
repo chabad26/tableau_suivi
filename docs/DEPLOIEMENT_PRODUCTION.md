@@ -121,6 +121,8 @@ Ce contrôle ne prouve pas que le trousseau est déverrouillé. La recette final
 
 ### OAuth Gmail et Microsoft
 
+Suivre le [guide OAuth Google/Microsoft](OAUTH_FOURNISSEURS.md) pour créer les applications fournisseur, choisir les permissions, installer le JSON Google et renseigner le client ID Microsoft. Il détaille aussi le consentement par boîte, le retour local Gmail/tunnel SSH et la limite actuelle de la première autorisation Microsoft.
+
 Installer le client Google adapté dans `/etc/jobtracker/google-client.json` si Gmail est utilisé, puis renseigner `MICROSOFT_CLIENT_ID` si nécessaire. Les caches personnels sont isolés par utilisateur et compte sous le dossier de données ; leur présence ne prouve pas leur validité.
 
 `authorize_gmail.py --user-id … --account-id …` fournit le parcours explicite Gmail avec vérification de l'identité. Il écoute un retour OAuth sur **127.0.0.1 et un port dynamique** : ouvrir son URL sur un autre poste ne redirige pas automatiquement vers le serveur. Préparer un accès navigateur sur la machine autorisante ou une procédure d'autorisation/transfert contrôlée avec les mêmes identifiants et vérification de l'identité. Ne pas exposer ce serveur de retour sur Internet. Le consentement OAuth Web pour les apprenants n'est pas implémenté.

@@ -18,9 +18,6 @@
          src="{{ url_for('static', filename='logo-campus-header-300x60.png') }}"
          alt="Le Campus Numérique In The Alps" width="300" height="60">
 </header>
-{% if config.get('DEMO_MODE') %}
-<p role="status">Démonstration hors ligne — données et messageries fictives.</p>
-{% endif %}
 <nav class="app-navigation" aria-label="Navigation principale">
 
     {% if current_user.is_authenticated %}

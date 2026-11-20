@@ -9,7 +9,7 @@ def recruitment_message(uid: int, mailbox: str) -> bytes:
     message["To"] = mailbox
     message["Subject"] = "Votre candidature au poste de Développeur Python"
     message["Date"] = "Mon, 02 Nov 2026 10:00:00 +0000"
-    message["Message-ID"] = f"<{mailbox.replace('@', '-')}-{uid}@demo.invalid>"
+    message["Message-ID"] = f"<{mailbox.replace('@', '-')}-{uid}@fixture.invalid>"
     message.set_content(
         "Nous avons bien reçu votre candidature chez Entreprise Fictive."
     )

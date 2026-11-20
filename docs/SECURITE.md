@@ -32,11 +32,11 @@ Un échec de lecture d'UID laisse le point de reprise avant cet UID et marque la
 
 ## Routes et CSRF
 
-CSRFProtect reste actif. Des tests utilisent de vrais jetons de formulaires et vérifient le refus des requêtes sans jeton ou avec jeton invalide. L'option de test désactivant le CSRF dans d'autres fixtures ne modifie pas la configuration normale ni la démonstration.
+CSRFProtect reste actif. Des tests utilisent de vrais jetons de formulaires et vérifient le refus des requêtes sans jeton ou avec jeton invalide. L'option de test désactivant le CSRF dans d'autres fixtures ne modifie pas la configuration normale.
 
 Routes personnelles réactivées : `POST /scan`, `POST /reclassify`, `GET /jobs`, liste/création/édition/activation et tests de connexion des connecteurs. Le backoffice `/admin/users` est réservé aux administrateurs actifs. Les exports et les anciennes actions globales non migrées restent bloqués en 503 après connexion. L'autorisation OAuth interactive n'est pas ajoutée au Web. Le contrôle du propriétaire n'est pas remplacé par la seule présence d'une session. Les tests vérifient aussi l'absence de fuite de jobs historiques.
 
-Les cookies sont HttpOnly et SameSite=Lax ; Secure dépend de `APP_HTTPS=true`. Des en-têtes limitent l'intégration en iframe et la détection MIME, avec Cache-Control=no-store. La démonstration reste sur HTTP loopback avec un cookie distinct. `web.py` désactive le debugger et écoute uniquement sur 127.0.0.1.
+Les cookies sont HttpOnly et SameSite=Lax ; Secure dépend de `APP_HTTPS=true`. Des en-têtes limitent l'intégration en iframe et la détection MIME, avec Cache-Control=no-store. `web.py` désactive le debugger et écoute uniquement sur 127.0.0.1.
 
 ## Logs et erreurs
 
@@ -44,7 +44,7 @@ Les exceptions brutes ne sont plus imprimées par le worker personnel ni par la 
 
 Le résumé du scan, les erreurs filtrées par compte et le résumé d'import sont affichés pour distinguer les phases. Les messages de configuration fixes sont identifiés par une exception dédiée ; les exceptions imprévues du gestionnaire de secrets n'exposent que leur type.
 
-Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont des métadonnées à protéger. Ne pas transmettre des journaux réels dans la démonstration. Aucun mot de passe ou jeton réel n'est affiché, enregistré ou manipulé par les tests.
+Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont des métadonnées à protéger. Masquer les métadonnées personnelles avant de partager des journaux. Aucun mot de passe ou jeton réel n'est affiché, enregistré ou manipulé par les tests.
 
 ## Défauts reproduits et corrections
 
@@ -59,16 +59,16 @@ Les adresses de boîtes et UID peuvent figurer dans les logs de scan : ce sont d
 | Tests définis hors classe et non collectés | Réintégration dans des TestCase | Découverte unittest et augmentation du nombre de tests |
 | Test IMAP initialisant le chemin SQLite habituel | Héritage d'une fixture à base temporaire | Suite exécutée sans accéder à la base réelle |
 | Boucle imbriquée du worker pouvant reprendre après Ctrl+C | Une seule boucle et un seul traitement d'arrêt | `test_worker` |
-| Debugger actif au lancement habituel | debug=False | Revue du point d'entrée ; démo également sans debugger |
+| Debugger actif au lancement habituel | debug=False | Revue du point d'entrée |
 
 ## Limites et opérations non effectuées
 
 - Aucun accès fournisseur ni vrai jeton dans les tests automatisés. Le contrôle réel autorisé de la branche intégrée est décrit séparément dans `INTEGRATION.md`. Aucun déploiement Internet ni migration du schéma de la base réelle n’a été réalisé.
 - Le serveur Flask de développement n'est pas une infrastructure de production. HTTPS, limitation des tentatives de connexion, sauvegardes exploitées, supervision et déploiement nécessitent un travail distinct avant exposition réseau.
-- Les anciens modules globaux sont conservés mais ne doivent pas être lancés pour traiter les utilisateurs Campus. Les scripts de migration restent des outils administratifs explicites, sans exécution automatique.
+- Les anciens modules globaux ont été retirés ; les traitements applicatifs passent par les services personnels. Les scripts de migration restent des outils administratifs explicites, sans exécution automatique.
 - Les limites des règles de classification persistent ; le statut Acceptée est manuel dans cette version.
 - Une base à unicité globale des Message-ID garde une compatibilité restrictive jusqu'à sa migration explicite. Les erreurs sont préférées à une association entre utilisateurs.
-- La démonstration prouve le comportement sous simulation. Elle ne prouve ni la validité des secrets existants ni la compatibilité effective de chaque compte fournisseur.
+- Les tests automatisés vérifient le comportement sous simulation. Ils ne prouvent ni la validité des secrets existants ni la compatibilité effective de chaque compte fournisseur.
 
 ## Dashboard pédagogique
 

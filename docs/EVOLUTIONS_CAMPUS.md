@@ -102,13 +102,13 @@ Validation locale : Gunicorn `--check-config` réussi puis HTTP 200 sur `/login`
 
 L'utilisateur a confirmé le retrait du statut « Envoyée », ainsi que l'abandon de la récupération automatique d'offres et de l'envoi de candidatures depuis le site. Aucun module actif d'envoi automatique n'a été trouvé. Le texte et le lien d'une offre restent conservables manuellement pour le suivi et l'extraction du poste.
 
-Le statut par défaut est désormais « Reçue » ; les confirmations de dépôt, y compris les sujets indiquant qu'une candidature a été envoyée par une plateforme externe, sont classées « Reçue ». Les formulaires refusent l'ancien code, les badges et compteurs correspondants sont supprimés et la démonstration Alice/Bob utilise le nouveau statut. Le passage « Sans réponse » reste actif sur les dossiers en attente et épargne les refus.
+Le statut par défaut est désormais « Reçue » ; les confirmations de dépôt, y compris les sujets indiquant qu'une candidature a été envoyée par une plateforme externe, sont classées « Reçue ». Les formulaires refusent l'ancien code, les badges et compteurs correspondants sont supprimés. Le passage « Sans réponse » reste actif sur les dossiers en attente et épargne les refus.
 
 Au prochain démarrage Web/worker, l'initialisation convertit `applications.current_status`, `applications.manual_status` et `emails.detected_status` de `SENT` vers `RECEIVED`. La conversion et le renouvellement des déclencheurs sont transactionnels : une erreur annule l'ensemble. Les propriétaires, notes, marqueurs manuels, dates et contenus d'emails sont préservés. Les événements historiques bruts restent intacts et sont regroupés dans la catégorie « Reçue » pour les graphiques, sans fabriquer de transition lors de la conversion. Les anciens schémas dépourvus de `user_id` restent pris en charge.
 
 Les tests de conversion utilisent exclusivement des bases temporaires, avec deux propriétaires, des déclencheurs historiques simulés et un échec d'écriture provoqué. Aucune base personnelle ni aucun jeton n'est modifié pendant le développement. Faire une sauvegarde avant le redémarrage de la version sur une base existante.
 
-Validation de ce retrait : **356 tests Python réussis**, avec avertissements de ressource traités comme des erreurs, dont 5 tests dédiés au retrait du statut ; **9 tests JavaScript** réussis. Les 33 tests ciblés conversion/stockage/dashboard passent également. Ruff, formatage, Pyright et `git diff --check` sont conformes. La démonstration et la synchronisation sont vérifiées hors ligne ; la conversion de la base réelle reste à effectuer lors du redémarrage après sauvegarde.
+Validation de ce retrait : **356 tests Python réussis**, avec avertissements de ressource traités comme des erreurs, dont 5 tests dédiés au retrait du statut ; **9 tests JavaScript** réussis. Les 33 tests ciblés conversion/stockage/dashboard passent également. Ruff, formatage, Pyright et `git diff --check` sont conformes. La synchronisation est vérifiée hors ligne ; la conversion de la base réelle reste à effectuer lors du redémarrage après sauvegarde.
 
 
 ## Nettoyage du socle — 17 novembre 2026
@@ -116,3 +116,19 @@ Validation de ce retrait : **356 tests Python réussis**, avec avertissements de
 Le parcours mono-utilisateur et ses API globales sont supprimés au profit des modules personnels déjà utilisés par le Web et le worker. Le transport IMAP exige une authentification explicite et retourne un lot sans écrire de checkpoint. Les migrations historiques et anciennes données sont conservées. Les exports restent bloqués mais leur code global et leur dépendance Excel disparaissent. Le CSRF reste actif ; Ruff contrôle les imports inutilisés et la CI exécute également les tests JavaScript. Voir [le bilan et la correspondance des tests](NETTOYAGE.md).
 
 Validation du nettoyage : **347 tests Python réussis** avec avertissements de ressource traités comme des erreurs et **9 tests JavaScript** réussis. La suite ciblée stockage/CSRF/IMAP/file/réanalyse/synchronisation/worker passe également (75 tests avant les deux contrôles ajoutés). Ruff avec F401 réactivé, formatage, Pyright et compilation conformes. Les tests obsolètes retirés sont recensés dans le bilan ; aucun échec des fonctionnalités conservées n’est ignoré.
+
+
+## Documentation OAuth fournisseur — 17 novembre 2026
+
+Le [guide Google/Microsoft](OAUTH_FOURNISSEURS.md) explique l'application OAuth commune au Campus, l'autorisation individuelle des boîtes, le JSON client Google, le client ID/authority Entra, les scopes IMAP, le consentement et la migration des caches. Il décrit le retour local Gmail et un tunnel SSH, avec les identifiants Job Tracker/IMAP à vérifier avant commande. La limite de première autorisation Microsoft est explicite : aucune nouvelle commande personnelle ni bouton Web n'est créé par ce travail documentaire.
+
+Les paramètres et options ont été confrontés au code et aux documentations officielles Google/Microsoft consultées à cette date. Les blocs shell passent `bash -n`, les liens locaux existent, Ruff, formatage et `git diff --check` passent. Aucun compte fournisseur ni secret réel n'a été configuré et aucun scan n'a été lancé.
+
+
+## Retrait du mode démonstration — 20 novembre 2026
+
+À la demande de l'utilisateur, le lanceur, sa documentation, les trois tests propres à ce mode et les branches de présentation `DEMO_MODE` sont retirés. Le dossier local dédié a été supprimé seulement après reconnaissance de son marqueur et acquisition de son verrou, sans ouverture de sa base. La base habituelle, les documents et les caches OAuth sont conservés.
+
+Le serveur IMAP en mémoire reste exclusivement un utilitaire de tests sous `tests/fake_imap.py` : il permet de vérifier la synchronisation et les checkpoints sans fournisseur réel. L'application ne l'importe plus. Les documents et commandes d'exploitation décrivent désormais uniquement le Web et le worker habituels. Les suppressions de `docs/PULL_REQUEST.md` et `docs/VALIDATION.md` déjà présentes dans le travail utilisateur sont conservées.
+
+Validation du retrait : **344 tests Python réussis** avec avertissements de ressource traités comme des erreurs, soit les 347 précédents moins les trois tests spécifiques au mode supprimé ; **9 tests JavaScript** réussis. Ruff, formatage, Pyright, liens locaux de documentation et `git diff --check` sont conformes. Les tests d'intégration IMAP sont conservés et utilisent uniquement le transport fictif déplacé dans `tests/`.

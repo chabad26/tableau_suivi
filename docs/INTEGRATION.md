@@ -1,6 +1,6 @@
 # Intégration Campus : résultat vérifié
 
-Contrôle du 2 novembre 2026 sur la branche `integration/campus-finalisation`, créée depuis `feature/demo-campus-finalisation`, puis fusionnée avec `feature/connecteurs-campus`.
+Compte rendu historique du contrôle du 2 novembre 2026 sur la branche `integration/campus-finalisation`, intégrant les connecteurs Campus. Les résultats ci-dessous correspondent à cette date.
 
 ## Résolution des conflits
 
@@ -11,13 +11,13 @@ La fusion conserve les deux ensembles de changements :
 - Scan personnel, liste des jobs personnels, création/modification/activation des connecteurs et tests de connexion personnels.
 - Réanalyse atomique des archives, amélioration de l'extraction des intitulés, conservation des corrections manuelles.
 - Backoffice limité aux administrateurs actifs, contrôle CSRF et interdiction de se désactiver soi-même.
-- Démonstration Alice/Bob et anciens jobs sans propriétaire conservés mais jamais exécutés.
+- Anciens jobs sans propriétaire conservés mais jamais exécutés.
 
 Le registre des routes et l'écran des travaux combinent les fonctions des deux branches ; aucune ancienne fonction globale n'a été réactivée. Les attentes contradictoires des anciens tests ont été alignées sur les routes personnelles désormais disponibles. Les deux définitions concurrentes des mêmes tests STARTTLS ont été dédupliquées.
 
 Un conflit sémantique, pourtant fusionné automatiquement par Git, conservait le refus 503 de la réanalyse. Les tests ont détecté cette incohérence ; la route utilise maintenant le job personnel sécurisé.
 
-Les scripts de migration sont regroupés dans le paquet `migrate/`. Les imports de production, de démonstration et des tests utilisent ce paquet ; lancer les outils depuis la racine avec `.venv/bin/python -m migrate.<nom_du_script> --help`. Le déplacement ne lance aucune migration de données.
+Les scripts de migration sont regroupés dans le paquet `migrate/`. Les imports de production et des tests utilisent ce paquet ; lancer les outils depuis la racine avec `.venv/bin/python -m migrate.<nom_du_script> --help`. Le déplacement ne lance aucune migration de données.
 
 ## Tests automatiques
 
@@ -28,20 +28,6 @@ Les scripts de migration sont regroupés dans le paquet `migrate/`. Les imports 
 - `git diff --check` : conforme.
 
 Les tests utilisent uniquement les bases temporaires, mocks et faux serveurs IMAP. Le contrôle réel ci-dessous est indépendant de cette suite.
-
-## Démonstration Alice/Bob
-
-Une nouvelle démonstration a été initialisée dans un répertoire temporaire ; le dossier `.demo-campus` existant n'a pas été réinitialisé.
-
-Les tests vérifient les données, imports, checkpoints, jobs historiques ignorés et isolation des deux apprenants. Ils couvrent aussi la création d'un connecteur fictif et son test sans écriture dans le keyring réel, ainsi que la détection sans DNS.
-
-Un contrôle HTTP loopback complémentaire a réellement lancé `demo.py serve`, connecté Alice puis Bob avec des mots de passe fictifs non affichés, et vérifié pour chacun :
-
-- tableau accessible et absence des candidatures de l'autre ;
-- pages connecteurs et jobs accessibles ;
-- bandeau de démonstration hors ligne.
-
-Le serveur temporaire a été arrêté et le répertoire temporaire supprimé. La démo remplace explicitement l'authentification, l'écriture des secrets et la détection DNS par des simulations ; ces remplacements ne sont actifs que dans son contexte. Elle interdit aussi les envois UDP en plus des connexions sortantes.
 
 ## Contrôle réel du compte personnel
 
@@ -91,12 +77,6 @@ Dans un autre terminal :
 
 Le processus Web déjà lancé n'a pas été interrompu automatiquement pendant l'intégration. Le contrôle réel ponctuel a libéré son verrou et n'a laissé aucun worker de vérification actif.
 
-Pour la démonstration existante, sans la réinitialiser :
-
-```bash
-.venv/bin/python demo.py serve
-```
-
-Ne pas lancer le worker habituel pour la démo : elle possède son worker fictif interne. Les exports et l'autorisation OAuth interactive depuis le Web restent hors périmètre.
+Les exports et l’autorisation OAuth interactive depuis le Web restent hors périmètre.
 
 Aucun push ni déploiement n'a été effectué.

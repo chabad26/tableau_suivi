@@ -24,8 +24,7 @@
                 {% else %}<p>Connexion non vérifiée.</p>{% endif %}
                 <p>Dernière vérification : {{ account.last_checked_display }}</p>
                 {% if account.auth_method == 'oauth2' %}
-                    {% if config.get('DEMO_MODE') %}<p>En démonstration, la connexion OAuth est simulée ; aucune autorisation réelle n’est utilisée.</p>
-                    {% elif account.oauth_cache_present %}<p>Un cache OAuth est présent ; sa validité sera vérifiée au test.</p>
+                    {% if account.oauth_cache_present %}<p>Un cache OAuth est présent ; sa validité sera vérifiée au test.</p>
                     {% else %}<p>Autorisation OAuth nécessaire. Enregistrer la boîte ne connecte pas automatiquement Google ou Microsoft.</p>{% endif %}
                 {% endif %}
                 <div class="connector-actions">
