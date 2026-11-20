@@ -18,7 +18,7 @@ Redémarrer Flask pour charger les nouvelles routes :
 .venv/bin/python web.py
 ```
 
-Se connecter avec le compte administrateur. Le lien **Administration** apparaît dans la navigation et **Gérer les comptes utilisateurs** dans la page Mon compte. URL directe : **http://127.0.0.1:5000/admin/users**.
+Se connecter avec le compte administrateur. Le lien **Administration** apparaît dans la navigation et **Gérer les comptes utilisateurs** dans la page Mon compte. URL directe : [admin/users](http://127.0.0.1:5000/admin/users).
 
 Aucun worker n'est nécessaire pour la création des comptes. Les opérations administratives sont locales à SQLite et ne contactent aucun fournisseur de messagerie.
 

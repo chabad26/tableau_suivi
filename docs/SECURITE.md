@@ -76,7 +76,6 @@ Le dashboard vérifie le rôle et l’activation dans la transaction de lecture.
 
 Le journal ne contient que les identifiants nécessaires au périmètre, des codes de statut et leurs dates d’observation. Les états initiaux ne sont pas des preuves d’une transition passée. Le transfert de propriété réinitialise l’historique pour éviter de transmettre celui de l’ancien propriétaire ; les écritures sont annulées avec la transaction métier en cas d’échec. Ce journal applicatif n’est pas présenté comme un audit de sécurité inviolable. Voir [les règles du dashboard](DASHBOARD.md).
 
-
 ## Documents privés et échanges
 
 Le lot CV/LM accorde explicitement à l’équipe pédagogique active le droit de consulter et commenter les documents des apprenants. Un apprenant n’a accès qu’à ses propres fichiers et échanges. Les propriétaires et auteurs viennent des contrôles serveur ; des champs de formulaire forgés ne permettent pas de les remplacer. L’équipe ne peut pas déposer une version à la place d’un apprenant ni supprimer ses fichiers. Tous les POST sont protégés par CSRF.

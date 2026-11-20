@@ -66,7 +66,6 @@ Le serveur Web et le worker sont deux processus distincts. Les verrous `fcntl` r
 
 Le périmètre complet, les filtres et les limites sont documentés dans [DASHBOARD.md](DASHBOARD.md).
 
-
 ## Documents CV/LM et échanges pédagogiques
 
 `app/documents.py` sépare les dossiers de documents (`documents`), leurs versions (`document_versions`) et les commentaires rattachés à chaque version (`document_comments`). Les fichiers restent dans un stockage privé à côté de la base ; leur nom physique est aléatoire et leur intégrité est vérifiée au téléchargement. Les services contrôlent les droits à chaque accès et dans les transactions de mutation.

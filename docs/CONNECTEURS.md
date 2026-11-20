@@ -10,7 +10,7 @@ Après installation des dépendances, depuis la racine :
 .venv/bin/python web.py
 ```
 
-Se connecter avec son compte utilisateur, puis cliquer **Connecteurs** sur le tableau, ou ouvrir http://127.0.0.1:5000/connectors.
+Se connecter avec son compte utilisateur, puis cliquer **Connecteurs** sur le tableau, ou ouvrir [connecteur](http://127.0.0.1:5000/connectors).
 
 Pour exécuter les tests de connexion demandés depuis l'interface, lancer dans un autre terminal :
 
@@ -75,7 +75,6 @@ Depuis le terminal local, arrêter le worker avec `Ctrl+C`, puis lancer, en remp
 Choisir dans le navigateur l'adresse Google qui correspond exactement au compte IMAP. Le consentement attend au maximum trois minutes. La commande exige une autorisation renouvelable et vérifie l'identité via le profil Gmail avant d'écrire le cache privé de cette seule boîte. Une erreur d'identité conserve le cache existant. Aucun email n'est lu ni importé ; les caches historiques et les autres fournisseurs ne sont pas modifiés. La commande suppose que le fichier client OAuth Google est déjà configuré.
 
 Redémarrer ensuite le worker et demander un seul test de connexion Gmail depuis les connecteurs.
-
 
 ## Rapprocher les réponses reçues sur plusieurs boîtes
 
